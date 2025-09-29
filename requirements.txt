@@ -1,0 +1,6 @@
+PyQt6==6.9.1
+SQLAlchemy==2.0.43
+matplotlib==3.10.6
+pandas==2.3.2
+python-dateutil==2.9.0.post0
+reportlab==4.4.4
