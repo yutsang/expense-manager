@@ -965,10 +965,10 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · 🚫 blocked
 | T1.9 | Journals UI | ✅ | |
 | T1.10 | Trial Balance report | ✅ | |
 | T1.11 | General Ledger report | ✅ | |
-| T1.12 | Reports UI | ⬜ | |
+| T1.12 | Reports UI | ✅ | |
 | T1.13 | Period close | 🟨 | API done, UI pending |
 | T1.14 | FX revaluation | 🟨 | skeleton only |
-| T1.15 | AI read tools (bootstrap) | ⬜ | |
+| T1.15 | AI read tools (bootstrap) | ✅ | |
 
 ### Phase 2
 | ID | Task | Status | PR |
