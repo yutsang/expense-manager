@@ -1,0 +1,4 @@
+api: cd backend && uvicorn app.main:app --reload --port 8000
+web: cd frontend/apps/web && pnpm dev
+mobile: cd frontend/apps/mobile && pnpm expo start
+worker: cd backend && python -m app.workers.main

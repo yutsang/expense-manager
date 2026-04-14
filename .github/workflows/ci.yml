@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Backend ─────────────────────────────────────────────────────────────────
+  backend-lint:
+    name: Backend — lint & typecheck
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps
+        run: pip install -e ".[dev]"
+      - name: Ruff
+        run: ruff check .
+      - name: Black
+        run: black --check .
+      - name: Mypy
+        run: mypy .
+      - name: Bandit (security)
+        run: bandit -r app/ -ll
+        continue-on-error: false
+
+  backend-test:
+    name: Backend — tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aegis
+          POSTGRES_PASSWORD: aegis_test_pw
+          POSTGRES_DB: aegis_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'ci_secret_key_placeholder_32chars_long' }}
+      DATABASE_URL: postgresql+asyncpg://aegis:aegis_test_pw@localhost:5432/aegis_test
+      REDIS_URL: redis://localhost:6379/0
+      ENVIRONMENT: testing
+      ANTHROPIC_API_KEY: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps
+        run: pip install -e ".[dev]"
+      - name: Run migrations
+        run: alembic upgrade head
+      - name: Unit + property tests
+        run: pytest tests/unit tests/property -q --tb=short --cov=app --cov-report=xml
+      - name: Integration tests
+        run: pytest tests/integration -q --tb=short
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: backend/coverage.xml
+          flags: backend
+        continue-on-error: true
+
+  backend-migration-check:
+    name: Backend — migration up/down
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aegis
+          POSTGRES_PASSWORD: aegis_test_pw
+          POSTGRES_DB: aegis_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      SECRET_KEY: ci_secret_key_placeholder_32chars_long
+      DATABASE_URL: postgresql+asyncpg://aegis:aegis_test_pw@localhost:5432/aegis_test
+      ENVIRONMENT: testing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps
+        run: pip install -e ".[dev]"
+      - name: Migrate up
+        run: alembic upgrade head
+      - name: Migrate down (full rollback)
+        run: alembic downgrade base
+      - name: Migrate up again (verify idempotence)
+        run: alembic upgrade head
+
+  # ── Security scans ──────────────────────────────────────────────────────────
+  security:
+    name: Security scans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: gitleaks (secret detection)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit -r backend/pyproject.toml --desc
+        continue-on-error: false
+
+  # ── Float-for-money check (custom semgrep rule) ──────────────────────────────
+  money-precision:
+    name: Money precision guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for float money usage
+        run: |
+          # Fail if any Python file uses float literals in obvious money contexts
+          # (amount=1.5, price=9.99, etc.)
+          if grep -rn --include="*.py" \
+            -E "(amount|price|total|tax|balance|credit|debit)\s*=\s*[0-9]+\.[0-9]+" \
+            backend/app/; then
+            echo "FAIL: Float used for money — use Decimal('...') instead"
+            exit 1
+          fi
+          echo "OK: No float money usage found"
