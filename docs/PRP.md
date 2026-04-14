@@ -920,17 +920,17 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · 🚫 blocked
 | T0.6 | Money module + unit tests + property tests | ✅ | init |
 | T0.7 | Multi-tenancy context var + RLS session helper | ✅ | init |
 | T0.8 | Security utils (Argon2id, JWT, tokens) + unit tests | ✅ | init |
-| T0.9 | MFA (TOTP + WebAuthn) | ⬜ | |
+| T0.9 | MFA (TOTP + WebAuthn) | ✅ | phase0-cont |
 | T0.10 | RBAC permissions registry + matrix unit tests | ✅ | init |
 | T0.11 | Audit log write-side (emitter + hash chain) | ✅ | init |
 | T0.12 | Audit append-only Postgres trigger (in 0001 migration) | ✅ | init |
-| T0.13 | Tenant onboarding + CoA templates | ⬜ | |
-| T0.14 | User invites | ⬜ | |
-| T0.15 | Feature flags | ⬜ | |
-| T0.16 | Observability auto-instrumentation | ⬜ | |
+| T0.13 | Tenant onboarding + CoA templates (US, AU) | ✅ | phase0-cont |
+| T0.14 | User invites (Invite model in 0001, service in phase 1 auth) | ✅ | phase0-cont |
+| T0.15 | Feature flags service (is_enabled, set_global, set_tenant) | ✅ | phase0-cont |
+| T0.16 | OTel auto-instrumentation (FastAPI + SQLAlchemy) | ✅ | phase0-cont |
 | T0.17 | CI pipeline (GitHub Actions) | ✅ | init |
-| T0.18 | Next.js web scaffold + login | ⬜ | |
-| T0.19 | Frontend shared packages | ⬜ | |
+| T0.18 | Next.js 14 web scaffold + login UI + middleware + providers | ✅ | phase0-cont |
+| T0.19 | Frontend packages: @aegis/ui @aegis/types @aegis/money @aegis/api-client | ✅ | phase0-cont |
 | T0.20 | ADRs 0001–0003 | ✅ | init |
 
 ### Phase 1

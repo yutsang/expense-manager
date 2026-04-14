@@ -1,0 +1,18 @@
+{
+  "name": "@aegis/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "generate": "openapi-ts --input ../../docs/openapi.json --output ./src/generated --client fetch"
+  },
+  "dependencies": {
+    "@aegis/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.56.0",
+    "typescript": "^5.6.3"
+  }
+}

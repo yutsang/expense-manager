@@ -9,10 +9,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
+from app.core.telemetry import configure_telemetry
 
 settings = get_settings()
 configure_logging(debug=settings.debug)
 log = structlog.get_logger(__name__)
+
+# OpenTelemetry (no-op if endpoint is empty in dev)
+configure_telemetry(
+    app_name=settings.app_name,
+    environment=settings.environment,
+    otlp_endpoint=settings.otel_exporter_otlp_endpoint,
+)
 
 # Sentry (no-op if dsn is empty)
 if settings.sentry_dsn:

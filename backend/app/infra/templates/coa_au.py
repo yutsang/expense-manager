@@ -1,0 +1,66 @@
+"""AU Chart of Accounts template — AASB-aligned, GST-enabled."""
+from __future__ import annotations
+
+COA_TEMPLATE: list[dict] = [
+    # ── Assets ────────────────────────────────────────────────────────────────
+    {"code": "1000", "name": "Cash at Bank", "type": "asset", "subtype": "current_asset", "normal_balance": "debit"},
+    {"code": "1010", "name": "Business Cheque Account", "type": "asset", "subtype": "current_asset", "normal_balance": "debit", "parent_code": "1000"},
+    {"code": "1100", "name": "Trade Debtors (AR)", "type": "asset", "subtype": "current_asset", "normal_balance": "debit", "is_system": True},
+    {"code": "1110", "name": "GST Receivable", "type": "asset", "subtype": "current_asset", "normal_balance": "debit"},
+    {"code": "1200", "name": "Prepayments", "type": "asset", "subtype": "current_asset", "normal_balance": "debit"},
+    {"code": "1300", "name": "Inventory", "type": "asset", "subtype": "current_asset", "normal_balance": "debit"},
+    {"code": "1500", "name": "Property, Plant & Equipment", "type": "asset", "subtype": "fixed_asset", "normal_balance": "debit"},
+    {"code": "1590", "name": "Accumulated Depreciation", "type": "asset", "subtype": "contra_asset", "normal_balance": "credit", "parent_code": "1500"},
+    {"code": "1900", "name": "Other Assets", "type": "asset", "subtype": "other_asset", "normal_balance": "debit"},
+
+    # ── Liabilities ───────────────────────────────────────────────────────────
+    {"code": "2000", "name": "Trade Creditors (AP)", "type": "liability", "subtype": "current_liability", "normal_balance": "credit", "is_system": True},
+    {"code": "2100", "name": "Accrued Liabilities", "type": "liability", "subtype": "current_liability", "normal_balance": "credit"},
+    {"code": "2200", "name": "GST Payable", "type": "liability", "subtype": "current_liability", "normal_balance": "credit"},
+    {"code": "2210", "name": "PAYG Withholding Payable", "type": "liability", "subtype": "current_liability", "normal_balance": "credit"},
+    {"code": "2300", "name": "Deferred Revenue", "type": "liability", "subtype": "current_liability", "normal_balance": "credit"},
+    {"code": "2400", "name": "Loans Payable", "type": "liability", "subtype": "current_liability", "normal_balance": "credit"},
+    {"code": "2700", "name": "Long-Term Borrowings", "type": "liability", "subtype": "long_term_liability", "normal_balance": "credit"},
+
+    # ── Equity ────────────────────────────────────────────────────────────────
+    {"code": "3000", "name": "Owner's Equity", "type": "equity", "subtype": "equity", "normal_balance": "credit"},
+    {"code": "3100", "name": "Share Capital", "type": "equity", "subtype": "equity", "normal_balance": "credit", "parent_code": "3000"},
+    {"code": "3300", "name": "Retained Earnings", "type": "equity", "subtype": "equity", "normal_balance": "credit", "is_system": True},
+
+    # ── Revenue ───────────────────────────────────────────────────────────────
+    {"code": "4000", "name": "Revenue", "type": "revenue", "subtype": "operating_revenue", "normal_balance": "credit"},
+    {"code": "4010", "name": "Sales", "type": "revenue", "subtype": "operating_revenue", "normal_balance": "credit", "parent_code": "4000"},
+    {"code": "4020", "name": "Service Income", "type": "revenue", "subtype": "operating_revenue", "normal_balance": "credit", "parent_code": "4000"},
+    {"code": "4100", "name": "Discounts Given", "type": "revenue", "subtype": "contra_revenue", "normal_balance": "debit"},
+    {"code": "4900", "name": "Other Income", "type": "revenue", "subtype": "other_revenue", "normal_balance": "credit"},
+    {"code": "4910", "name": "Interest Received", "type": "revenue", "subtype": "other_revenue", "normal_balance": "credit", "parent_code": "4900"},
+    {"code": "4920", "name": "FX Gain", "type": "revenue", "subtype": "other_revenue", "normal_balance": "credit", "is_system": True, "parent_code": "4900"},
+
+    # ── Expenses ──────────────────────────────────────────────────────────────
+    {"code": "5000", "name": "Cost of Sales", "type": "expense", "subtype": "cogs", "normal_balance": "debit"},
+    {"code": "6000", "name": "Operating Expenses", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit"},
+    {"code": "6010", "name": "Wages & Salaries", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6020", "name": "Superannuation", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6030", "name": "Workers Compensation Insurance", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6100", "name": "Rent", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6200", "name": "Advertising & Marketing", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6300", "name": "Accounting & Legal", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6400", "name": "IT & Software", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6500", "name": "Travel & Accommodation", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6600", "name": "Depreciation", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6700", "name": "Motor Vehicle Expenses", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6800", "name": "Telephone & Internet", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "6900", "name": "General & Administrative", "type": "expense", "subtype": "operating_expense", "normal_balance": "debit", "parent_code": "6000"},
+    {"code": "7010", "name": "Interest Expense", "type": "expense", "subtype": "other_expense", "normal_balance": "debit"},
+    {"code": "7020", "name": "FX Loss", "type": "expense", "subtype": "other_expense", "normal_balance": "debit", "is_system": True},
+    {"code": "7030", "name": "Bank Fees", "type": "expense", "subtype": "other_expense", "normal_balance": "debit"},
+    {"code": "9000", "name": "Suspense", "type": "asset", "subtype": "current_asset", "normal_balance": "debit", "is_system": True},
+]
+
+DEFAULT_TAX_CODES: list[dict] = [
+    {"code": "GST",    "name": "GST on Income (10%)",    "kind": "sales",    "rate": "10.00"},
+    {"code": "GSTP",   "name": "GST on Expenses (10%)",  "kind": "purchase", "rate": "10.00"},
+    {"code": "FRE",    "name": "GST Free",                "kind": "both",     "rate": "0.00"},
+    {"code": "ITS",    "name": "Input Taxed Sale",        "kind": "sales",    "rate": "0.00"},
+    {"code": "EXP",    "name": "Export (0%)",             "kind": "sales",    "rate": "0.00"},
+]
