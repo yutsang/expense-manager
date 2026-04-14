@@ -177,3 +177,128 @@ class AuditEvent(Base):
     __table_args__ = (
         CheckConstraint("actor_type IN ('user','system','ai','integration')", name="ck_audit_actor_type"),
     )
+
+
+# ── Phase 1: Core Ledger ──────────────────────────────────────────────────────
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    subtype: Mapped[str] = mapped_column(String(32), nullable=False)
+    normal_balance: Mapped[str] = mapped_column(String(6), nullable=False)
+    parent_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=True, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_accounts_tenant_code"),
+        CheckConstraint("type IN ('asset','liability','equity','revenue','expense')", name="ck_accounts_type"),
+        CheckConstraint("normal_balance IN ('debit','credit')", name="ck_accounts_normal_balance"),
+    )
+
+
+class Period(Base):
+    __tablename__ = "periods"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(20), nullable=False)
+    start_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    end_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    closed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    closed_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    closed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reopened_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    reopened_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    reopened_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_periods_tenant_name"),
+        CheckConstraint("status IN ('open','soft_closed','hard_closed','audited')", name="ck_periods_status"),
+    )
+
+
+class FxRate(Base):
+    __tablename__ = "fx_rates"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    from_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    to_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    rate_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, default="manual")
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (
+        UniqueConstraint("from_currency", "to_currency", "rate_date", name="uq_fx_rates_pair_date"),
+    )
+
+
+class JournalEntry(Base):
+    __tablename__ = "journal_entries"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    number: Mapped[str] = mapped_column(String(32), nullable=False)
+    date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    period_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("periods.id", ondelete="RESTRICT"), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    source_type: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    source_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    void_of: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="RESTRICT"), nullable=True)
+    fx_rate_date: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    total_debit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    total_credit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    posted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    posted_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "number", name="uq_je_tenant_number"),
+        CheckConstraint("status IN ('draft','posted','void')", name="ck_je_status"),
+    )
+
+
+class JournalLine(Base):
+    __tablename__ = "journal_lines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    journal_entry_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False, index=True)
+    line_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    contact_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    debit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    credit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    fx_rate: Mapped[object | None] = mapped_column(Numeric(19, 8), nullable=True)
+    functional_debit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    functional_credit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("journal_entry_id", "line_no", name="uq_jl_entry_line"),
+        CheckConstraint("debit >= 0 AND credit >= 0", name="ck_jl_non_negative"),
+    )

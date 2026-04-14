@@ -69,8 +69,15 @@ async def request_context_middleware(request: Request, call_next: object) -> Res
     return response
 
 
-# ─── Routers (registered as phases implement them) ───────────────────────────
-# from app.api.v1 import auth, tenants, users  # noqa: E402  (uncomment per phase)
+# ─── Routers ────────────────────────────────────────────────────────────────
+from app.api.v1 import accounts, fx, journals, periods, reports  # noqa: E402
+
+_API_PREFIX = "/v1"
+app.include_router(accounts.router, prefix=_API_PREFIX)
+app.include_router(periods.router, prefix=_API_PREFIX)
+app.include_router(fx.router, prefix=_API_PREFIX)
+app.include_router(journals.router, prefix=_API_PREFIX)
+app.include_router(reports.router, prefix=_API_PREFIX)
 
 
 @app.get("/healthz", tags=["meta"], summary="Health check")

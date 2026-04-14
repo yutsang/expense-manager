@@ -936,20 +936,20 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · 🚫 blocked
 ### Phase 1
 | ID | Task | Status | PR |
 |----|------|--------|----|
-| T1.1 | Accounts/periods/fx migrations | ⬜ | |
-| T1.2 | Accounts service | ⬜ | |
-| T1.3 | Period management | ⬜ | |
-| T1.4 | FX rates | ⬜ | |
-| T1.5 | JE migrations + trigger | ⬜ | |
-| T1.6 | JE service | ⬜ | |
-| T1.7 | JE API | ⬜ | |
+| T1.1 | Accounts/periods/fx migrations | ✅ | |
+| T1.2 | Accounts service | ✅ | |
+| T1.3 | Period management | ✅ | |
+| T1.4 | FX rates | ✅ | |
+| T1.5 | JE migrations + trigger | ✅ | |
+| T1.6 | JE service | ✅ | |
+| T1.7 | JE API | ✅ | |
 | T1.8 | Accounts UI | ⬜ | |
 | T1.9 | Journals UI | ⬜ | |
-| T1.10 | Trial Balance report | ⬜ | |
-| T1.11 | General Ledger report | ⬜ | |
+| T1.10 | Trial Balance report | ✅ | |
+| T1.11 | General Ledger report | ✅ | |
 | T1.12 | Reports UI | ⬜ | |
-| T1.13 | Period close | ⬜ | |
-| T1.14 | FX revaluation | ⬜ | |
+| T1.13 | Period close | 🟨 | API done, UI pending |
+| T1.14 | FX revaluation | 🟨 | skeleton only |
 | T1.15 | AI read tools (bootstrap) | ⬜ | |
 
 ### Phase 2
