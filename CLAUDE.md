@@ -16,15 +16,44 @@ This file is loaded into every Claude conversation in this repo. Keep it **accur
 
 ---
 
+## 0.5 Agent operating principles (Karpathy-inspired)
+
+These govern *how you reason and act* before writing a single line of code. They apply to every task in every phase.
+
+### Think before coding
+- **No silent assumptions.** If a requirement is ambiguous, surface the ambiguity and present your interpretations before acting. A wrong assumption in accounting code creates silent data corruption.
+- **Ask, don't guess.** If you're unsure whether a change affects the audit chain, tenant isolation, or money precision — stop and ask. A 30-second question beats an hour of rollback.
+- **State your plan first** for any task touching > 3 files or any of the escalation triggers in §18.
+
+### Simplicity first
+- **Minimum code that satisfies the stated requirement.** Do not add configurability, abstraction layers, or "nice to have" features that weren't asked for.
+- **Reject speculative features.** If it's not in the PRP task, it belongs in §12 *Parking Lot*, not in the diff.
+- **Three similar lines of code is better than a premature abstraction.** Extract only when the duplication genuinely hurts.
+
+### Surgical changes
+- **Edit only what the task requires.** Do not reformat, refactor, or clean up code adjacent to your change — even if it looks messy.
+- **Do not remove pre-existing dead code** unless the task explicitly says to. It may exist for a reason you don't know.
+- **Scope creep is a bug.** If you notice something else that should change, log it to §12 Parking Lot and finish the current task first.
+
+### Goal-driven execution
+- **Turn every task into verifiable success criteria** before writing code. The PRP's *Definition of Done* is your checklist — run it literally.
+- **Loop until criteria are met**, not until the code looks right. "Looks right" is not a success criterion.
+- **If you get stuck**, diagnose the root cause before changing tactics. Don't retry the same failed approach; don't abandon a working approach after one setback. Escalate when genuinely blocked after investigation.
+
+---
+
 ## 1. Project overview
 
-Aegis ERP is a multi-tenant SaaS platform with three surfaces:
+Aegis ERP is a cloud-first, **web-accessible** multi-tenant SaaS platform. The primary delivery vehicle is the browser — no installation required. Four surfaces:
 
-| Surface     | Audience                           | Primary job |
-|-------------|------------------------------------|-------------|
-| Web app     | Accountants, bookkeepers, admins   | Full ERP + accounting workflows |
-| Mobile app  | Owners, field staff, approvers     | Capture, approve, review on the go |
-| API         | Third-party integrations, auditors | Programmatic access + audit export |
+| Surface          | Audience                           | Primary job |
+|------------------|------------------------------------|-------------|
+| **Public website** | Prospects, visitors             | Marketing, pricing, docs, sign-up flow |
+| **Web app**      | Accountants, bookkeepers, admins   | Full ERP + accounting workflows (authenticated) |
+| Mobile app       | Owners, field staff, approvers     | Capture, approve, review on the go |
+| API              | Third-party integrations, auditors | Programmatic access + audit export |
+
+**Web-first rule:** Every feature ships on the web app first. Mobile and API surfaces follow. The web app must be fully functional at a public URL — not just `localhost`. Deployment to a real domain (via Vercel/Fly/ECS) is a Phase 0 exit criterion for the web surface.
 
 Four product pillars:
 

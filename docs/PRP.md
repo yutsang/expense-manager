@@ -31,11 +31,12 @@ Rules:
 
 ## 1. Executive summary
 
-Aegis ERP is a cloud-first, AI-native accounting + light-ERP platform in the Xero/QuickBooks Online class, differentiated by three things:
+Aegis ERP is a cloud-first, **web-accessible**, AI-native accounting + light-ERP platform in the Xero/QuickBooks Online class, differentiated by four things:
 
-1. **An embedded Claude assistant** that can reason over the live ledger, draft journal entries, surface anomalies, and answer audit questions — with citations and human-in-the-loop mutations.
-2. **An audit-first posture.** Tamper-evident audit trail, a dedicated auditor workspace, and one-click evidence packages for SOX / ISO / internal audit requests.
-3. **A true mobile companion.** Offline-first Expo app for capture, approval, and review, with deterministic sync.
+1. **Browser-native, no install.** The full product is a web app accessible at a public URL — sign up, log in, do your books. Nothing to download.
+2. **An embedded Claude assistant** that can reason over the live ledger, draft journal entries, surface anomalies, and answer audit questions — with citations and human-in-the-loop mutations.
+3. **An audit-first posture.** Tamper-evident audit trail, a dedicated auditor workspace, and one-click evidence packages for SOX / ISO / internal audit requests.
+4. **A true mobile companion.** Offline-first Expo app for capture, approval, and review, with deterministic sync.
 
 The V1 target customer is small-to-mid businesses with 10–500 employees in services, e-commerce, or light wholesale — markets where Xero dominates but AI/audit are weak spots.
 
@@ -119,6 +120,13 @@ Every feature must trace to at least one persona's job-to-be-done. If it doesn't
 ---
 
 ## 5. Product pillars (expanded)
+
+### 5.0 Pillar 0 — Web Presence (Phase 0, ongoing)
+A publicly accessible website at a real domain. Two distinct Next.js surfaces sharing a monorepo:
+- **Marketing site** (`/`, `/pricing`, `/features`, `/docs`, `/blog`) — static/SSG, no auth required. Converts visitors to trial signups.
+- **Web app** (`/app/*`) — authenticated SPA shell. The primary product delivery vehicle. Must be deployable to a public URL (Vercel/Fly/ECS) from day one of Phase 0.
+
+**Web-first rule:** every feature that exists in the API must have a corresponding UI in the web app before it ships. Mobile surfaces are additive.
 
 ### 5.1 Pillar A — Core Ledger (Phases 1–2)
 Feature-parity with Xero for the core accounting loop: CoA, journals, AR, AP, bank rec, tax, period close, standard reports. Correct-by-construction (double-entry, RLS, audit-on-mutate).
@@ -645,7 +653,7 @@ Each phase has: **Objective → Scope → Exit Criteria → Task list**. Tasks a
 
 ### **Phase 0 — Foundation (Weeks 1–2)**
 
-**Objective.** Stand up the repo, CI, local dev, identity, multi-tenancy, and the audit infrastructure. Nothing user-visible yet; everything below builds on this.
+**Objective.** Stand up the repo, CI, local dev, identity, multi-tenancy, audit infrastructure, and a **publicly deployed web app**. The web app is live at a real URL before Phase 1 begins.
 
 **Exit criteria.**
 - [ ] `make bootstrap && make up && make test` passes on a clean clone.
@@ -653,6 +661,7 @@ Each phase has: **Objective → Scope → Exit Criteria → Task list**. Tasks a
 - [ ] Audit log receives an event for every mutation in the test suite; hash chain verifies.
 - [ ] CI green: lint + typecheck + test + migration check + security scans.
 - [ ] A dev can sign up, log in (with MFA TOTP), invite a teammate, and see an audit event for each action.
+- [ ] **The web app is reachable at a public URL** (e.g. Vercel preview + custom domain, or Fly.io). `https://<domain>/healthz` returns 200.
 
 **Tasks.**
 
@@ -696,6 +705,12 @@ Each phase has: **Objective → Scope → Exit Criteria → Task list**. Tasks a
   - DoD: UI package consumed by web app; typecheck passes.
 - **T0.20** Docs: `docs/adr/0001-locked-stack.md`, `docs/adr/0002-audit-hash-chain.md`, `docs/adr/0003-multi-tenancy-rls.md`.
   - DoD: Each ADR follows the MADR template.
+- **T0.21** **Web deployment (Vercel + Fly.io).** Deploy web app to Vercel (or Fly.io) with preview URLs on every PR. Deploy API to Fly.io. Configure environment variables via secrets.
+  - DoD: `https://<domain>/v1/healthz` returns `{"status":"ok"}`. Vercel preview URL auto-created on PR open.
+- **T0.22** **Marketing site skeleton** (`frontend/apps/web/src/app/(marketing)/`). Public-facing pages: homepage (`/`), pricing (`/pricing`), sign-up CTA. Static/SSG, no auth. Tailwind + shadcn/ui. SEO meta tags, `og:image`.
+  - DoD: Lighthouse score ≥ 90 performance, ≥ 90 accessibility on homepage. Signup CTA routes to `/app/signup`.
+- **T0.23** **Domain + TLS.** Configure custom domain, HTTPS with auto-renew, HSTS, CSP headers, `X-Frame-Options: DENY`. Add `make deploy` target.
+  - DoD: `curl -I https://<domain>` shows `strict-transport-security` header. CSP does not report violations in console.
 
 ---
 
@@ -932,6 +947,9 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · 🚫 blocked
 | T0.18 | Next.js 14 web scaffold + login UI + middleware + providers | ✅ | phase0-cont |
 | T0.19 | Frontend packages: @aegis/ui @aegis/types @aegis/money @aegis/api-client | ✅ | phase0-cont |
 | T0.20 | ADRs 0001–0003 | ✅ | init |
+| T0.21 | Web deployment (Vercel + Fly.io, preview URLs) | ⬜ | |
+| T0.22 | Marketing site skeleton (homepage, pricing, sign-up CTA) | ⬜ | |
+| T0.23 | Custom domain + TLS + security headers | ⬜ | |
 
 ### Phase 1
 | ID | Task | Status | PR |
@@ -943,8 +961,8 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · 🚫 blocked
 | T1.5 | JE migrations + trigger | ✅ | |
 | T1.6 | JE service | ✅ | |
 | T1.7 | JE API | ✅ | |
-| T1.8 | Accounts UI | ⬜ | |
-| T1.9 | Journals UI | ⬜ | |
+| T1.8 | Accounts UI | ✅ | |
+| T1.9 | Journals UI | ✅ | |
 | T1.10 | Trial Balance report | ✅ | |
 | T1.11 | General Ledger report | ✅ | |
 | T1.12 | Reports UI | ⬜ | |
