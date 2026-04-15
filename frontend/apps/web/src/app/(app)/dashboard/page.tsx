@@ -1,55 +1,142 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { reportsApi, journalsApi, DashboardData, JournalEntry } from "@/lib/api";
+import Link from "next/link";
+import {
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  Clock,
+  Plus,
+  FileText,
+  Receipt,
+  ArrowRight,
+  BookMarked,
+} from "lucide-react";
+import { reportsApi, journalsApi, type DashboardData, type JournalEntry } from "@/lib/api";
 
-const aud = new Intl.NumberFormat("en-AU", {
-  style: "currency",
-  currency: "AUD",
-  minimumFractionDigits: 2,
-});
-
-function formatMoney(val: string): string {
-  return aud.format(parseFloat(val));
+function fmt(val: string, currency = "USD"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(parseFloat(val));
 }
 
-function formatDate(val: string): string {
-  return new Date(val).toLocaleDateString("en-AU", {
+function fmtDate(val: string): string {
+  return new Date(val).toLocaleDateString("en-US", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
 }
 
-function SkeletonBox({ className = "" }: { className?: string }) {
-  return (
-    <div className={`animate-pulse bg-gray-200 rounded ${className}`} />
-  );
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-muted ${className}`} />;
 }
 
-interface KpiCardProps {
+// ── KPI Card ──────────────────────────────────────────────────────────────────
+
+interface KpiProps {
   label: string;
   value: string;
-  colorClass?: string;
+  trend?: "up" | "down" | "neutral";
+  trendLabel?: string;
+  href?: string;
 }
 
-function KpiCard({ label, value, colorClass = "text-gray-900" }: KpiCardProps) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-      <p className="text-sm text-gray-500 font-medium">{label}</p>
-      <p className={`mt-2 text-2xl font-semibold ${colorClass}`}>{value}</p>
+function KpiCard({ label, value, trend, trendLabel, href }: KpiProps) {
+  const trendColor =
+    trend === "up" ? "text-green-600" : trend === "down" ? "text-destructive" : "text-muted-foreground";
+  const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : null;
+
+  const content = (
+    <div className="group rounded-xl border bg-card p-5 shadow-sm hover:shadow-md transition-shadow">
+      <p className="text-sm font-medium text-muted-foreground">{label}</p>
+      <p className={`mt-2 text-2xl font-semibold tracking-tight ${trendColor}`}>{value}</p>
+      {trendLabel && TrendIcon && (
+        <div className={`mt-2 flex items-center gap-1 text-xs font-medium ${trendColor}`}>
+          <TrendIcon className="h-3 w-3" />
+          {trendLabel}
+        </div>
+      )}
     </div>
   );
+
+  return href ? <Link href={href}>{content}</Link> : content;
 }
 
 function KpiCardSkeleton() {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-      <SkeletonBox className="h-4 w-32 mb-3" />
-      <SkeletonBox className="h-7 w-40" />
+    <div className="rounded-xl border bg-card p-5 shadow-sm">
+      <Skeleton className="h-4 w-32 mb-3" />
+      <Skeleton className="h-7 w-36" />
     </div>
   );
 }
+
+// ── Attention Badge ────────────────────────────────────────────────────────────
+
+function AttentionCard({
+  label,
+  count,
+  href,
+  urgency,
+}: {
+  label: string;
+  count: number;
+  href: string;
+  urgency: "high" | "medium" | "low";
+}) {
+  const colors = {
+    high: "border-destructive/30 bg-destructive/5 text-destructive",
+    medium: "border-yellow-300 bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400",
+    low: "border-border bg-muted/40 text-muted-foreground",
+  };
+  const badgeColors = {
+    high: "bg-destructive text-destructive-foreground",
+    medium: "bg-yellow-500 text-white",
+    low: "bg-muted-foreground/20 text-muted-foreground",
+  };
+
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm font-medium transition-opacity hover:opacity-80 ${colors[urgency]}`}
+    >
+      {urgency === "high" ? (
+        <AlertTriangle className="h-4 w-4 shrink-0" />
+      ) : (
+        <Clock className="h-4 w-4 shrink-0" />
+      )}
+      <span className="flex-1">{label}</span>
+      <span className={`inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-bold ${badgeColors[urgency]}`}>
+        {count}
+      </span>
+      <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-60" />
+    </Link>
+  );
+}
+
+// ── Status Badge ──────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    posted: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+    draft: "bg-muted text-muted-foreground",
+    void: "bg-destructive/10 text-destructive",
+  };
+  return (
+    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${map[status] ?? "bg-blue-100 text-blue-700"}`}>
+      {status}
+    </span>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
@@ -78,161 +165,186 @@ export default function DashboardPage() {
       ? parseFloat(dashboard.revenue_mtd) - parseFloat(dashboard.expenses_mtd)
       : 0;
 
-  return (
-    <main className="p-6 max-w-7xl mx-auto space-y-8">
-      <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+  type AttentionItem = { label: string; count: number; href: string; urgency: "high" | "medium" | "low" };
+  const needsAttention: AttentionItem[] = [];
+  if (!dashError && dashboard) {
+    if (dashboard.invoices_overdue > 0) {
+      needsAttention.push({
+        label: `${dashboard.invoices_overdue} overdue invoice${dashboard.invoices_overdue > 1 ? "s" : ""}`,
+        count: dashboard.invoices_overdue,
+        href: "/invoices",
+        urgency: "high",
+      });
+    }
+    if (dashboard.bills_awaiting_approval > 0) {
+      needsAttention.push({
+        label: `${dashboard.bills_awaiting_approval} bill${dashboard.bills_awaiting_approval > 1 ? "s" : ""} awaiting approval`,
+        count: dashboard.bills_awaiting_approval,
+        href: "/bills",
+        urgency: "medium",
+      });
+    }
+  }
 
-      {/* KPI Cards */}
+  return (
+    <div className="mx-auto max-w-7xl space-y-8 p-6">
+      {/* Page header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+          </p>
+        </div>
+        {/* Quick actions */}
+        <div className="flex gap-2">
+          <Link
+            href="/invoices"
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <FileText className="h-4 w-4" />
+            New Invoice
+          </Link>
+          <Link
+            href="/bills"
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <Receipt className="h-4 w-4" />
+            New Bill
+          </Link>
+          <Link
+            href="/journals"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Journal
+          </Link>
+        </div>
+      </div>
+
+      {/* KPI grid */}
       {dashError ? (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
           Failed to load dashboard data: {dashError}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {loading ? (
-            <>
-              <KpiCardSkeleton />
-              <KpiCardSkeleton />
-              <KpiCardSkeleton />
-              <KpiCardSkeleton />
-              <KpiCardSkeleton />
-              <KpiCardSkeleton />
-            </>
+            Array.from({ length: 6 }).map((_, i) => <KpiCardSkeleton key={i} />)
           ) : dashboard ? (
             <>
               <KpiCard
                 label="Cash Balance"
-                value={formatMoney(dashboard.cash_balance)}
-                colorClass={parseFloat(dashboard.cash_balance) >= 0 ? "text-green-700" : "text-red-700"}
+                value={fmt(dashboard.cash_balance)}
+                trend={parseFloat(dashboard.cash_balance) >= 0 ? "up" : "down"}
+                href="/accounts"
               />
               <KpiCard
                 label="Accounts Receivable"
-                value={formatMoney(dashboard.accounts_receivable)}
+                value={fmt(dashboard.accounts_receivable)}
+                trend="neutral"
+                href="/invoices"
               />
               <KpiCard
                 label="Accounts Payable"
-                value={formatMoney(dashboard.accounts_payable)}
+                value={fmt(dashboard.accounts_payable)}
+                trend="neutral"
+                href="/bills"
               />
               <KpiCard
                 label="Revenue MTD"
-                value={formatMoney(dashboard.revenue_mtd)}
+                value={fmt(dashboard.revenue_mtd)}
+                trend="up"
+                href="/reports/pl"
               />
               <KpiCard
                 label="Expenses MTD"
-                value={formatMoney(dashboard.expenses_mtd)}
+                value={fmt(dashboard.expenses_mtd)}
+                trend="neutral"
+                href="/reports/pl"
               />
               <KpiCard
                 label="Net Profit MTD"
-                value={formatMoney(String(netProfit))}
-                colorClass={netProfit >= 0 ? "text-green-700" : "text-red-700"}
+                value={fmt(String(netProfit))}
+                trend={netProfit >= 0 ? "up" : "down"}
+                trendLabel={netProfit >= 0 ? "Profitable" : "Operating at a loss"}
+                href="/reports/pl"
               />
             </>
           ) : null}
         </div>
       )}
 
-      {/* Needs Attention */}
-      {!dashError && (
+      {/* Needs attention */}
+      {!loading && needsAttention.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Needs attention</h2>
-          <div className="flex flex-wrap gap-3">
-            {loading ? (
-              <>
-                <SkeletonBox className="h-10 w-52 rounded-lg" />
-                <SkeletonBox className="h-10 w-56 rounded-lg" />
-              </>
-            ) : dashboard ? (
-              <>
-                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm">
-                  <span className="text-sm text-gray-700">Invoices overdue</span>
-                  <span
-                    className={`inline-flex items-center justify-center min-w-[1.5rem] px-2 py-0.5 text-xs font-bold rounded-full ${
-                      dashboard.invoices_overdue > 0
-                        ? "bg-red-100 text-red-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {dashboard.invoices_overdue}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-4 py-2.5 shadow-sm">
-                  <span className="text-sm text-gray-700">Bills awaiting approval</span>
-                  <span
-                    className={`inline-flex items-center justify-center min-w-[1.5rem] px-2 py-0.5 text-xs font-bold rounded-full ${
-                      dashboard.bills_awaiting_approval > 0
-                        ? "bg-yellow-100 text-yellow-700"
-                        : "bg-gray-100 text-gray-500"
-                    }`}
-                  >
-                    {dashboard.bills_awaiting_approval}
-                  </span>
-                </div>
-              </>
-            ) : null}
+          <h2 className="mb-3 text-base font-semibold">Needs attention</h2>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {needsAttention.map((item) => (
+              <AttentionCard key={item.href} {...item} />
+            ))}
           </div>
         </section>
       )}
 
-      {/* Recent Journal Entries */}
+      {/* Recent journals */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Recent journal entries</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold">Recent journal entries</h2>
+          <Link
+            href="/journals"
+            className="flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            View all <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
         {journalsError ? (
-          <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700 text-sm">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
             Failed to load journals: {journalsError}
           </div>
         ) : journalsLoading ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-4 space-y-3">
-              {[...Array(5)].map((_, i) => (
-                <SkeletonBox key={i} className="h-5 w-full" />
-              ))}
-            </div>
+          <div className="rounded-xl border bg-card shadow-sm p-4 space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
           </div>
         ) : journals && journals.length > 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Number</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Date</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Description</th>
-                  <th className="text-right px-4 py-3 text-gray-500 font-medium">Total Debit</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium">Status</th>
+                <tr className="border-b bg-muted/40">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Number</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total Debit</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y">
                 {journals.map((je) => (
-                  <tr key={je.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-mono text-gray-700">{je.number}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(je.date)}</td>
-                    <td className="px-4 py-3 text-gray-700 max-w-xs truncate">{je.description}</td>
-                    <td className="px-4 py-3 text-right text-gray-700">{formatMoney(je.total_debit)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          je.status === "posted"
-                            ? "bg-green-100 text-green-700"
-                            : je.status === "draft"
-                            ? "bg-gray-100 text-gray-600"
-                            : je.status === "void"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
-                        {je.status}
-                      </span>
-                    </td>
+                  <tr key={je.id} className="hover:bg-muted/20 transition-colors">
+                    <td className="px-4 py-3 font-mono text-xs font-medium text-foreground">{je.number}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{fmtDate(je.date)}</td>
+                    <td className="px-4 py-3 max-w-xs truncate text-foreground">{je.description}</td>
+                    <td className="px-4 py-3 text-right font-mono text-foreground">{fmt(je.total_debit)}</td>
+                    <td className="px-4 py-3"><StatusBadge status={je.status} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-400 text-sm">
-            No journal entries yet.
+          <div className="rounded-xl border bg-card shadow-sm p-10 text-center">
+            <BookMarked className="mx-auto mb-3 h-8 w-8 text-muted-foreground/40" />
+            <p className="text-sm font-medium text-muted-foreground">No journal entries yet</p>
+            <Link
+              href="/journals"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Post your first entry
+            </Link>
           </div>
         )}
       </section>
-    </main>
+    </div>
   );
 }
