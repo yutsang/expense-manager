@@ -460,3 +460,111 @@ export const billsApi = {
   approve: (id: string) => request<Bill>("POST", `/v1/bills/${id}/approve`),
   void: (id: string) => request<Bill>("POST", `/v1/bills/${id}/void`),
 };
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface SignupRequest {
+  email: string;
+  password: string;
+  display_name: string;
+  tenant_name: string;
+  country?: string;
+  currency?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  display_name: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: AuthUser;
+  tenant_ids: string[];
+}
+
+export interface SignupResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: AuthUser;
+  tenant_id: string;
+  tenant_name: string;
+}
+
+export const authApi = {
+  signup: (body: SignupRequest) => request<SignupResponse>("POST", "/v1/auth/signup", body),
+  login: (body: LoginRequest) => request<LoginResponse>("POST", "/v1/auth/login", body),
+  logout: () => request<void>("POST", "/v1/auth/logout"),
+};
+
+// ── Payments ─────────────────────────────────────────────────────────────────
+
+export interface Payment {
+  id: string;
+  number: string;
+  payment_type: "received" | "made";
+  contact_id: string;
+  amount: string;
+  currency: string;
+  fx_rate: string;
+  payment_date: string;
+  reference: string | null;
+  bank_account_ref: string | null;
+  status: "pending" | "applied" | "voided";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentCreate {
+  payment_type: "received" | "made";
+  contact_id: string;
+  amount: string;
+  currency?: string;
+  fx_rate?: string;
+  payment_date: string;
+  reference?: string;
+  bank_account_ref?: string;
+}
+
+export interface PaymentAllocationCreate {
+  invoice_id?: string;
+  bill_id?: string;
+  amount_applied: string;
+}
+
+export interface PaymentAllocation {
+  id: string;
+  payment_id: string;
+  invoice_id: string | null;
+  bill_id: string | null;
+  amount_applied: string;
+  created_at: string;
+}
+
+export const paymentsApi = {
+  list: (params?: { payment_type?: string; status?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.payment_type) q.set("payment_type", params.payment_type);
+    if (params?.status) q.set("status", params.status);
+    const qs = q.toString();
+    return request<{ items: Payment[]; total: number }>(
+      "GET",
+      `/v1/payments${qs ? `?${qs}` : ""}`
+    );
+  },
+  create: (body: PaymentCreate) => request<Payment>("POST", "/v1/payments", body),
+  get: (id: string) => request<Payment>("GET", `/v1/payments/${id}`),
+  allocate: (id: string, body: PaymentAllocationCreate) =>
+    request<PaymentAllocation>("POST", `/v1/payments/${id}/allocate`, body),
+  void: (id: string, reason?: string) =>
+    request<Payment>("POST", `/v1/payments/${id}/void`, { reason: reason ?? "Voided by user" }),
+};

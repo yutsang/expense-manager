@@ -65,7 +65,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
-              href="/app/signup"
+              href="/login"
               className="w-full rounded-lg bg-primary px-8 py-3 text-base font-semibold text-primary-foreground hover:bg-primary/90 transition-colors sm:w-auto"
             >
               Start free — no card needed
@@ -127,7 +127,7 @@ export default function HomePage() {
             Get started in minutes. No credit card. Cancel any time.
           </p>
           <Link
-            href="/app/signup"
+            href="/login"
             className="inline-block rounded-lg bg-white px-8 py-3 text-base font-semibold text-primary hover:bg-white/90 transition-colors"
           >
             Create your free account

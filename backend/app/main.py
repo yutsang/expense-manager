@@ -42,7 +42,12 @@ app = FastAPI(
 # CORS — tighten in prod via env
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8081"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "https://aegis-erp-web.vercel.app",
+        *([settings.frontend_url] if getattr(settings, "frontend_url", None) else []),
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,7 +75,7 @@ async def request_context_middleware(request: Request, call_next: object) -> Res
 
 
 # ─── Routers ────────────────────────────────────────────────────────────────
-from app.api.v1 import accounts, bills, contacts, fx, invoices, items, journals, periods, reports  # noqa: E402
+from app.api.v1 import accounts, auth, bills, contacts, fx, invoices, items, journals, payments, periods, reports  # noqa: E402
 
 _API_PREFIX = "/v1"
 app.include_router(accounts.router, prefix=_API_PREFIX)
@@ -82,6 +87,8 @@ app.include_router(contacts.router, prefix=_API_PREFIX)
 app.include_router(items.router, prefix=_API_PREFIX)
 app.include_router(invoices.router, prefix=_API_PREFIX)
 app.include_router(bills.router, prefix=_API_PREFIX)
+app.include_router(auth.router, prefix=_API_PREFIX)
+app.include_router(payments.router, prefix=_API_PREFIX)
 
 
 @app.get("/healthz", tags=["meta"], summary="Health check")

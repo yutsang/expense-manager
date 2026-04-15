@@ -21,7 +21,7 @@ const PLANS = [
       "Community support",
     ],
     cta: "Start free",
-    href: "/app/signup?plan=starter",
+    href: "/login",
     highlight: false,
   },
   {
@@ -39,7 +39,7 @@ const PLANS = [
       "Email support",
     ],
     cta: "Start 14-day trial",
-    href: "/app/signup?plan=growth",
+    href: "/login",
     highlight: true,
   },
   {
@@ -57,7 +57,7 @@ const PLANS = [
       "Custom CoA templates",
     ],
     cta: "Contact sales",
-    href: "/app/signup?plan=scale",
+    href: "/login",
     highlight: false,
   },
 ];

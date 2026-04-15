@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   LayoutDashboard,
@@ -11,6 +11,7 @@ import {
   Users,
   FileText,
   Receipt,
+  CreditCard,
   TrendingUp,
   Scale,
   ArrowLeftRight,
@@ -24,6 +25,7 @@ import {
   LogOut,
   HelpCircle,
 } from "lucide-react";
+import { authApi } from "@/lib/api";
 
 const NAV_ITEMS = [
   { group: null,        href: "/dashboard",              label: "Dashboard",        icon: LayoutDashboard },
@@ -32,6 +34,7 @@ const NAV_ITEMS = [
   { group: "Sales",     href: "/contacts",               label: "Contacts",         icon: Users },
   { group: "Sales",     href: "/invoices",               label: "Invoices",         icon: FileText },
   { group: "Purchases", href: "/bills",                  label: "Bills",            icon: Receipt },
+  { group: "Purchases", href: "/payments",               label: "Payments",         icon: CreditCard },
   { group: "Reports",   href: "/reports/pl",             label: "Profit & Loss",    icon: TrendingUp },
   { group: "Reports",   href: "/reports/balance-sheet",  label: "Balance Sheet",    icon: Scale },
   { group: "Reports",   href: "/reports/cash-flow",      label: "Cash Flow",        icon: ArrowLeftRight },
@@ -74,6 +77,7 @@ function NavItem({
 function UserMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -84,6 +88,11 @@ function UserMenu() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  async function handleSignOut() {
+    try { await authApi.logout(); } catch { /* ignore */ }
+    router.push("/login");
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -121,7 +130,10 @@ function UserMenu() {
             Help & docs
           </Link>
           <div className="border-t mt-1">
-            <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors">
+            <button
+              onClick={() => { void handleSignOut(); }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
+            >
               <LogOut className="h-4 w-4" />
               Sign out
             </button>

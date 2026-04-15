@@ -648,6 +648,122 @@ class DashboardResponse(BaseModel):
     generated_at: datetime
 
 
+# ── Auth ─────────────────────────────────────────────────────────────────────
+
+class SignupRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=8, max_length=128)
+    display_name: str = Field(..., min_length=1, max_length=255)
+    tenant_name: str = Field(..., min_length=1, max_length=255)
+    country: str = Field(default="US", min_length=2, max_length=10)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class AuthUserResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str
+
+
+class SignupResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: AuthUserResponse
+    tenant_id: str
+    tenant_name: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: AuthUserResponse
+    tenant_ids: list[str]
+
+
+# ── Payments ─────────────────────────────────────────────────────────────────
+
+class PaymentCreate(BaseModel):
+    payment_type: str = Field(..., pattern="^(received|made)$")
+    contact_id: str
+    amount: str  # Decimal string
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    fx_rate: str = Field(default="1")
+    payment_date: str  # ISO date
+    reference: str | None = None
+    bank_account_ref: str | None = None
+
+
+class PaymentAllocationCreate(BaseModel):
+    invoice_id: str | None = None
+    bill_id: str | None = None
+    amount_applied: str  # Decimal string
+
+
+class PaymentAllocationResponse(BaseModel):
+    id: str
+    payment_id: str
+    invoice_id: str | None
+    bill_id: str | None
+    amount_applied: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
+    @classmethod
+    def model_validate(cls, obj: Any, **kwargs: Any) -> "PaymentAllocationResponse":  # type: ignore[override]
+        # ORM column is `amount`; expose as `amount_applied`
+        if hasattr(obj, "__dict__"):
+            d = {**obj.__dict__}
+            if "amount" in d and "amount_applied" not in d:
+                d["amount_applied"] = str(d["amount"])
+            return super().model_validate(d, **kwargs)
+        return super().model_validate(obj, **kwargs)
+
+
+class PaymentResponse(BaseModel):
+    id: str
+    number: str
+    payment_type: str
+    contact_id: str
+    amount: str
+    currency: str
+    fx_rate: str
+    payment_date: str
+    reference: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("amount", "fx_rate", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class PaymentListResponse(BaseModel):
+    items: list[PaymentResponse]
+    total: int
+
+
+class PaymentVoidRequest(BaseModel):
+    reason: str = Field(default="Voided by user", min_length=1, max_length=500)
+
+
 # ── P&L Report ────────────────────────────────────────────────────────────────
 
 class PLLineResponse(BaseModel):
