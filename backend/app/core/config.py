@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, PostgresDsn, RedisDsn, model_validator
+from pydantic import Field, RedisDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     debug: bool = False
     secret_key: str  # 32-byte hex; used for signing tokens
 
-    # Database
-    database_url: PostgresDsn
+    # Database (str to support Cloud SQL Unix socket URLs: postgresql+asyncpg://user:pass@/db?host=/cloudsql/...)
+    database_url: str
     database_pool_size: int = 10
     database_max_overflow: int = 20
 

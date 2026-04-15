@@ -91,8 +91,8 @@ app.include_router(auth.router, prefix=_API_PREFIX)
 app.include_router(payments.router, prefix=_API_PREFIX)
 
 
-@app.get("/healthz", tags=["meta"], summary="Health check")
-async def healthz() -> dict[str, str]:
+@app.get("/health", tags=["meta"], summary="Health check")
+async def health() -> dict[str, str]:
     return {"status": "ok", "version": app.version}
 
 

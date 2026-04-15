@@ -36,9 +36,12 @@ steps:
       - '--concurrency=80'
       - '--set-env-vars=ENVIRONMENT=production'
       - '--update-secrets=SECRET_KEY=aegis-secret-key:latest,DATABASE_URL=aegis-database-url:latest,REDIS_URL=aegis-redis-url:latest'
+      - '--add-cloudsql-instances=aegis-erp-prod:asia-southeast1:aegis-erp-db'
+      - '--vpc-connector=aegis-vpc-connector'
+      - '--vpc-egress=private-ranges-only'
 
 substitutions:
-  _REGION: asia-southeast1  # Singapore — change to us-central1 / europe-west1 as needed
+  _REGION: asia-southeast1
 
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/aegis-erp/api:${SHORT_SHA}'

@@ -17,10 +17,10 @@
   "rewrites": [
     {
       "source": "/v1/:path*",
-      "destination": "https://aegis-erp-api-REPLACE_WITH_HASH-as.a.run.app/v1/:path*"
+      "destination": "https://aegis-erp-api-lrct6rrbia-as.a.run.app/v1/:path*"
     }
   ],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://aegis-erp-api-REPLACE_WITH_HASH-as.a.run.app"
+    "NEXT_PUBLIC_API_URL": "https://aegis-erp-api-lrct6rrbia-as.a.run.app"
   }
 }
