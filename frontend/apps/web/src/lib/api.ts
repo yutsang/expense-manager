@@ -18,11 +18,13 @@ class ApiError extends Error {
   }
 }
 
+const DEV_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+
 function getTenantId(): string {
   if (typeof window !== "undefined") {
-    return localStorage.getItem("aegis_tenant_id") ?? "dev-tenant";
+    return localStorage.getItem("aegis_tenant_id") ?? DEV_TENANT_ID;
   }
-  return "dev-tenant";
+  return DEV_TENANT_ID;
 }
 
 async function request<T>(
@@ -41,7 +43,7 @@ async function request<T>(
     method,
     headers,
     credentials: "include",
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
 
   if (!res.ok) {
@@ -151,6 +153,105 @@ export interface GLReport {
   lines: GLLine[];
 }
 
+export interface DashboardData {
+  cash_balance: string;
+  accounts_receivable: string;
+  accounts_payable: string;
+  revenue_mtd: string;
+  expenses_mtd: string;
+  invoices_overdue: number;
+  bills_awaiting_approval: number;
+  generated_at: string;
+}
+
+export interface PLLine {
+  account_id: string;
+  code: string;
+  name: string;
+  subtype: string;
+  balance: string;
+}
+
+export interface PLReport {
+  from_date: string;
+  to_date: string;
+  total_revenue: string;
+  total_expenses: string;
+  net_profit: string;
+  is_profitable: boolean;
+  revenue_lines: PLLine[];
+  expense_lines: PLLine[];
+  generated_at: string;
+}
+
+export interface BalanceSheetLine {
+  account_id: string;
+  code: string;
+  name: string;
+  subtype: string;
+  balance: string;
+}
+
+export interface BalanceSheetSection {
+  total: string;
+  lines: BalanceSheetLine[];
+}
+
+export interface BalanceSheetReport {
+  as_of: string;
+  assets: BalanceSheetSection;
+  liabilities: BalanceSheetSection;
+  equity: BalanceSheetSection;
+  total_liabilities_and_equity: string;
+  is_balanced: boolean;
+  generated_at: string;
+}
+
+export interface AgingRow {
+  contact_id: string;
+  contact_name: string;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string | null;
+  total: string;
+  amount_due: string;
+  days_overdue: number;
+  bucket: string;
+}
+
+export interface AgingReport {
+  as_of: string;
+  current_total: string;
+  bucket_1_30: string;
+  bucket_31_60: string;
+  bucket_61_90: string;
+  bucket_90_plus: string;
+  grand_total: string;
+  rows: AgingRow[];
+  generated_at: string;
+}
+
+export interface CashFlowLine {
+  label: string;
+  amount: string;
+  is_subtotal: boolean;
+}
+
+export interface CashFlowReport {
+  from_date: string;
+  to_date: string;
+  operating_activities: CashFlowLine[];
+  investing_activities: CashFlowLine[];
+  financing_activities: CashFlowLine[];
+  net_operating: string;
+  net_investing: string;
+  net_financing: string;
+  net_change: string;
+  opening_cash: string;
+  closing_cash: string;
+  generated_at: string;
+}
+
 // ── Accounts ────────────────────────────────────────────────────────────────
 
 export const accountsApi = {
@@ -203,4 +304,159 @@ export const reportsApi = {
       "GET",
       `/v1/reports/general-ledger?account_id=${accountId}&from_date=${fromDate}&to_date=${toDate}`
     ),
+  dashboard: () => request<DashboardData>("GET", "/v1/reports/dashboard"),
+  pl: (fromDate: string, toDate: string) =>
+    request<PLReport>("GET", `/v1/reports/pl?from_date=${fromDate}&to_date=${toDate}`),
+  balanceSheet: (asOf: string) =>
+    request<BalanceSheetReport>("GET", `/v1/reports/balance-sheet?as_of=${asOf}`),
+  arAging: (asOf: string) =>
+    request<AgingReport>("GET", `/v1/reports/ar-aging?as_of=${asOf}`),
+  apAging: (asOf: string) =>
+    request<AgingReport>("GET", `/v1/reports/ap-aging?as_of=${asOf}`),
+  cashFlow: (fromDate: string, toDate: string) =>
+    request<CashFlowReport>("GET", `/v1/reports/cash-flow?from_date=${fromDate}&to_date=${toDate}`),
+};
+
+// ── Contacts ─────────────────────────────────────────────────────────────────
+
+export interface Contact {
+  id: string;
+  contact_type: string;
+  name: string;
+  code: string | null;
+  email: string | null;
+  phone: string | null;
+  currency: string;
+  is_archived: boolean;
+}
+
+export const contactsApi = {
+  list: (params?: { contact_type?: string; include_archived?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.contact_type) q.set("contact_type", params.contact_type);
+    if (params?.include_archived) q.set("include_archived", "true");
+    return request<{ items: Contact[]; next_cursor: string | null }>(
+      "GET",
+      `/v1/contacts?${q}`
+    );
+  },
+  get: (id: string) => request<Contact>("GET", `/v1/contacts/${id}`),
+  create: (body: Partial<Contact> & { contact_type: string; name: string }) =>
+    request<Contact>("POST", "/v1/contacts", body),
+  update: (id: string, body: Partial<Contact>) =>
+    request<Contact>("PATCH", `/v1/contacts/${id}`, body),
+  archive: (id: string) => request<void>("DELETE", `/v1/contacts/${id}`),
+};
+
+// ── Tax Codes ────────────────────────────────────────────────────────────────
+
+export interface TaxCode {
+  id: string;
+  code: string;
+  name: string;
+  rate: string;
+  tax_type: string;
+  country: string;
+  is_active: boolean;
+}
+
+export const taxCodesApi = {
+  list: (params?: { country?: string; active_only?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.country) q.set("country", params.country);
+    if (params?.active_only === false) q.set("active_only", "false");
+    return request<{ items: TaxCode[] }>("GET", `/v1/tax-codes?${q}`);
+  },
+};
+
+// ── Invoices ─────────────────────────────────────────────────────────────────
+
+export interface InvoiceLine {
+  id: string;
+  line_no: number;
+  account_id: string;
+  description: string | null;
+  quantity: string;
+  unit_price: string;
+  line_amount: string;
+  tax_amount: string;
+}
+
+export interface Invoice {
+  id: string;
+  number: string;
+  status: string;
+  contact_id: string;
+  issue_date: string;
+  due_date: string | null;
+  currency: string;
+  subtotal: string;
+  tax_total: string;
+  total: string;
+  amount_due: string;
+  created_at: string;
+  lines: InvoiceLine[];
+}
+
+export const invoicesApi = {
+  list: (params?: { status?: string; contact_id?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.contact_id) q.set("contact_id", params.contact_id);
+    return request<{ items: Invoice[]; next_cursor: string | null }>(
+      "GET",
+      `/v1/invoices?${q}`
+    );
+  },
+  get: (id: string) => request<Invoice>("GET", `/v1/invoices/${id}`),
+  create: (body: unknown) => request<Invoice>("POST", "/v1/invoices", body),
+  authorise: (id: string) => request<Invoice>("POST", `/v1/invoices/${id}/authorise`),
+  void: (id: string) => request<Invoice>("POST", `/v1/invoices/${id}/void`),
+};
+
+// ── Bills ────────────────────────────────────────────────────────────────────
+
+export interface BillLine {
+  id: string;
+  line_no: number;
+  account_id: string;
+  description: string | null;
+  quantity: string;
+  unit_price: string;
+  line_amount: string;
+  tax_amount: string;
+}
+
+export interface Bill {
+  id: string;
+  number: string;
+  status: string;
+  contact_id: string;
+  supplier_reference: string | null;
+  issue_date: string;
+  due_date: string | null;
+  currency: string;
+  subtotal: string;
+  tax_total: string;
+  total: string;
+  amount_due: string;
+  created_at: string;
+  lines: BillLine[];
+}
+
+export const billsApi = {
+  list: (params?: { status?: string; contact_id?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.contact_id) q.set("contact_id", params.contact_id);
+    return request<{ items: Bill[]; next_cursor: string | null }>(
+      "GET",
+      `/v1/bills?${q}`
+    );
+  },
+  get: (id: string) => request<Bill>("GET", `/v1/bills/${id}`),
+  create: (body: unknown) => request<Bill>("POST", "/v1/bills", body),
+  submit: (id: string) => request<Bill>("POST", `/v1/bills/${id}/submit`),
+  approve: (id: string) => request<Bill>("POST", `/v1/bills/${id}/approve`),
+  void: (id: string) => request<Bill>("POST", `/v1/bills/${id}/void`),
 };

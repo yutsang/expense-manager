@@ -9,6 +9,7 @@
     "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "next": "14.2.18",
     "turbo": "^2.2.3",
     "@biomejs/biome": "^1.9.4",
     "typescript": "^5.6.3"

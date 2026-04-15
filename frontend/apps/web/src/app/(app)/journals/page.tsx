@@ -76,7 +76,7 @@ export default function JournalsPage() {
     ]);
     setPeriods(pRes.items.filter((p) => p.status === "open"));
     setAccounts(aRes.items);
-    if (pRes.items.length > 0) setFormPeriodId(pRes.items[0].id);
+    if (pRes.items.length > 0) setFormPeriodId(pRes.items[0]!.id);
   }
 
   useEffect(() => {
@@ -86,7 +86,8 @@ export default function JournalsPage() {
   function updateLine(i: number, field: keyof LineInput, value: string) {
     setFormLines((prev) => {
       const next = [...prev];
-      next[i] = { ...next[i], [field]: value };
+      const p = next[i] as LineInput;
+      next[i] = { account_id: p.account_id, debit: p.debit, credit: p.credit, description: p.description, currency: p.currency, [field]: value };
       return next;
     });
   }
@@ -120,7 +121,7 @@ export default function JournalsPage() {
           account_id: l.account_id,
           debit: l.debit || "0",
           credit: l.credit || "0",
-          description: l.description || undefined,
+          description: l.description || null,
           currency: l.currency,
           fx_rate: "1",
         })),

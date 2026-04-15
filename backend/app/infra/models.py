@@ -302,3 +302,306 @@ class JournalLine(Base):
         UniqueConstraint("journal_entry_id", "line_no", name="uq_jl_entry_line"),
         CheckConstraint("debit >= 0 AND credit >= 0", name="ck_jl_non_negative"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Transactions, Contacts, Items, Tax, Invoices, Bills, Payments
+# ---------------------------------------------------------------------------
+
+
+class Contact(Base):
+    """Customers, suppliers, or employees — shared namespace per tenant."""
+
+    __tablename__ = "contacts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    contact_type: Mapped[str] = mapped_column(String(16), nullable=False)  # customer|supplier|both|employee
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    tax_number: Mapped[str | None] = mapped_column(String(64), nullable=True)  # ABN/VAT reg etc.
+    # Address (denormalised — one primary)
+    address_line1: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    address_line2: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    region: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    postal_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_contacts_tenant_code"),
+        CheckConstraint(
+            "contact_type IN ('customer','supplier','both','employee')",
+            name="ck_contacts_type",
+        ),
+    )
+
+
+class Item(Base):
+    """Products or services that appear on invoice/bill lines."""
+
+    __tablename__ = "items"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(64), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    item_type: Mapped[str] = mapped_column(String(16), nullable=False)  # product|service
+    unit_of_measure: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Default prices (can be overridden per line)
+    sales_unit_price: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
+    purchase_unit_price: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    # Default GL accounts
+    sales_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    cogs_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    purchase_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    is_tracked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_items_tenant_code"),
+        CheckConstraint("item_type IN ('product','service')", name="ck_items_type"),
+    )
+
+
+class TaxCode(Base):
+    """Tax rate definitions (GST, VAT, Sales Tax, etc.)."""
+
+    __tablename__ = "tax_codes"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    code: Mapped[str] = mapped_column(String(32), nullable=False)  # e.g. GST, VAT20, ZERO
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    rate: Mapped[object] = mapped_column(Numeric(8, 6), nullable=False)  # e.g. 0.100000 = 10%
+    tax_type: Mapped[str] = mapped_column(String(16), nullable=False)  # output|input|exempt|zero
+    country: Mapped[str] = mapped_column(String(10), nullable=False)
+    # GL accounts for tax collected / tax paid
+    tax_collected_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    tax_paid_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_tax_codes_tenant_code"),
+        CheckConstraint(
+            "tax_type IN ('output','input','exempt','zero')",
+            name="ck_tax_codes_type",
+        ),
+        CheckConstraint("rate >= 0 AND rate <= 1", name="ck_tax_codes_rate"),
+    )
+
+
+class Invoice(Base):
+    """Sales invoices issued to customers."""
+
+    __tablename__ = "invoices"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    number: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    # draft | authorised | sent | partial | paid | void | credit_note
+    contact_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)   # ISO date string
+    due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    period_name: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    fx_rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False, default=1)
+    subtotal: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    amount_due: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    functional_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    # GL journal posted when authorised
+    journal_entry_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    voided_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "number", name="uq_invoices_tenant_number"),
+        CheckConstraint(
+            "status IN ('draft','authorised','sent','partial','paid','void','credit_note')",
+            name="ck_invoices_status",
+        ),
+    )
+
+
+class InvoiceLine(Base):
+    """Line items on a sales invoice."""
+
+    __tablename__ = "invoice_lines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    invoice_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    line_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    item_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True)
+    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    tax_code_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("tax_codes.id", ondelete="SET NULL"), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quantity: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=1)
+    unit_price: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    discount_pct: Mapped[object] = mapped_column(Numeric(5, 4), nullable=False, default=0)  # 0.1 = 10%
+    line_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("invoice_id", "line_no", name="uq_inv_line_no"),
+        CheckConstraint("quantity > 0", name="ck_invline_qty"),
+        CheckConstraint("discount_pct >= 0 AND discount_pct < 1", name="ck_invline_discount"),
+    )
+
+
+class Bill(Base):
+    """Purchase bills received from suppliers."""
+
+    __tablename__ = "bills"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    number: Mapped[str] = mapped_column(String(64), nullable=False)
+    supplier_reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    # draft | awaiting_approval | approved | partial | paid | void
+    contact_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    period_name: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    fx_rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False, default=1)
+    subtotal: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    amount_due: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    functional_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    journal_entry_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "number", name="uq_bills_tenant_number"),
+        CheckConstraint(
+            "status IN ('draft','awaiting_approval','approved','partial','paid','void')",
+            name="ck_bills_status",
+        ),
+    )
+
+
+class BillLine(Base):
+    """Line items on a purchase bill."""
+
+    __tablename__ = "bill_lines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    bill_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("bills.id", ondelete="CASCADE"), nullable=False, index=True)
+    line_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    item_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True)
+    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
+    tax_code_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("tax_codes.id", ondelete="SET NULL"), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quantity: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=1)
+    unit_price: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    discount_pct: Mapped[object] = mapped_column(Numeric(5, 4), nullable=False, default=0)
+    line_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+
+    __table_args__ = (
+        UniqueConstraint("bill_id", "line_no", name="uq_bill_line_no"),
+        CheckConstraint("quantity > 0", name="ck_billline_qty"),
+        CheckConstraint("discount_pct >= 0 AND discount_pct < 1", name="ck_billline_discount"),
+    )
+
+
+class Payment(Base):
+    """A payment received (from customer) or made (to supplier)."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    number: Mapped[str] = mapped_column(String(64), nullable=False)
+    payment_type: Mapped[str] = mapped_column(String(16), nullable=False)  # received|made
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")  # pending|applied|voided
+    contact_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True, index=True)
+    payment_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    fx_rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False, default=1)
+    functional_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    # Bank account from which payment was made / received
+    bank_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    journal_entry_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "number", name="uq_payments_tenant_number"),
+        CheckConstraint("payment_type IN ('received','made')", name="ck_payments_type"),
+        CheckConstraint("status IN ('pending','applied','voided')", name="ck_payments_status"),
+        CheckConstraint("amount > 0", name="ck_payments_positive"),
+    )
+
+
+class PaymentAllocation(Base):
+    """Links a payment to one or more invoices/bills (supports partial payments)."""
+
+    __tablename__ = "payment_allocations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    payment_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("payments.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Exactly one of invoice_id or bill_id is set
+    invoice_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("invoices.id", ondelete="RESTRICT"), nullable=True, index=True)
+    bill_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("bills.id", ondelete="RESTRICT"), nullable=True, index=True)
+    amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="ck_palloc_positive"),
+        CheckConstraint(
+            "(invoice_id IS NOT NULL AND bill_id IS NULL) OR (invoice_id IS NULL AND bill_id IS NOT NULL)",
+            name="ck_palloc_exclusive",
+        ),
+    )

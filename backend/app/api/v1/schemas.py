@@ -267,3 +267,478 @@ class GLReportResponse(BaseModel):
     opening_balance: str
     closing_balance: str
     lines: list[GLLineResponse]
+
+
+# ── Contacts ──────────────────────────────────────────────────────────────────
+
+class ContactCreate(BaseModel):
+    contact_type: str = Field(..., pattern="^(customer|supplier|both|employee)$")
+    name: str = Field(..., min_length=1, max_length=255)
+    code: str | None = Field(default=None, max_length=64)
+    email: str | None = None
+    phone: str | None = None
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    tax_number: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    region: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+
+
+class ContactUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    code: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    currency: str | None = None
+    tax_number: str | None = None
+    address_line1: str | None = None
+    address_line2: str | None = None
+    city: str | None = None
+    region: str | None = None
+    postal_code: str | None = None
+    country: str | None = None
+    contact_type: str | None = Field(default=None, pattern="^(customer|supplier|both|employee)$")
+
+
+class ContactResponse(BaseModel):
+    id: str
+    contact_type: str
+    name: str
+    code: str | None
+    email: str | None
+    phone: str | None
+    currency: str
+    tax_number: str | None
+    address_line1: str | None
+    address_line2: str | None
+    city: str | None
+    region: str | None
+    postal_code: str | None
+    country: str | None
+    is_archived: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ContactListResponse(BaseModel):
+    items: list[ContactResponse]
+    next_cursor: str | None
+
+
+# ── Items ─────────────────────────────────────────────────────────────────────
+
+class ItemCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=64)
+    name: str = Field(..., min_length=1, max_length=255)
+    item_type: str = Field(..., pattern="^(product|service)$")
+    description: str | None = None
+    unit_of_measure: str | None = None
+    sales_unit_price: str | None = None
+    purchase_unit_price: str | None = None
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    sales_account_id: str | None = None
+    cogs_account_id: str | None = None
+    purchase_account_id: str | None = None
+    is_tracked: bool = False
+
+    @field_validator("sales_unit_price", "purchase_unit_price")
+    @classmethod
+    def price_non_negative(cls, v: str | None) -> str | None:
+        if v is not None and Decimal(v) < 0:
+            raise ValueError("price must be non-negative")
+        return v
+
+
+class ItemUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    unit_of_measure: str | None = None
+    sales_unit_price: str | None = None
+    purchase_unit_price: str | None = None
+    currency: str | None = None
+    sales_account_id: str | None = None
+    cogs_account_id: str | None = None
+    purchase_account_id: str | None = None
+    is_tracked: bool | None = None
+
+
+class ItemResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    item_type: str
+    description: str | None
+    unit_of_measure: str | None
+    sales_unit_price: str | None
+    purchase_unit_price: str | None
+    currency: str
+    sales_account_id: str | None
+    cogs_account_id: str | None
+    purchase_account_id: str | None
+    is_tracked: bool
+    is_archived: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("sales_unit_price", "purchase_unit_price", mode="before")
+    @classmethod
+    def decimal_to_str_or_none(cls, v: Any) -> str | None:
+        return str(v) if v is not None else None
+
+
+class ItemListResponse(BaseModel):
+    items: list[ItemResponse]
+    next_cursor: str | None
+
+
+# ── Tax Codes ─────────────────────────────────────────────────────────────────
+
+class TaxCodeCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=32)
+    name: str = Field(..., min_length=1, max_length=128)
+    rate: str = Field(..., description="Rate as decimal 0–1, e.g. '0.1' for 10%")
+    tax_type: str = Field(..., pattern="^(output|input|exempt|zero)$")
+    country: str = Field(..., min_length=2, max_length=10)
+    tax_collected_account_id: str | None = None
+    tax_paid_account_id: str | None = None
+
+    @field_validator("rate")
+    @classmethod
+    def rate_in_range(cls, v: str) -> str:
+        r = Decimal(v)
+        if r < 0 or r > 1:
+            raise ValueError("rate must be between 0 and 1")
+        return v
+
+
+class TaxCodeUpdate(BaseModel):
+    name: str | None = None
+    rate: str | None = None
+    tax_type: str | None = Field(default=None, pattern="^(output|input|exempt|zero)$")
+    is_active: bool | None = None
+    tax_collected_account_id: str | None = None
+    tax_paid_account_id: str | None = None
+
+
+class TaxCodeResponse(BaseModel):
+    id: str
+    code: str
+    name: str
+    rate: str
+    tax_type: str
+    country: str
+    is_active: bool
+    tax_collected_account_id: str | None
+    tax_paid_account_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("rate", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class TaxCodeListResponse(BaseModel):
+    items: list[TaxCodeResponse]
+
+
+# ── Invoices ──────────────────────────────────────────────────────────────────
+
+class InvoiceLineCreate(BaseModel):
+    account_id: str
+    item_id: str | None = None
+    tax_code_id: str | None = None
+    description: str | None = None
+    quantity: str = Field(default="1")
+    unit_price: str = Field(default="0")
+    discount_pct: str = Field(default="0")
+
+    @field_validator("quantity", "unit_price", "discount_pct")
+    @classmethod
+    def must_be_non_negative(cls, v: str) -> str:
+        if Decimal(v) < 0:
+            raise ValueError("must be non-negative")
+        return v
+
+
+class InvoiceCreate(BaseModel):
+    contact_id: str
+    issue_date: date
+    due_date: date | None = None
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    fx_rate: str = Field(default="1")
+    period_name: str | None = None
+    reference: str | None = None
+    notes: str | None = None
+    lines: list[InvoiceLineCreate] = Field(..., min_length=1)
+
+    @field_validator("fx_rate")
+    @classmethod
+    def fx_positive(cls, v: str) -> str:
+        if Decimal(v) <= 0:
+            raise ValueError("fx_rate must be positive")
+        return v
+
+
+class InvoiceLineResponse(BaseModel):
+    id: str
+    line_no: int
+    item_id: str | None
+    account_id: str
+    tax_code_id: str | None
+    description: str | None
+    quantity: str
+    unit_price: str
+    discount_pct: str
+    line_amount: str
+    tax_amount: str
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("quantity", "unit_price", "discount_pct", "line_amount", "tax_amount", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class InvoiceResponse(BaseModel):
+    id: str
+    number: str
+    status: str
+    contact_id: str
+    issue_date: str
+    due_date: str | None
+    period_name: str | None
+    reference: str | None
+    currency: str
+    fx_rate: str
+    subtotal: str
+    tax_total: str
+    total: str
+    amount_due: str
+    functional_total: str
+    journal_entry_id: str | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
+    lines: list[InvoiceLineResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("fx_rate", "subtotal", "tax_total", "total", "amount_due", "functional_total", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class InvoiceListResponse(BaseModel):
+    items: list[InvoiceResponse]
+    next_cursor: str | None
+
+
+# ── Bills ─────────────────────────────────────────────────────────────────────
+
+class BillLineCreate(BaseModel):
+    account_id: str
+    item_id: str | None = None
+    tax_code_id: str | None = None
+    description: str | None = None
+    quantity: str = Field(default="1")
+    unit_price: str = Field(default="0")
+    discount_pct: str = Field(default="0")
+
+    @field_validator("quantity", "unit_price", "discount_pct")
+    @classmethod
+    def must_be_non_negative(cls, v: str) -> str:
+        if Decimal(v) < 0:
+            raise ValueError("must be non-negative")
+        return v
+
+
+class BillCreate(BaseModel):
+    contact_id: str
+    issue_date: date
+    due_date: date | None = None
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    fx_rate: str = Field(default="1")
+    period_name: str | None = None
+    supplier_reference: str | None = None
+    notes: str | None = None
+    lines: list[BillLineCreate] = Field(..., min_length=1)
+
+
+class BillLineResponse(BaseModel):
+    id: str
+    line_no: int
+    item_id: str | None
+    account_id: str
+    tax_code_id: str | None
+    description: str | None
+    quantity: str
+    unit_price: str
+    discount_pct: str
+    line_amount: str
+    tax_amount: str
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("quantity", "unit_price", "discount_pct", "line_amount", "tax_amount", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class BillResponse(BaseModel):
+    id: str
+    number: str
+    status: str
+    contact_id: str
+    supplier_reference: str | None
+    issue_date: str
+    due_date: str | None
+    period_name: str | None
+    currency: str
+    fx_rate: str
+    subtotal: str
+    tax_total: str
+    total: str
+    amount_due: str
+    functional_total: str
+    journal_entry_id: str | None
+    notes: str | None
+    approved_by: str | None
+    approved_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    lines: list[BillLineResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("fx_rate", "subtotal", "tax_total", "total", "amount_due", "functional_total", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class BillListResponse(BaseModel):
+    items: list[BillResponse]
+    next_cursor: str | None
+
+
+# ── Dashboard ─────────────────────────────────────────────────────────────────
+
+class DashboardResponse(BaseModel):
+    cash_balance: str
+    accounts_receivable: str
+    accounts_payable: str
+    revenue_mtd: str
+    expenses_mtd: str
+    invoices_overdue: int
+    bills_awaiting_approval: int
+    generated_at: datetime
+
+
+# ── P&L Report ────────────────────────────────────────────────────────────────
+
+class PLLineResponse(BaseModel):
+    account_id: str
+    code: str
+    name: str
+    subtype: str
+    balance: str
+
+
+class PLResponse(BaseModel):
+    from_date: date
+    to_date: date
+    total_revenue: str
+    total_expenses: str
+    net_profit: str
+    is_profitable: bool
+    revenue_lines: list[PLLineResponse]
+    expense_lines: list[PLLineResponse]
+    generated_at: datetime
+
+
+# ── Balance Sheet ─────────────────────────────────────────────────────────────
+
+class BalanceSheetLineResponse(BaseModel):
+    account_id: str
+    code: str
+    name: str
+    subtype: str
+    balance: str  # debit - credit for assets, credit - debit for liabilities/equity
+
+
+class BalanceSheetSectionResponse(BaseModel):
+    total: str
+    lines: list[BalanceSheetLineResponse]
+
+
+class BalanceSheetResponse(BaseModel):
+    as_of: date
+    assets: BalanceSheetSectionResponse
+    liabilities: BalanceSheetSectionResponse
+    equity: BalanceSheetSectionResponse
+    total_liabilities_and_equity: str
+    is_balanced: bool  # abs(assets.total - total_liabilities_and_equity) < 0.01
+    generated_at: datetime
+
+
+# ── AR / AP Aging ─────────────────────────────────────────────────────────────
+
+class AgingRowResponse(BaseModel):
+    contact_id: str
+    contact_name: str
+    invoice_number: str
+    issue_date: str
+    due_date: str | None
+    total: str
+    amount_due: str
+    days_overdue: int  # max(0, (as_of - due_date).days) if due_date else 0
+    bucket: str  # "current" | "1-30" | "31-60" | "61-90" | "90+"
+
+
+class AgingResponse(BaseModel):
+    as_of: date
+    current_total: str
+    bucket_1_30: str
+    bucket_31_60: str
+    bucket_61_90: str
+    bucket_90_plus: str
+    grand_total: str
+    rows: list[AgingRowResponse]
+    generated_at: datetime
+
+
+# ── Cash Flow ─────────────────────────────────────────────────────────────────
+
+class CashFlowLineResponse(BaseModel):
+    label: str
+    amount: str
+    is_subtotal: bool = False
+
+
+class CashFlowResponse(BaseModel):
+    from_date: date
+    to_date: date
+    operating_activities: list[CashFlowLineResponse]
+    investing_activities: list[CashFlowLineResponse]
+    financing_activities: list[CashFlowLineResponse]
+    net_operating: str
+    net_investing: str
+    net_financing: str
+    net_change: str
+    opening_cash: str
+    closing_cash: str
+    generated_at: datetime

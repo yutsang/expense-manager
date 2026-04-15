@@ -31,7 +31,7 @@ export default function GeneralLedgerPage() {
   useEffect(() => {
     accountsApi.list().then((r) => {
       setAccounts(r.items);
-      if (r.items.length > 0) setAccountId(r.items[0].id);
+      if (r.items.length > 0) setAccountId(r.items[0]!.id);
     });
   }, []);
 
