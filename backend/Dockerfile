@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps first (layer cache)
@@ -21,6 +22,10 @@ COPY alembic.ini ./
 RUN useradd -m -u 1000 aegis && chown -R aegis:aegis /app
 USER aegis
 
-EXPOSE 8000
+# Cloud Run sets PORT env var; default 8000 for local
+ENV PORT=8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+EXPOSE ${PORT}
+
+# Single worker on Cloud Run (scale via instances, not processes)
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers 1
