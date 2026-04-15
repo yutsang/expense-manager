@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { reportsApi, type TrialBalanceReport } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 function fmt(s: string) {
   const n = parseFloat(s);
@@ -38,13 +39,12 @@ export default function TrialBalancePage() {
     : [];
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Trial Balance</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Summarised debit/credit totals for all accounts as of a date.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title="Trial Balance"
+        subtitle="Summarised debit/credit totals for all accounts as of a date"
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6">
 
       {/* Controls */}
       <div className="mb-6 flex items-end gap-3">
@@ -154,5 +154,6 @@ export default function TrialBalancePage() {
         </div>
       )}
     </div>
+    </>
   );
 }

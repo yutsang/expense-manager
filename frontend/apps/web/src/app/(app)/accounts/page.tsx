@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { accountsApi, type Account } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 const TYPE_COLORS: Record<string, string> = {
   asset: "bg-blue-100 text-blue-800",
@@ -159,24 +160,25 @@ export default function AccountsPage() {
     );
   }
 
+  const headerActions = (
+    <label className="flex items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        checked={includeInactive}
+        onChange={(e) => setIncludeInactive(e.target.checked)}
+      />
+      Show inactive
+    </label>
+  );
+
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Chart of Accounts</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {accounts.length} accounts
-          </p>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={includeInactive}
-            onChange={(e) => setIncludeInactive(e.target.checked)}
-          />
-          Show inactive
-        </label>
-      </div>
+    <>
+      <PageHeader
+        title="Chart of Accounts"
+        subtitle={`${accounts.length} account${accounts.length !== 1 ? "s" : ""}`}
+        actions={headerActions}
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6">
 
       {error && (
         <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -206,5 +208,6 @@ export default function AccountsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

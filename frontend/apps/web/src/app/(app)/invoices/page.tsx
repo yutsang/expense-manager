@@ -2,16 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { type Account, type Contact, type Invoice, accountsApi, contactsApi, invoicesApi } from "@/lib/api";
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  authorised: "bg-blue-100 text-blue-700",
-  sent: "bg-indigo-100 text-indigo-700",
-  partial: "bg-yellow-100 text-yellow-700",
-  paid: "bg-green-100 text-green-700",
-  void: "bg-red-100 text-red-600",
-  credit_note: "bg-purple-100 text-purple-700",
-};
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
 
 function fmt(amount: string, currency = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -139,20 +131,23 @@ export default function InvoicesPage() {
 
   const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
 
+  const headerActions = (
+    <button
+      onClick={() => setShowForm(true)}
+      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+    >
+      + New Invoice
+    </button>
+  );
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Invoices</h1>
-          <p className="text-sm text-muted-foreground">Sales invoices to customers</p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          + New Invoice
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Invoices"
+        subtitle="Sales invoices to customers"
+        actions={headerActions}
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       {/* Filter */}
       <div className="flex gap-3">
@@ -324,12 +319,10 @@ export default function InvoicesPage() {
                   <td className="px-4 py-3">{contactName(inv.contact_id)}</td>
                   <td className="px-4 py-3 text-muted-foreground">{inv.issue_date}</td>
                   <td className="px-4 py-3 text-muted-foreground">{inv.due_date ?? "—"}</td>
-                  <td className="px-4 py-3 text-right font-mono">{fmt(inv.total, inv.currency)}</td>
-                  <td className="px-4 py-3 text-right font-mono">{fmt(inv.amount_due, inv.currency)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(inv.total, inv.currency)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(inv.amount_due, inv.currency)}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[inv.status] ?? "bg-muted"}`}>
-                      {inv.status}
-                    </span>
+                    <StatusBadge status={inv.status} />
                   </td>
                   <td className="px-4 py-3 text-right space-x-2">
                     {inv.status === "draft" && (
@@ -356,5 +349,6 @@ export default function InvoicesPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

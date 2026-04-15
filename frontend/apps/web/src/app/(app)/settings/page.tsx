@@ -1,12 +1,15 @@
 "use client";
 
+import { PageHeader } from "@/components/page-header";
+
 export default function SettingsPage() {
   return (
-    <div className="p-6 space-y-8 max-w-2xl">
-      <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your organisation and account preferences</p>
-      </div>
+    <>
+      <PageHeader
+        title="Settings"
+        subtitle="Manage your organisation and account"
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-8 max-w-2xl">
 
       {/* Section 1: Organisation */}
       <section className="rounded-xl border bg-card shadow-sm">
@@ -110,5 +113,6 @@ export default function SettingsPage() {
         </div>
       </section>
     </div>
+    </>
   );
 }

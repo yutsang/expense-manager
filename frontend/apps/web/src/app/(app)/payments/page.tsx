@@ -8,12 +8,8 @@ import {
   contactsApi,
   paymentsApi,
 } from "@/lib/api";
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-600",
-  applied: "bg-green-100 text-green-700",
-  voided: "bg-red-100 text-red-600",
-};
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
 
 function fmt(amount: string, currency = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -118,21 +114,23 @@ export default function PaymentsPage() {
 
   const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
 
+  const headerActions = (
+    <button
+      onClick={openForm}
+      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+    >
+      + New Payment
+    </button>
+  );
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Payments</h1>
-          <p className="text-sm text-muted-foreground">Record and track payments received and made</p>
-        </div>
-        <button
-          onClick={openForm}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          + New Payment
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Payments"
+        subtitle="Record and track payments received and made"
+        actions={headerActions}
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg border bg-muted/30 p-1 w-fit">
@@ -287,16 +285,12 @@ export default function PaymentsPage() {
                   <td className="px-4 py-3 font-mono text-xs font-medium">{payment.number}</td>
                   <td className="px-4 py-3">{contactName(payment.contact_id)}</td>
                   <td className="px-4 py-3 text-muted-foreground">{payment.payment_date}</td>
-                  <td className="px-4 py-3 text-right font-mono">
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">
                     {fmt(payment.amount, payment.currency)}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{payment.reference ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[payment.status] ?? "bg-muted"}`}
-                    >
-                      {payment.status}
-                    </span>
+                    <StatusBadge status={payment.status} />
                   </td>
                   <td className="px-4 py-3 text-right">
                     {payment.status !== "voided" && (
@@ -315,5 +309,6 @@ export default function PaymentsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

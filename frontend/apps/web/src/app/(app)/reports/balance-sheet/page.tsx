@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type BalanceSheetReport, reportsApi } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 function fmt(amount: string) {
   return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(
@@ -83,11 +84,9 @@ export default function BalanceSheetPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Balance Sheet</h1>
-        <p className="text-sm text-muted-foreground">Assets, liabilities and equity as of a date</p>
-      </div>
+    <>
+      <PageHeader title="Balance Sheet" subtitle="Assets, liabilities and equity as of a date" />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       <div className="flex items-end gap-4">
         <div>
@@ -169,5 +168,6 @@ export default function BalanceSheetPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

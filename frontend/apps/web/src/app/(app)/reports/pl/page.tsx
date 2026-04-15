@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type PLReport, reportsApi } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 function fmt(amount: string) {
   return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(
@@ -32,11 +33,9 @@ export default function PLPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Profit & Loss</h1>
-        <p className="text-sm text-muted-foreground">Income statement for a date range</p>
-      </div>
+    <>
+      <PageHeader title="Profit & Loss" subtitle="Income statement for a date range" />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       {/* Controls */}
       <div className="flex items-end gap-4">
@@ -160,5 +159,6 @@ export default function PLPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

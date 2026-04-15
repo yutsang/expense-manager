@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type CashFlowReport, reportsApi } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 function fmt(amount: string) {
   const n = parseFloat(amount);
@@ -75,11 +76,9 @@ export default function CashFlowPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Cash Flow Statement</h1>
-        <p className="text-sm text-muted-foreground">Indirect method — operating, investing, financing</p>
-      </div>
+    <>
+      <PageHeader title="Cash Flow Statement" subtitle="Indirect method — operating, investing, financing" />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       <div className="flex items-end gap-4">
         <div>
@@ -171,5 +170,6 @@ export default function CashFlowPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { type AgingReport, reportsApi } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 function fmt(amount: string) {
   return new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" }).format(
@@ -45,11 +46,9 @@ export default function ARAgingPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">AR Aging</h1>
-        <p className="text-sm text-muted-foreground">Outstanding receivables by age as of a date</p>
-      </div>
+    <>
+      <PageHeader title="AR Aging" subtitle="Outstanding receivables by age as of a date" />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       <div className="flex items-end gap-4">
         <div>
@@ -157,5 +156,6 @@ export default function ARAgingPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

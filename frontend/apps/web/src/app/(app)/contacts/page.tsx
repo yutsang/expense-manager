@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { type Contact, contactsApi } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
 
 const TYPE_LABELS: Record<string, string> = {
   customer: "Customer",
@@ -85,20 +87,23 @@ export default function ContactsPage() {
     }
   };
 
+  const headerActions = (
+    <button
+      onClick={() => setShowForm(true)}
+      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+    >
+      + New Contact
+    </button>
+  );
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Contacts</h1>
-          <p className="text-sm text-muted-foreground">Customers, suppliers, and employees</p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          + New Contact
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Contacts"
+        subtitle="Customers, suppliers, and employees"
+        actions={headerActions}
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       {/* Filters */}
       <div className="flex items-center gap-4">
@@ -238,7 +243,7 @@ export default function ContactsPage() {
                 <tr key={c.id} className={`hover:bg-muted/20 ${c.is_archived ? "opacity-50" : ""}`}>
                   <td className="px-4 py-3 font-medium">{c.name}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[c.contact_type] ?? "bg-muted"}`}>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[c.contact_type] ?? "bg-muted"}`}>
                       {TYPE_LABELS[c.contact_type] ?? c.contact_type}
                     </span>
                   </td>
@@ -247,9 +252,9 @@ export default function ContactsPage() {
                   <td className="px-4 py-3">{c.currency}</td>
                   <td className="px-4 py-3">
                     {c.is_archived ? (
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs">Archived</span>
+                      <StatusBadge status="archived" />
                     ) : (
-                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">Active</span>
+                      <StatusBadge status="active" />
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -269,5 +274,6 @@ export default function ContactsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

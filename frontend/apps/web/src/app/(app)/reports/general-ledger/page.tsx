@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { accountsApi, reportsApi, type Account, type GLReport } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 function fmt(s: string) {
   const n = parseFloat(s);
@@ -50,13 +51,12 @@ export default function GeneralLedgerPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">General Ledger</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Detailed transaction history for a single account with running balance.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title="General Ledger"
+        subtitle="Detailed transaction history for a single account with running balance"
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6">
 
       {/* Controls */}
       <div className="mb-6 flex flex-wrap items-end gap-3">
@@ -191,5 +191,6 @@ export default function GeneralLedgerPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

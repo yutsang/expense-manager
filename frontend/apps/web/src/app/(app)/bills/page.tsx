@@ -2,15 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { type Account, type Bill, type Contact, accountsApi, billsApi, contactsApi } from "@/lib/api";
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  awaiting_approval: "bg-yellow-100 text-yellow-700",
-  approved: "bg-blue-100 text-blue-700",
-  partial: "bg-indigo-100 text-indigo-700",
-  paid: "bg-green-100 text-green-700",
-  void: "bg-red-100 text-red-600",
-};
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
 
 function fmt(amount: string, currency = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -122,20 +115,23 @@ export default function BillsPage() {
 
   const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
 
+  const headerActions = (
+    <button
+      onClick={() => setShowForm(true)}
+      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+    >
+      + New Bill
+    </button>
+  );
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Bills</h1>
-          <p className="text-sm text-muted-foreground">Purchase bills from suppliers</p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-        >
-          + New Bill
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Bills"
+        subtitle="Purchase bills from suppliers"
+        actions={headerActions}
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
       {/* Approval inbox banner */}
       {bills.filter((b) => b.status === "awaiting_approval").length > 0 && (
@@ -321,12 +317,10 @@ export default function BillsPage() {
                   <td className="px-4 py-3 text-muted-foreground">{bill.supplier_reference ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{bill.issue_date}</td>
                   <td className="px-4 py-3 text-muted-foreground">{bill.due_date ?? "—"}</td>
-                  <td className="px-4 py-3 text-right font-mono">{fmt(bill.total, bill.currency)}</td>
-                  <td className="px-4 py-3 text-right font-mono">{fmt(bill.amount_due, bill.currency)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(bill.total, bill.currency)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(bill.amount_due, bill.currency)}</td>
                   <td className="px-4 py-3">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[bill.status] ?? "bg-muted"}`}>
-                      {bill.status.replace("_", " ")}
-                    </span>
+                    <StatusBadge status={bill.status} />
                   </td>
                   <td className="px-4 py-3 text-right space-x-2">
                     {bill.status === "draft" && (
@@ -355,5 +349,6 @@ export default function BillsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }

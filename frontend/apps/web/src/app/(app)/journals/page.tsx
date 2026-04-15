@@ -2,21 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { journalsApi, periodsApi, accountsApi, type JournalEntry, type Period, type Account } from "@/lib/api";
-
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-yellow-100 text-yellow-800",
-  posted: "bg-green-100 text-green-800",
-  void: "bg-gray-100 text-gray-600 line-through",
-};
-
-function StatusBadge({ status }: { status: string }) {
-  const cls = STATUS_COLORS[status] ?? "bg-gray-100 text-gray-800";
-  return (
-    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${cls}`}>
-      {status}
-    </span>
-  );
-}
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
 
 type LineInput = {
   account_id: string;
@@ -164,20 +151,23 @@ export default function JournalsPage() {
   const cr = totalCredit(formLines);
   const isBalanced = Math.abs(dr - cr) < 0.0001;
 
+  const headerActions = (
+    <button
+      onClick={() => { setShowCreate(true); void loadSupport(); }}
+      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+    >
+      New Entry
+    </button>
+  );
+
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Journal Entries</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{journals.length} entries</p>
-        </div>
-        <button
-          onClick={() => { setShowCreate(true); loadSupport(); }}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          New Entry
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Journal Entries"
+        subtitle={`${journals.length} entries`}
+        actions={headerActions}
+      />
+    <div className="mx-auto max-w-7xl px-6 py-6">
 
       {error && (
         <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
@@ -370,10 +360,10 @@ export default function JournalsPage() {
                     <td className="px-4 py-2">
                       <StatusBadge status={je.status} />
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-sm">
+                    <td className="px-4 py-2 text-right font-mono tabular-nums text-sm">
                       {formatAmount(je.total_debit)}
                     </td>
-                    <td className="px-4 py-2 text-right font-mono text-sm">
+                    <td className="px-4 py-2 text-right font-mono tabular-nums text-sm">
                       {formatAmount(je.total_credit)}
                     </td>
                     <td className="px-4 py-2">
@@ -404,5 +394,6 @@ export default function JournalsPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
