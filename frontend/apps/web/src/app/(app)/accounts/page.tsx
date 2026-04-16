@@ -28,6 +28,7 @@ export default function AccountsPage() {
   const [includeInactive, setIncludeInactive] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [seeding, setSeeding] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -63,6 +64,18 @@ export default function AccountsPage() {
       await load();
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Archive failed");
+    }
+  }
+
+  async function handleSeedDefault() {
+    setSeeding(true);
+    try {
+      await accountsApi.seedDefault();
+      await load();
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Seed failed");
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -187,6 +200,18 @@ export default function AccountsPage() {
       {loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           Loading accounts…
+        </div>
+      ) : accounts.length === 0 ? (
+        <div className="rounded-lg border bg-card p-12 text-center">
+          <p className="mb-2 text-sm font-medium text-muted-foreground">No chart of accounts yet.</p>
+          <p className="mb-6 text-xs text-muted-foreground">Import a default US chart of accounts to get started.</p>
+          <button
+            onClick={handleSeedDefault}
+            disabled={seeding}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {seeding ? "Importing…" : "Import Default Chart of Accounts"}
+          </button>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">

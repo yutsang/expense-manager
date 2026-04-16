@@ -287,6 +287,8 @@ export const accountsApi = {
   update: (id: string, body: { name?: string; description?: string }) =>
     request<Account>("PATCH", `/v1/accounts/${id}`, body),
   archive: (id: string) => request<void>("DELETE", `/v1/accounts/${id}`),
+  seedDefault: () =>
+    request<{ items: Account[]; total: number }>("POST", "/v1/accounts/seed-default"),
 };
 
 // ── Periods ─────────────────────────────────────────────────────────────────
