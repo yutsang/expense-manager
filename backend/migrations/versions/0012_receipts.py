@@ -33,7 +33,7 @@ def upgrade() -> None:
         sa.Column("ocr_date", sa.String(10), nullable=True),
         sa.Column("ocr_currency", sa.String(3), nullable=True),
         sa.Column("ocr_total", sa.Numeric(19, 4), nullable=True),
-        sa.Column("ocr_raw", JSONB(), nullable=False, server_default="'{}'"),
+        sa.Column("ocr_raw", JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")),
         sa.Column("linked_bill_id", sa.UUID(), nullable=True),
         sa.Column(
             "created_at",
