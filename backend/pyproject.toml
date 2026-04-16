@@ -44,6 +44,7 @@ dependencies = [
     "orjson>=3.10.0",
     "python-dateutil>=2.9.0",
     "pytz>=2024.2",
+    "rapidfuzz>=3.10.0",  # fuzzy name matching for sanctions screening
 ]
 
 [project.optional-dependencies]

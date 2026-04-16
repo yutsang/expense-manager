@@ -855,6 +855,37 @@ export const kycApi = {
   dashboardAlerts: () => request<KycDashboardAlerts>("GET", "/v1/kyc/dashboard-alerts"),
 };
 
+// ── Sanctions ──────────────────────────────────────────────────────────────
+
+export interface SanctionsSnapshot {
+  id: string;
+  source: string;
+  fetched_at: string;
+  entry_count: number;
+  sha256_hash: string;
+  is_active: boolean;
+  notes: string | null;
+}
+
+export interface SanctionsScreeningResult {
+  id: string;
+  contact_id: string;
+  screened_at: string;
+  match_status: "clear" | "potential_match" | "confirmed_match";
+  match_score: number;
+  matched_name: string | null;
+  details: Array<{ entry_id: string; name: string; score: number; source: string }>;
+}
+
+export const sanctionsApi = {
+  snapshots: () => request<SanctionsSnapshot[]>("GET", "/v1/sanctions/snapshots"),
+  refresh: () => request<{ status: string }>("POST", "/v1/sanctions/refresh"),
+  screenContact: (contactId: string) =>
+    request<SanctionsScreeningResult>("POST", `/v1/sanctions/screen/${contactId}`),
+  getScreenResult: (contactId: string) =>
+    request<SanctionsScreeningResult | null>("GET", `/v1/sanctions/screen/${contactId}`),
+};
+
 // ── Audit ─────────────────────────────────────────────────────────────────────
 
 export interface AuditEvent {

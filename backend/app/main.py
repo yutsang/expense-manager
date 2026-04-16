@@ -75,7 +75,7 @@ async def request_context_middleware(request: Request, call_next: object) -> Res
 
 
 # ─── Routers ────────────────────────────────────────────────────────────────
-from app.api.v1 import accounts, ai, audit, auth, bank_reconciliation, bills, contacts, expense_claims, fx, invoices, items, journals, kyc, payments, periods, reports, sync  # noqa: E402
+from app.api.v1 import accounts, ai, audit, auth, bank_reconciliation, bills, contacts, expense_claims, fx, invoices, items, journals, kyc, payments, periods, reports, sanctions, sync  # noqa: E402
 
 _API_PREFIX = "/v1"
 app.include_router(accounts.router, prefix=_API_PREFIX)
@@ -95,6 +95,7 @@ app.include_router(ai.router, prefix=_API_PREFIX)
 app.include_router(audit.router, prefix=_API_PREFIX)
 app.include_router(sync.router, prefix=_API_PREFIX)
 app.include_router(kyc.router, prefix=_API_PREFIX)
+app.include_router(sanctions.router, prefix=_API_PREFIX)
 
 
 @app.get("/health", tags=["meta"], summary="Health check")

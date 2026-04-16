@@ -949,3 +949,78 @@ class SyncOp(Base):
     __table_args__ = (
         CheckConstraint("status IN ('applied','conflict','error')", name="ck_sync_ops_status"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — Sanctions: global reference lists + per-tenant screening results
+# ---------------------------------------------------------------------------
+
+
+class SanctionsListSnapshot(Base):
+    """Immutable snapshot of a fetched sanctions list (OFAC or FATF)."""
+
+    __tablename__ = "sanctions_list_snapshots"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    source: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    entry_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class SanctionsListEntry(Base):
+    """A single entity/country in a sanctions list snapshot."""
+
+    __tablename__ = "sanctions_list_entries"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    snapshot_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("sanctions_list_snapshots.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    ref_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    primary_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    aliases: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    countries: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    programs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+
+
+class ContactSanctionsResult(Base):
+    """Screening result for a contact against all active sanctions lists."""
+
+    __tablename__ = "contact_sanctions_results"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    contact_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    screened_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    snapshot_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("sanctions_list_snapshots.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    match_status: Mapped[str] = mapped_column(String(20), nullable=False, default="clear")
+    match_score: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    matched_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("sanctions_list_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    matched_name: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    details: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "contact_id", name="uq_sanctions_results_tenant_contact"),
+    )

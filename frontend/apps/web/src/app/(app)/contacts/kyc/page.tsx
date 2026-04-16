@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShieldCheck, ShieldAlert, Edit2, X, Check, ChevronDown } from "lucide-react";
-import { kycApi, type KycListItem, type KycUpdate } from "@/lib/api";
+import { ShieldCheck, ShieldAlert, Edit2, X, Check, ChevronDown, RefreshCw, Scan } from "lucide-react";
+import { kycApi, sanctionsApi, type KycListItem, type KycUpdate, type SanctionsScreeningResult } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
@@ -43,6 +43,43 @@ function SanctionsBadge({ status }: { status: string }) {
       {label}
     </span>
   );
+}
+
+function ScreeningMatchBadge({ result }: { result: SanctionsScreeningResult | null | undefined }) {
+  if (!result) {
+    return <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">Not screened</span>;
+  }
+  if (result.match_status === "confirmed_match") {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+        <ShieldAlert className="mr-1 h-3 w-3" /> Flagged ({result.match_score})
+      </span>
+    );
+  }
+  if (result.match_status === "potential_match") {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+        Review ({result.match_score})
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+      Clear
+    </span>
+  );
+}
+
+function relativeTime(isoStr: string): string {
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 // ── Date rendering with color cues ────────────────────────────────────────────
@@ -316,11 +353,27 @@ export default function KycPage() {
   const [editing, setEditing] = useState<KycListItem | null>(null);
   const [filterKyc, setFilterKyc] = useState<string>("");
   const [filterSanctions, setFilterSanctions] = useState<string>("");
+  const [screeningResults, setScreeningResults] = useState<Map<string, SanctionsScreeningResult>>(new Map());
+  const [refreshing, setRefreshing] = useState(false);
+  const [screeningId, setScreeningId] = useState<string | null>(null);
 
   useEffect(() => {
     kycApi
       .list()
-      .then(setItems)
+      .then((rows) => {
+        setItems(rows);
+        // Load existing screen results for each contact
+        rows.forEach((row) => {
+          sanctionsApi
+            .getScreenResult(row.contact_id)
+            .then((result) => {
+              if (result) {
+                setScreeningResults((prev) => new Map(prev).set(row.contact_id, result));
+              }
+            })
+            .catch(() => {/* silently ignore — result not yet available */});
+        });
+      })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -330,6 +383,29 @@ export default function KycPage() {
       prev.map((it) => (it.contact_id === updated.contact_id ? updated : it))
     );
     setEditing(null);
+  }
+
+  async function handleRefreshLists() {
+    setRefreshing(true);
+    try {
+      await sanctionsApi.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function handleScreen(contactId: string) {
+    setScreeningId(contactId);
+    try {
+      const result = await sanctionsApi.screenContact(contactId);
+      setScreeningResults((prev) => new Map(prev).set(contactId, result));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Screening failed");
+    } finally {
+      setScreeningId(null);
+    }
   }
 
   const filtered = items.filter((it) => {
@@ -345,6 +421,14 @@ export default function KycPage() {
         subtitle="Know Your Customer compliance and sanctions screening"
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => { void handleRefreshLists(); }}
+              disabled={refreshing}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh Lists
+            </button>
             <ShieldCheck className="h-5 w-5 text-muted-foreground" />
           </div>
         }
@@ -420,6 +504,8 @@ export default function KycPage() {
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Type</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">KYC Status</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sanctions</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Screen Result</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Screened</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">ID Type</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">ID Expiry</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">POA Date</th>
@@ -434,6 +520,14 @@ export default function KycPage() {
                       <td className="px-4 py-3 text-muted-foreground capitalize text-xs">{item.contact_type}</td>
                       <td className="px-4 py-3"><KycStatusBadge status={item.kyc_status} /></td>
                       <td className="px-4 py-3"><SanctionsBadge status={item.sanctions_status} /></td>
+                      <td className="px-4 py-3">
+                        <ScreeningMatchBadge result={screeningResults.get(item.contact_id)} />
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {screeningResults.get(item.contact_id)
+                          ? relativeTime(screeningResults.get(item.contact_id)!.screened_at)
+                          : <span className="text-muted-foreground/50">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         {item.id_type
                           ? item.id_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -445,13 +539,27 @@ export default function KycPage() {
                         {item.last_review_date ?? <span className="text-muted-foreground/50">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => setEditing(item)}
-                          className="inline-flex items-center gap-1 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          Edit
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => { void handleScreen(item.contact_id); }}
+                            disabled={screeningId === item.contact_id}
+                            className="inline-flex items-center gap-1 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+                          >
+                            {screeningId === item.contact_id ? (
+                              <span className="h-3 w-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                            ) : (
+                              <Scan className="h-3 w-3" />
+                            )}
+                            Screen
+                          </button>
+                          <button
+                            onClick={() => setEditing(item)}
+                            className="inline-flex items-center gap-1 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

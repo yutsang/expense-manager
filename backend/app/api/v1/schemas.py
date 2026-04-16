@@ -1130,3 +1130,29 @@ class KycDashboardAlerts(BaseModel):
     poa_stale: int
     pending_kyc: int
     flagged: int
+
+
+# ── Sanctions ─────────────────────────────────────────────────────────────────
+
+class SanctionsSnapshotResponse(BaseModel):
+    id: str
+    source: str
+    fetched_at: datetime
+    entry_count: int
+    sha256_hash: str
+    is_active: bool
+    notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class ContactScreeningResultResponse(BaseModel):
+    id: str
+    contact_id: str
+    screened_at: datetime
+    match_status: str
+    match_score: int
+    matched_name: str | None
+    details: list[dict[str, Any]]
+
+    model_config = {"from_attributes": True}
