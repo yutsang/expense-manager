@@ -82,7 +82,13 @@ jobs:
       - name: Unit + property tests
         run: pytest tests/unit tests/property -q --tb=short --cov=app --cov-report=xml
       - name: Integration tests
-        run: pytest tests/integration -q --tb=short
+        run: |
+          count=$(find tests/integration -name "test_*.py" | wc -l)
+          if [ "$count" -gt "0" ]; then
+            pytest tests/integration -q --tb=short
+          else
+            echo "No integration tests yet — skipping"
+          fi
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:

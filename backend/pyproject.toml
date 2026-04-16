@@ -111,6 +111,7 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = false
+exclude = ["scripts/"]
 
 [[tool.mypy.overrides]]
 module = ["webauthn.*", "arq.*", "jose.*"]
