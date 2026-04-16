@@ -25,8 +25,6 @@ interface AuthState {
   setUser: (user: User) => void;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -34,30 +32,35 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       login: async (email, password, mfaCode) => {
-        const res = await fetch(`${API_BASE}/v1/auth/login`, {
+        // Use relative URL so the request goes through the Vercel proxy — cookies
+        // are then set on the vercel.app domain and the middleware can read them.
+        const res = await fetch("/v1/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, mfa_code: mfaCode }),
           credentials: "include",
         });
         if (res.status === 202) {
-          // Server asks for MFA
           return { requires_mfa: true };
         }
         if (!res.ok) {
           const detail = (await res.json().catch(() => ({}))) as { detail?: string };
           throw new Error(detail.detail ?? "Login failed");
         }
-        const data = (await res.json()) as { user: User };
+        const data = (await res.json()) as { user: User; tenant_id?: string };
+        if (data.tenant_id && typeof window !== "undefined") {
+          localStorage.setItem("aegis_tenant_id", data.tenant_id);
+        }
         set({ user: data.user, isAuthenticated: true });
         return { requires_mfa: false };
       },
 
       logout: async () => {
-        await fetch(`${API_BASE}/v1/auth/logout`, {
+        await fetch("/v1/auth/logout", {
           method: "POST",
           credentials: "include",
         }).catch(() => {});
+        if (typeof window !== "undefined") localStorage.removeItem("aegis_tenant_id");
         set({ user: null, isAuthenticated: false });
       },
 
