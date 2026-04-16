@@ -118,3 +118,4 @@ backend/openapi.json
 .tmp/
 tmp/
 .vercel
+.claude/worktrees/
