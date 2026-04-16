@@ -233,9 +233,7 @@ async def list_all(
 @router.get("/{po_id}", response_model=POOut)
 async def get_one(po_id: str, db: DbSession, tenant_id: TenantId) -> POOut:
     result = await db.execute(
-        select(PurchaseOrder).where(
-            PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id
-        )
+        select(PurchaseOrder).where(PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id)
     )
     po = result.scalar_one_or_none()
     if po is None:
@@ -248,15 +246,15 @@ async def update(
     po_id: str, body: POUpdate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
 ) -> POOut:
     result = await db.execute(
-        select(PurchaseOrder).where(
-            PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id
-        )
+        select(PurchaseOrder).where(PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id)
     )
     po = result.scalar_one_or_none()
     if po is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Purchase order not found")
     if po.status == "voided":
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot update a voided PO")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot update a voided PO"
+        )
 
     if body.status is not None:
         po.status = body.status
@@ -280,15 +278,15 @@ async def link_bill(
     po_id: str, body: LinkBillBody, db: DbSession, tenant_id: TenantId, actor_id: ActorId
 ) -> POOut:
     result = await db.execute(
-        select(PurchaseOrder).where(
-            PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id
-        )
+        select(PurchaseOrder).where(PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id)
     )
     po = result.scalar_one_or_none()
     if po is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Purchase order not found")
     if po.status == "voided":
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot link bill to a voided PO")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot link bill to a voided PO"
+        )
 
     po.linked_bill_id = body.bill_id
     po.status = "billed"
@@ -304,9 +302,7 @@ async def link_bill(
 @router.delete("/{po_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def void(po_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId) -> None:
     result = await db.execute(
-        select(PurchaseOrder).where(
-            PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id
-        )
+        select(PurchaseOrder).where(PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id)
     )
     po = result.scalar_one_or_none()
     if po is None:

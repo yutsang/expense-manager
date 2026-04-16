@@ -112,24 +112,22 @@ async def list_attachments(
     entity_id: str = Query(...),
 ) -> list[AttachmentOut]:
     result = await db.execute(
-        select(Attachment).where(
+        select(Attachment)
+        .where(
             Attachment.tenant_id == tenant_id,
             Attachment.entity_type == entity_type,
             Attachment.entity_id == entity_id,
-        ).order_by(Attachment.created_at)
+        )
+        .order_by(Attachment.created_at)
     )
     atts = result.scalars().all()
     return [AttachmentOut.model_validate(a) for a in atts]
 
 
 @router.get("/{attachment_id}/download")
-async def download(
-    attachment_id: str, db: DbSession, tenant_id: TenantId
-) -> RedirectResponse:
+async def download(attachment_id: str, db: DbSession, tenant_id: TenantId) -> RedirectResponse:
     result = await db.execute(
-        select(Attachment).where(
-            Attachment.id == attachment_id, Attachment.tenant_id == tenant_id
-        )
+        select(Attachment).where(Attachment.id == attachment_id, Attachment.tenant_id == tenant_id)
     )
     att = result.scalar_one_or_none()
     if att is None:
@@ -145,13 +143,9 @@ async def download(
 
 
 @router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_attachment(
-    attachment_id: str, db: DbSession, tenant_id: TenantId
-) -> None:
+async def delete_attachment(attachment_id: str, db: DbSession, tenant_id: TenantId) -> None:
     result = await db.execute(
-        select(Attachment).where(
-            Attachment.id == attachment_id, Attachment.tenant_id == tenant_id
-        )
+        select(Attachment).where(Attachment.id == attachment_id, Attachment.tenant_id == tenant_id)
     )
     att = result.scalar_one_or_none()
     if att is None:

@@ -1433,9 +1433,7 @@ class SalesDocumentLine(Base):
     line_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
-    document: Mapped[SalesDocument] = sa.orm.relationship(
-        "SalesDocument", back_populates="lines"
-    )
+    document: Mapped[SalesDocument] = sa.orm.relationship("SalesDocument", back_populates="lines")
 
 
 class PurchaseOrder(Base):

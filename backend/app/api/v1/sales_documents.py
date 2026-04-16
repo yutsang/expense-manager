@@ -150,9 +150,13 @@ async def _to_out(db: Any, doc: SalesDocument) -> SalesDocOut:
 
 
 @router.post("", response_model=SalesDocOut, status_code=status.HTTP_201_CREATED)
-async def create(body: SalesDocCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId) -> SalesDocOut:
+async def create(
+    body: SalesDocCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+) -> SalesDocOut:
     if body.doc_type not in ("quote", "sales_order"):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="doc_type must be quote or sales_order")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="doc_type must be quote or sales_order"
+        )
 
     subtotal, tax_total, total = _compute_totals(body.lines)
     now = datetime.now(tz=UTC)
@@ -261,7 +265,9 @@ async def update(
     if doc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Sales document not found")
     if doc.status == "voided":
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot update a voided document")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot update a voided document"
+        )
 
     if body.status is not None:
         doc.status = body.status
@@ -281,9 +287,7 @@ async def update(
 
 
 @router.post("/{doc_id}/convert", response_model=dict)
-async def convert(
-    doc_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId
-) -> dict:
+async def convert(doc_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId) -> dict:
     """Convert a quote to a sales_order (or a sales_order to an invoice stub)."""
     result = await db.execute(
         select(SalesDocument).where(
@@ -294,7 +298,9 @@ async def convert(
     if source is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Sales document not found")
     if source.status == "voided":
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot convert a voided document")
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cannot convert a voided document"
+        )
     if source.status == "converted":
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Already converted")
 
