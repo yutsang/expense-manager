@@ -16,6 +16,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+import sqlalchemy as sa
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -756,3 +757,58 @@ class ExpenseClaimLine(Base):
     amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
     tax_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     receipt_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — AI Assistant: conversations and messages
+# ---------------------------------------------------------------------------
+
+
+class AiConversation(Base):
+    """A single chat conversation between a user and the AI assistant."""
+
+    __tablename__ = "ai_conversations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class AiMessage(Base):
+    """A single message within an AI conversation."""
+
+    __tablename__ = "ai_messages"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    conversation_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("ai_conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tool_calls: Mapped[list | None] = mapped_column(sa.JSON, nullable=True)
+    tool_use_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tool_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cache_creation_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('user', 'assistant', 'tool_result')",
+            name="ck_ai_messages_role",
+        ),
+    )

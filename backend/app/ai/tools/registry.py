@@ -160,8 +160,74 @@ READ_TOOLS: list[ToolSchema] = [
     GET_TRIAL_BALANCE,
 ]
 
-# Full tool registry (expanded in Phase 3 with draft + mutation tools)
-ALL_TOOLS: list[ToolSchema] = READ_TOOLS
+# ── Draft tools ───────────────────────────────────────────────────────────────
+
+DRAFT_JOURNAL_ENTRY: ToolSchema = {
+    "name": "draft_journal_entry",
+    "description": (
+        "Create a DRAFT journal entry proposal. The entry is NOT posted to the ledger. "
+        "Returns a confirmation_required result that must be shown to the user before posting. "
+        "Use this whenever you want to propose a journal entry."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "date": {"type": "string", "format": "date", "description": "Entry date (YYYY-MM-DD)."},
+            "period_name": {"type": "string", "description": "Period in YYYY-MM format."},
+            "description": {"type": "string", "description": "Memo describing the transaction."},
+            "lines": {
+                "type": "array",
+                "minItems": 2,
+                "description": "Journal lines. Total debits must equal total credits.",
+                "items": {
+                    "type": "object",
+                    "required": ["account_code", "debit", "credit"],
+                    "properties": {
+                        "account_code": {"type": "string"},
+                        "description": {"type": "string"},
+                        "debit": {
+                            "type": "string",
+                            "description": "Decimal string e.g. '1000.00'. Use '0' for credit-side lines.",
+                        },
+                        "credit": {
+                            "type": "string",
+                            "description": "Decimal string e.g. '1000.00'. Use '0' for debit-side lines.",
+                        },
+                    },
+                },
+            },
+        },
+        "required": ["date", "description", "lines"],
+    },
+}
+
+# ── Mutation tools ────────────────────────────────────────────────────────────
+
+POST_JOURNAL_ENTRY: ToolSchema = {
+    "name": "post_journal_entry",
+    "description": (
+        "Post a previously drafted journal entry to the ledger. "
+        "ONLY call this after the user has explicitly confirmed they want to post. "
+        "Requires the draft_id returned by draft_journal_entry."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "draft_id": {
+                "type": "string",
+                "description": "The draft_id from draft_journal_entry.",
+            },
+        },
+        "required": ["draft_id"],
+    },
+}
+
+DRAFT_TOOLS: list[ToolSchema] = [DRAFT_JOURNAL_ENTRY]
+MUTATION_TOOLS: list[ToolSchema] = [POST_JOURNAL_ENTRY]
+MUTATION_TOOL_NAMES: frozenset[str] = frozenset(t["name"] for t in MUTATION_TOOLS)
+
+# Full tool registry
+ALL_TOOLS: list[ToolSchema] = READ_TOOLS + DRAFT_TOOLS + MUTATION_TOOLS
 
 TOOL_NAMES: frozenset[str] = frozenset(t["name"] for t in ALL_TOOLS)
 

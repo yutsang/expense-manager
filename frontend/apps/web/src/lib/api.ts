@@ -670,3 +670,44 @@ export const paymentsApi = {
   void: (id: string, reason?: string) =>
     request<Payment>("POST", `/v1/payments/${id}/void`, { reason: reason ?? "Voided by user" }),
 };
+
+// ── AI Assistant ──────────────────────────────────────────────────────────────
+
+export type AiMessageRole = "user" | "assistant" | "tool_result";
+
+export interface AiMessage {
+  id: string;
+  role: AiMessageRole;
+  content: string | null;
+  tool_calls: unknown[] | null;
+  created_at: string;
+}
+
+export interface AiConversation {
+  id: string;
+  title: string;
+  created_at: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  conversation_id?: string;
+  confirmed_draft_id?: string;
+}
+
+// Streaming fetch — returns a ReadableStream
+export function streamChat(body: ChatRequest): Promise<Response> {
+  const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+  return fetch(`${BASE_URL}/v1/ai/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+}
+
+export const aiApi = {
+  listConversations: () => request<AiConversation[]>("GET", "/v1/ai/conversations"),
+  getMessages: (conversationId: string) =>
+    request<AiMessage[]>("GET", `/v1/ai/conversations/${conversationId}/messages`),
+};
