@@ -1,4 +1,4 @@
-"""Receipt service — upload to S3, run Claude Vision OCR."""
+"""Receipt service — upload to S3, run OCR via DeepSeek Vision."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import uuid
 from datetime import UTC, datetime
 
 import boto3
-from anthropic import AsyncAnthropic
+from openai import AsyncOpenAI
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -80,7 +80,7 @@ async def run_ocr(
     receipt_id: str,
     tenant_id: str,
 ) -> Receipt:
-    """Call Claude Vision on the receipt image, parse response, update receipt."""
+    """Call DeepSeek Vision on the receipt image, parse response, update receipt."""
     receipt = await db.scalar(
         select(Receipt).where(
             Receipt.id == receipt_id,
@@ -102,41 +102,48 @@ async def run_ocr(
 
         b64_data = base64.standard_b64encode(file_bytes).decode("utf-8")
 
-        client = AsyncAnthropic()
-        message = await client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1024,
-            system=(
-                "You are a receipt parser. Extract structured data from the receipt image provided. "
-                "Return ONLY valid JSON with these fields: "
-                '{"vendor": string|null, "date": "YYYY-MM-DD"|null, "currency": "ISO-4217-code"|null, '
-                '"total": number|null, "line_items": [{"description": string|null, "quantity": number|null, '
-                '"unit_price": number|null, "amount": number|null}]}. '
-                "Return null for any field you cannot confidently determine. "
-                "Do not include any text outside the JSON object."
-            ),
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": receipt.content_type,  # type: ignore[dict-item]
-                                "data": b64_data,
+        if not settings.deepseek_api_key:
+            log.warning("receipt.ocr_skipped_no_api_key", receipt_id=receipt_id)
+            raw_text = ""
+        else:
+            client = AsyncOpenAI(
+                api_key=settings.deepseek_api_key,
+                base_url="https://api.deepseek.com",
+            )
+            completion = await client.chat.completions.create(
+                model="deepseek-chat",
+                max_tokens=1024,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a receipt parser. Extract structured data from the receipt image provided. "
+                            "Return ONLY valid JSON with these fields: "
+                            '{"vendor": string|null, "date": "YYYY-MM-DD"|null, "currency": "ISO-4217-code"|null, '
+                            '"total": number|null, "line_items": [{"description": string|null, "quantity": number|null, '
+                            '"unit_price": number|null, "amount": number|null}]}. '
+                            "Return null for any field you cannot confidently determine. "
+                            "Do not include any text outside the JSON object."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{receipt.content_type};base64,{b64_data}",
+                                },
                             },
-                        },
-                        {
-                            "type": "text",
-                            "text": "Please extract the receipt data and return JSON only.",
-                        },
-                    ],
-                }
-            ],
-        )
-
-        raw_text = message.content[0].text if message.content else ""
+                            {
+                                "type": "text",
+                                "text": "Please extract the receipt data and return JSON only.",
+                            },
+                        ],
+                    },
+                ],
+            )
+            raw_text = completion.choices[0].message.content or ""
         log.info("receipt.ocr_raw_response", receipt_id=receipt_id, length=len(raw_text))
 
         # Parse the JSON response gracefully

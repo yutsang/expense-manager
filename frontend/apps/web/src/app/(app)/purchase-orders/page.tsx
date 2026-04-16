@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { BASE, type Account, type Contact, type Invoice, accountsApi, contactsApi, invoicesApi } from "@/lib/api";
-import { getTenantIdOrRedirect } from "@/lib/get-tenant-id";
+import {
+  type Contact,
+  type PurchaseOrder,
+  type PurchaseOrderCreate,
+  contactsApi,
+  poApi,
+} from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -16,54 +20,70 @@ function fmt(amount: string, currency = "USD") {
 }
 
 interface LineInput {
-  account_id: string;
   description: string;
   quantity: string;
   unit_price: string;
+  tax_rate: string;
 }
 
-export default function InvoicesPage() {
-  const router = useRouter();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+const defaultLine = (): LineInput => ({
+  description: "",
+  quantity: "1",
+  unit_price: "0",
+  tax_rate: "0",
+});
+
+const PO_STATUSES = ["", "draft", "sent", "partially_received", "received", "billed", "voided"];
+
+export default function PurchaseOrdersPage() {
+  const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    contact_id: string;
+    issue_date: string;
+    expected_delivery: string;
+    currency: string;
+    reference: string;
+    notes: string;
+    lines: LineInput[];
+  }>({
     contact_id: "",
     issue_date: new Date().toISOString().slice(0, 10),
-    due_date: "",
+    expected_delivery: "",
     currency: "USD",
-    lines: [{ account_id: "", description: "", quantity: "1", unit_price: "0" }] as LineInput[],
+    reference: "",
+    notes: "",
+    lines: [defaultLine()],
   });
 
   const load = async () => {
     setError(null);
     try {
       setLoading(true);
-      const [invRes, contRes, accRes] = await Promise.all([
-        invoicesApi.list(filterStatus ? { status: filterStatus } : {}),
-        contactsApi.list({ contact_type: "customer" }),
-        accountsApi.list(),
+      const [posRes, contRes] = await Promise.all([
+        poApi.list(filterStatus ? { status: filterStatus } : {}),
+        contactsApi.list({ contact_type: "supplier" }),
       ]);
-      setInvoices(invRes.items);
+      setPos(posRes.items);
       setContacts(contRes.items);
-      setAccounts(accRes.items.filter((a) => a.type === "revenue"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load invoices");
+      setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { void load(); }, [filterStatus]);
+  useEffect(() => {
+    void load();
+  }, [filterStatus]);
 
-  const addLine = () =>
-    setForm((f) => ({ ...f, lines: [...f.lines, { account_id: "", description: "", quantity: "1", unit_price: "0" }] }));
+  const addLine = () => setForm((f) => ({ ...f, lines: [...f.lines, defaultLine()] }));
 
   const removeLine = (i: number) =>
     setForm((f) => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }));
@@ -72,40 +92,49 @@ export default function InvoicesPage() {
     setForm((f) => {
       const lines = [...f.lines];
       const prev = lines[i] as LineInput;
-      lines[i] = { account_id: prev.account_id, description: prev.description, quantity: prev.quantity, unit_price: prev.unit_price, [field]: val };
+      lines[i] = { ...prev, [field]: val };
       return { ...f, lines };
     });
 
-  const lineTotal = (l: LineInput) =>
-    (parseFloat(l.quantity || "0") * parseFloat(l.unit_price || "0")).toFixed(2);
+  const lineTotal = (l: LineInput) => {
+    const amt = parseFloat(l.quantity || "0") * parseFloat(l.unit_price || "0");
+    const tax = amt * parseFloat(l.tax_rate || "0");
+    return (amt + tax).toFixed(2);
+  };
 
-  const grandTotal = form.lines.reduce((s, l) => s + parseFloat(lineTotal(l)), 0).toFixed(2);
+  const grandTotal = form.lines
+    .reduce((s, l) => s + parseFloat(lineTotal(l)), 0)
+    .toFixed(2);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setSaving(true);
-      await invoicesApi.create({
-        contact_id: form.contact_id,
+      const body: PurchaseOrderCreate = {
+        contact_id: form.contact_id || null,
         issue_date: form.issue_date,
-        due_date: form.due_date || null,
+        expected_delivery: form.expected_delivery || null,
         currency: form.currency,
-        fx_rate: "1",
-        lines: form.lines.map((l) => ({
-          account_id: l.account_id,
+        reference: form.reference || null,
+        notes: form.notes || null,
+        lines: form.lines.map((l, i) => ({
           description: l.description,
           quantity: l.quantity,
           unit_price: l.unit_price,
-          discount_pct: "0",
+          tax_rate: l.tax_rate,
+          sort_order: i,
         })),
-      });
+      };
+      await poApi.create(body);
       setShowForm(false);
       setForm({
         contact_id: "",
         issue_date: new Date().toISOString().slice(0, 10),
-        due_date: "",
+        expected_delivery: "",
         currency: "USD",
-        lines: [{ account_id: "", description: "", quantity: "1", unit_price: "0" }],
+        reference: "",
+        notes: "",
+        lines: [defaultLine()],
       });
       await load();
     } catch (e) {
@@ -115,100 +144,48 @@ export default function InvoicesPage() {
     }
   };
 
-  const handleAuthorise = async (id: string) => {
+  const handleVoid = async (po: PurchaseOrder) => {
+    if (!confirm(`Void PO ${po.number}?`)) return;
     try {
-      await invoicesApi.authorise(id);
+      await poApi.void(po.id);
       await load();
     } catch (e) {
       alert(`Error: ${e}`);
     }
   };
 
-  const handleVoid = async (id: string, number: string) => {
-    if (!confirm(`Void invoice ${number}?`)) return;
+  const handleMarkSent = async (po: PurchaseOrder) => {
     try {
-      await invoicesApi.void(id);
+      await poApi.update(po.id, { status: "sent" });
       await load();
     } catch (e) {
       alert(`Error: ${e}`);
     }
   };
 
-  const handleDownloadPdf = async (invoiceId: string, number: string) => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
-    let tenantId: string;
-    try {
-      tenantId = getTenantIdOrRedirect(router);
-    } catch {
-      return;
-    }
-    const headers: Record<string, string> = { "X-Tenant-ID": tenantId };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(`${BASE}/v1/invoices/${invoiceId}/pdf`, { headers });
-    if (!res.ok) {
-      alert(`PDF generation failed: ${res.statusText}`);
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `invoice-${number}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleSendReminder = async (id: string, number: string) => {
-    if (!confirm(`Send payment reminder for invoice ${number}?`)) return;
-    try {
-      const res = await invoicesApi.sendReminder(id);
-      if (res.sent) {
-        await load();
-      } else {
-        alert("Reminder not sent — email not configured or contact has no email.");
-      }
-    } catch (e) {
-      alert(`Error: ${e}`);
-    }
-  };
-
-  const reminderLabel = (inv: Invoice): string | null => {
-    if (!inv.last_reminder_sent_at) return null;
-    const diffMs = Date.now() - new Date(inv.last_reminder_sent_at).getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return "Reminded today";
-    return `Reminded ${diffDays}d ago`;
-  };
-
-  const isOverdue = (inv: Invoice): boolean => {
-    if (!inv.due_date) return false;
-    return inv.due_date < new Date().toISOString().slice(0, 10) &&
-      (inv.status === "sent" || inv.status === "partial");
-  };
-
-  const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
+  const contactName = (id: string | null) =>
+    id ? (contacts.find((c) => c.id === id)?.name ?? id) : "—";
 
   const headerActions = (
     <button
       onClick={() => setShowForm(true)}
       className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
     >
-      + New Invoice
+      + New PO
     </button>
   );
 
   return (
     <>
       <PageHeader
-        title="Invoices"
-        subtitle="Sales invoices to customers"
+        title="Purchase Orders"
+        subtitle="Orders sent to suppliers"
         actions={headerActions}
       />
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
-
-        {/* Filter */}
-        <div className="flex gap-3">
-          {["", "draft", "authorised", "paid", "void"].map((s) => (
+        {/* Status filter */}
+        <div className="flex flex-wrap gap-2">
+          {PO_STATUSES.map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
@@ -219,15 +196,17 @@ export default function InvoicesPage() {
           ))}
         </div>
 
-        {/* Invoice list */}
         {error && (
           <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
         )}
+
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
-        ) : invoices.length === 0 ? (
+        ) : pos.length === 0 ? (
           <div className="rounded-xl border bg-card p-12 text-center">
-            <p className="text-muted-foreground">No invoices found. Create your first invoice above.</p>
+            <p className="text-muted-foreground">
+              No purchase orders found. Create your first PO above.
+            </p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
@@ -235,70 +214,49 @@ export default function InvoicesPage() {
               <thead className="border-b bg-muted/40">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Number</th>
-                  <th className="px-4 py-3 text-left font-medium">Customer</th>
+                  <th className="px-4 py-3 text-left font-medium">Vendor</th>
                   <th className="px-4 py-3 text-left font-medium">Issue Date</th>
-                  <th className="px-4 py-3 text-left font-medium">Due Date</th>
-                  <th className="px-4 py-3 text-right font-medium">Total</th>
-                  <th className="px-4 py-3 text-right font-medium">Amount Due</th>
+                  <th className="px-4 py-3 text-left font-medium">Expected Delivery</th>
                   <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-right font-medium">Total</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3 font-mono text-xs font-medium">{inv.number}</td>
-                    <td className="px-4 py-3">{contactName(inv.contact_id)}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{inv.issue_date}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{inv.due_date ?? "—"}</td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(inv.total, inv.currency)}</td>
-                    <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(inv.amount_due, inv.currency)}</td>
+                {pos.map((po) => (
+                  <tr key={po.id} className="hover:bg-muted/20">
+                    <td className="px-4 py-3 font-mono text-xs font-medium">{po.number}</td>
+                    <td className="px-4 py-3">{contactName(po.contact_id)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{po.issue_date}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {po.expected_delivery ?? "—"}
+                    </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        <StatusBadge status={inv.status} />
-                        {isOverdue(inv) && reminderLabel(inv) && (
-                          <span className="text-[10px] text-amber-600 font-medium">
-                            {reminderLabel(inv)}
-                          </span>
-                        )}
-                      </div>
+                      <StatusBadge status={po.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono tabular-nums">
+                      {fmt(po.total, po.currency)}
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
-                      {inv.status === "draft" && (
+                      {po.status === "draft" && (
                         <button
-                          onClick={() => { void handleAuthorise(inv.id); }}
+                          onClick={() => { void handleMarkSent(po); }}
                           className="text-xs font-medium text-blue-600 hover:underline"
                         >
-                          Authorise
+                          Mark Sent
                         </button>
                       )}
-                      {isOverdue(inv) && (
+                      {po.status !== "voided" && po.status !== "billed" && (
                         <button
-                          onClick={() => { void handleSendReminder(inv.id, inv.number); }}
-                          className="text-xs font-medium text-amber-600 hover:text-amber-800"
-                          title="Send payment reminder"
-                        >
-                          🔔 Remind
-                        </button>
-                      )}
-                      {inv.status !== "void" && inv.status !== "paid" && (
-                        <button
-                          onClick={() => { void handleVoid(inv.id, inv.number); }}
+                          onClick={() => { void handleVoid(po); }}
                           className="text-xs text-muted-foreground hover:text-red-600"
                         >
                           Void
                         </button>
                       )}
-                      <button
-                        onClick={() => { void handleDownloadPdf(inv.id, inv.number); }}
-                        title="Download PDF"
-                        className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-indigo-600 transition-colors"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                        </svg>
-                        PDF
-                      </button>
+                      {po.linked_bill_id && (
+                        <span className="text-xs text-green-600 font-medium">Billed</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -308,7 +266,7 @@ export default function InvoicesPage() {
         )}
       </div>
 
-      {/* Slide-over panel */}
+      {/* Create slide-over */}
       {showForm && (
         <>
           <div
@@ -317,7 +275,7 @@ export default function InvoicesPage() {
           />
           <div className="fixed right-0 top-0 h-full w-[480px] bg-background border-l shadow-xl z-50 flex flex-col overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold">New Invoice</h2>
+              <h2 className="text-lg font-semibold">New Purchase Order</h2>
               <button
                 onClick={() => setShowForm(false)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-muted transition-colors"
@@ -327,22 +285,28 @@ export default function InvoicesPage() {
             </div>
             <form onSubmit={(e) => { void handleCreate(e); }} className="space-y-4 flex-1">
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Customer *</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Vendor
+                </label>
                 <select
                   value={form.contact_id}
                   onChange={(e) => setForm({ ...form, contact_id: e.target.value })}
                   className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
-                  required
                 >
-                  <option value="">Select customer…</option>
+                  <option value="">Select vendor…</option>
                   {contacts.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
                 </select>
               </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Issue Date *</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Issue Date *
+                  </label>
                   <input
                     type="date"
                     value={form.issue_date}
@@ -352,11 +316,39 @@ export default function InvoicesPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Due Date</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Expected Delivery
+                  </label>
                   <input
                     type="date"
-                    value={form.due_date}
-                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                    value={form.expected_delivery}
+                    onChange={(e) => setForm({ ...form, expected_delivery: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Currency
+                  </label>
+                  <input
+                    type="text"
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })}
+                    maxLength={3}
+                    className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Reference
+                  </label>
+                  <input
+                    type="text"
+                    value={form.reference}
+                    onChange={(e) => setForm({ ...form, reference: e.target.value })}
                     className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
                   />
                 </div>
@@ -369,24 +361,13 @@ export default function InvoicesPage() {
                 </p>
                 {form.lines.map((line, i) => (
                   <div key={i} className="mb-3 space-y-2 rounded-lg border p-3 bg-muted/20">
-                    <div className="grid grid-cols-2 gap-2">
-                      <select
-                        value={line.account_id}
-                        onChange={(e) => updateLine(i, "account_id", e.target.value)}
-                        className="col-span-2 rounded-lg border px-2 py-1.5 text-sm bg-background"
-                        required
-                      >
-                        <option value="">Account…</option>
-                        {accounts.map((a) => (
-                          <option key={a.id} value={a.id}>{a.code} {a.name}</option>
-                        ))}
-                      </select>
-                      <input
-                        value={line.description}
-                        onChange={(e) => updateLine(i, "description", e.target.value)}
-                        placeholder="Description"
-                        className="col-span-2 rounded-lg border px-2 py-1.5 text-sm bg-background"
-                      />
+                    <input
+                      value={line.description}
+                      onChange={(e) => updateLine(i, "description", e.target.value)}
+                      placeholder="Description"
+                      className="w-full rounded-lg border px-2 py-1.5 text-sm bg-background"
+                    />
+                    <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="text-xs text-muted-foreground">Qty</label>
                         <input
@@ -409,10 +390,23 @@ export default function InvoicesPage() {
                           className="w-full rounded-lg border px-2 py-1.5 text-sm bg-background"
                         />
                       </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Tax Rate</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={line.tax_rate}
+                          onChange={(e) => updateLine(i, "tax_rate", e.target.value)}
+                          className="w-full rounded-lg border px-2 py-1.5 text-sm bg-background"
+                        />
+                      </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        Line total: <span className="font-mono font-medium">{lineTotal(line)}</span>
+                        Line total:{" "}
+                        <span className="font-mono font-medium">{lineTotal(line)}</span>
                       </span>
                       {form.lines.length > 1 && (
                         <button
@@ -426,7 +420,11 @@ export default function InvoicesPage() {
                     </div>
                   </div>
                 ))}
-                <button type="button" onClick={addLine} className="text-xs text-indigo-600 hover:underline">
+                <button
+                  type="button"
+                  onClick={addLine}
+                  className="text-xs text-indigo-600 hover:underline"
+                >
                   + Add line
                 </button>
               </div>

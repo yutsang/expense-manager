@@ -22,13 +22,12 @@ class ApiError extends Error {
   }
 }
 
-const DEV_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantIdOrRedirect, MissingTenantError } from "@/lib/get-tenant-id";
+
+export { MissingTenantError };
 
 function getTenantId(): string {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("aegis_tenant_id") ?? DEV_TENANT_ID;
-  }
-  return DEV_TENANT_ID;
+  return getTenantIdOrRedirect();
 }
 
 function getToken(): string | null {
@@ -1049,10 +1048,7 @@ export const receiptsApi = {
     const form = new FormData();
     form.append("file", file);
     const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
-    const tenantId =
-      typeof window !== "undefined"
-        ? (localStorage.getItem("aegis_tenant_id") ?? "00000000-0000-0000-0000-000000000001")
-        : "00000000-0000-0000-0000-000000000001";
+    const tenantId = getTenantId();
     const headers: Record<string, string> = { "X-Tenant-ID": tenantId };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const res = await fetch(`${BASE}/v1/receipts`, {
@@ -1108,6 +1104,192 @@ export interface JeTestingReport {
   large_entries: AuditSample[];
   reversed_same_day: AuditSample[];
 }
+
+// ── Sales Documents (Quotes + Sales Orders) ──────────────────────────────────
+
+export type SalesDocumentLine = {
+  id: string;
+  description: string | null;
+  quantity: string;
+  unit_price: string;
+  tax_rate: string;
+  line_total: string;
+  sort_order: number;
+};
+
+export type SalesDocument = {
+  id: string;
+  doc_type: "quote" | "sales_order";
+  number: string;
+  contact_id: string | null;
+  issue_date: string;
+  expiry_date: string | null;
+  status: string;
+  currency: string;
+  subtotal: string;
+  tax_total: string;
+  total: string;
+  reference: string | null;
+  notes: string | null;
+  converted_to_id: string | null;
+  lines: SalesDocumentLine[];
+};
+
+export type SalesDocumentCreate = {
+  doc_type: "quote" | "sales_order";
+  number?: string;
+  contact_id?: string | null;
+  issue_date: string;
+  expiry_date?: string | null;
+  currency?: string;
+  reference?: string | null;
+  notes?: string | null;
+  lines?: Array<{
+    item_id?: string | null;
+    description?: string | null;
+    quantity?: string;
+    unit_price?: string;
+    tax_rate?: string;
+    sort_order?: number;
+  }>;
+};
+
+export const salesDocsApi = {
+  list: (params?: { doc_type?: string; contact_id?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.doc_type) q.set("doc_type", params.doc_type);
+    if (params?.contact_id) q.set("contact_id", params.contact_id);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<{ items: SalesDocument[]; next_cursor: string | null }>(
+      "GET",
+      `/v1/sales-documents${qs ? `?${qs}` : ""}`
+    );
+  },
+  get: (id: string) => request<SalesDocument>("GET", `/v1/sales-documents/${id}`),
+  create: (body: SalesDocumentCreate) =>
+    request<SalesDocument>("POST", "/v1/sales-documents", body),
+  update: (id: string, body: { status?: string; reference?: string | null; notes?: string | null; expiry_date?: string | null }) =>
+    request<SalesDocument>("PATCH", `/v1/sales-documents/${id}`, body),
+  convert: (id: string) =>
+    request<{ converted_id: string; doc_type: string }>(
+      "POST",
+      `/v1/sales-documents/${id}/convert`
+    ),
+  void: (id: string) => request<void>("DELETE", `/v1/sales-documents/${id}`),
+};
+
+// ── Purchase Orders ──────────────────────────────────────────────────────────
+
+export type POLine = {
+  id: string;
+  description: string | null;
+  quantity: string;
+  unit_price: string;
+  tax_rate: string;
+  line_total: string;
+  sort_order: number;
+};
+
+export type PurchaseOrder = {
+  id: string;
+  number: string;
+  contact_id: string | null;
+  issue_date: string;
+  expected_delivery: string | null;
+  status: string;
+  currency: string;
+  subtotal: string;
+  tax_total: string;
+  total: string;
+  reference: string | null;
+  notes: string | null;
+  linked_bill_id: string | null;
+  lines: POLine[];
+};
+
+export type PurchaseOrderCreate = {
+  number?: string;
+  contact_id?: string | null;
+  issue_date: string;
+  expected_delivery?: string | null;
+  currency?: string;
+  reference?: string | null;
+  notes?: string | null;
+  lines?: Array<{
+    item_id?: string | null;
+    description?: string | null;
+    quantity?: string;
+    unit_price?: string;
+    tax_rate?: string;
+    sort_order?: number;
+  }>;
+};
+
+export const poApi = {
+  list: (params?: { contact_id?: string; status?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.contact_id) q.set("contact_id", params.contact_id);
+    if (params?.status) q.set("status", params.status);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return request<{ items: PurchaseOrder[]; next_cursor: string | null }>(
+      "GET",
+      `/v1/purchase-orders${qs ? `?${qs}` : ""}`
+    );
+  },
+  get: (id: string) => request<PurchaseOrder>("GET", `/v1/purchase-orders/${id}`),
+  create: (body: PurchaseOrderCreate) =>
+    request<PurchaseOrder>("POST", "/v1/purchase-orders", body),
+  update: (id: string, body: { status?: string; reference?: string | null; notes?: string | null; expected_delivery?: string | null }) =>
+    request<PurchaseOrder>("PATCH", `/v1/purchase-orders/${id}`, body),
+  linkBill: (id: string, bill_id: string) =>
+    request<PurchaseOrder>("POST", `/v1/purchase-orders/${id}/link-bill`, { bill_id }),
+  void: (id: string) => request<void>("DELETE", `/v1/purchase-orders/${id}`),
+};
+
+// ── Attachments ───────────────────────────────────────────────────────────────
+
+export type Attachment = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  filename: string;
+  content_type: string;
+  file_size_kb: number;
+  uploaded_by: string | null;
+  created_at: string;
+};
+
+export const attachmentsApi = {
+  list: (entityType: string, entityId: string) =>
+    request<Attachment[]>(
+      "GET",
+      `/v1/attachments?entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(entityId)}`
+    ),
+  delete: (id: string) => request<void>("DELETE", `/v1/attachments/${id}`),
+  upload: async (entityType: string, entityId: string, file: File): Promise<Attachment> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
+    const tenantId = getTenantId();
+    const fd = new FormData();
+    fd.append("entity_type", entityType);
+    fd.append("entity_id", entityId);
+    fd.append("file", file);
+    const res = await fetch(
+      `/v1/attachments?entity_type=${encodeURIComponent(entityType)}&entity_id=${encodeURIComponent(entityId)}`,
+      {
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          "X-Tenant-ID": tenantId,
+        },
+        body: fd,
+      }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as Promise<Attachment>;
+  },
+};
 
 export const auditApi = {
   listEvents: (params?: Record<string, string>) =>

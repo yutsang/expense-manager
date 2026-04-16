@@ -1348,3 +1348,186 @@ class Receipt(Base):
             name="ck_receipts_status",
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 8 — Sales Chain: SalesDocument (Quote/SalesOrder), PurchaseOrder,
+#            Attachment
+# ---------------------------------------------------------------------------
+
+
+class SalesDocument(Base):
+    """Quote or Sales Order — doc_type distinguishes them."""
+
+    __tablename__ = "sales_documents"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    doc_type: Mapped[str] = mapped_column(String(20), nullable=False)  # quote | sales_order
+    number: Mapped[str] = mapped_column(String(50), nullable=False)
+    contact_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)  # ISO date string
+    expiry_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    # draft | sent | accepted | rejected | converted | voided
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    subtotal: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    converted_to_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    lines: Mapped[list[SalesDocumentLine]] = sa.orm.relationship(
+        "SalesDocumentLine", back_populates="document", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "number", name="uq_sales_documents_tenant_number"),
+        CheckConstraint(
+            "doc_type IN ('quote','sales_order')",
+            name="ck_sales_documents_type",
+        ),
+        CheckConstraint(
+            "status IN ('draft','sent','accepted','rejected','converted','voided')",
+            name="ck_sales_documents_status",
+        ),
+    )
+
+
+class SalesDocumentLine(Base):
+    """Line items on a sales document (quote or sales order)."""
+
+    __tablename__ = "sales_document_lines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    document_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("sales_documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    item_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quantity: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=1)
+    unit_price: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_rate: Mapped[object] = mapped_column(Numeric(7, 4), nullable=False, default=0)
+    line_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    document: Mapped[SalesDocument] = sa.orm.relationship(
+        "SalesDocument", back_populates="lines"
+    )
+
+
+class PurchaseOrder(Base):
+    """Purchase order sent to a supplier."""
+
+    __tablename__ = "purchase_orders"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    number: Mapped[str] = mapped_column(String(50), nullable=False)
+    contact_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)  # ISO date string
+    expected_delivery: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    # draft | sent | partially_received | received | billed | voided
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    subtotal: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    linked_bill_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    locked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    lines: Mapped[list[PurchaseOrderLine]] = sa.orm.relationship(
+        "PurchaseOrderLine", back_populates="po", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "number", name="uq_purchase_orders_tenant_number"),
+        CheckConstraint(
+            "status IN ('draft','sent','partially_received','received','billed','voided')",
+            name="ck_purchase_orders_status",
+        ),
+    )
+
+
+class PurchaseOrderLine(Base):
+    """Line items on a purchase order."""
+
+    __tablename__ = "purchase_order_lines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    po_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("purchase_orders.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    item_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True
+    )
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    quantity: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=1)
+    unit_price: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_rate: Mapped[object] = mapped_column(Numeric(7, 4), nullable=False, default=0)
+    line_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    po: Mapped[PurchaseOrder] = sa.orm.relationship("PurchaseOrder", back_populates="lines")
+
+
+class Attachment(Base):
+    """Generic file attachment — can be linked to any document type."""
+
+    __tablename__ = "attachments"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    # invoice | bill | po | sales_document | payment | journal_entry
+    entity_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    s3_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    file_size_kb: Mapped[int] = mapped_column(Integer, nullable=False)
+    uploaded_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )

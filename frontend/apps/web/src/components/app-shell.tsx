@@ -40,6 +40,8 @@ import {
   List,
   ScanLine,
   Upload,
+  ClipboardList,
+  ShoppingCart,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
 
@@ -55,8 +57,10 @@ const NAV_ITEMS = [
   { group: "Sales",     href: "/contacts/kyc",           label: "KYC / Sanctions",  icon: ShieldCheck },
   { group: "Compliance", href: "/compliance/sanctions",  label: "Sanctions Lists",  icon: List },
   { group: "Sales",     href: "/items",                  label: "Items / Products", icon: Package },
+  { group: "Sales",     href: "/quotes",                  label: "Quotes & Orders",  icon: ClipboardList },
   { group: "Sales",     href: "/invoices",               label: "Invoices",         icon: FileText },
   { group: "Sales",     href: "/receipts",               label: "Receipts / OCR",   icon: ScanLine },
+  { group: "Purchases", href: "/purchase-orders",        label: "Purchase Orders",  icon: ShoppingCart },
   { group: "Purchases", href: "/bills",                  label: "Bills",            icon: Receipt },
   { group: "Purchases", href: "/payments",               label: "Payments",         icon: CreditCard },
   { group: "Purchases", href: "/tax-codes",              label: "Tax Codes",        icon: Percent },

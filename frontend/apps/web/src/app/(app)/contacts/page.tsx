@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { type Contact, contactsApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -241,7 +242,11 @@ export default function ContactsPage() {
             <tbody className="divide-y">
               {contacts.map((c) => (
                 <tr key={c.id} className={`hover:bg-muted/20 ${c.is_archived ? "opacity-50" : ""}`}>
-                  <td className="px-4 py-3 font-medium">{c.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <Link href={`/contacts/${c.id}`} className="hover:underline">
+                      {c.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[c.contact_type] ?? "bg-muted"}`}>
                       {TYPE_LABELS[c.contact_type] ?? c.contact_type}

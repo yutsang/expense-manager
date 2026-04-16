@@ -46,7 +46,6 @@ dependencies = [
     "pytz>=2024.2",
     "rapidfuzz>=3.10.0",  # fuzzy name matching for sanctions screening
     "fpdf2>=2.8.0",       # invoice PDF generation
-    "anthropic>=0.40.0",  # Claude Vision for receipt OCR
 ]
 
 [project.optional-dependencies]
