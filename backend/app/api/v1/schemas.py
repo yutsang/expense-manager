@@ -858,3 +858,205 @@ class CashFlowResponse(BaseModel):
     opening_cash: str
     closing_cash: str
     generated_at: datetime
+
+
+# ── Bank Accounts ─────────────────────────────────────────────────────────────
+
+class BankAccountCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    bank_name: str | None = Field(default=None, max_length=255)
+    account_number: str | None = Field(default=None, max_length=100)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    coa_account_id: str | None = None
+    is_active: bool = True
+
+
+class BankAccountResponse(BaseModel):
+    id: str
+    name: str
+    bank_name: str | None
+    account_number: str | None
+    currency: str
+    coa_account_id: str | None
+    is_active: bool
+    last_reconciled_at: datetime | None
+    last_reconciled_balance: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("last_reconciled_balance", mode="before")
+    @classmethod
+    def decimal_to_str_or_none(cls, v: Any) -> str | None:
+        return str(v) if v is not None else None
+
+
+# ── Bank Transactions ─────────────────────────────────────────────────────────
+
+class BankTransactionCreate(BaseModel):
+    transaction_date: date
+    description: str | None = Field(default=None, max_length=500)
+    reference: str | None = Field(default=None, max_length=200)
+    amount: str = Field(..., description="Positive = money in, negative = money out")
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+
+    @field_validator("amount")
+    @classmethod
+    def amount_must_be_decimal(cls, v: str) -> str:
+        try:
+            Decimal(v)
+        except Exception:
+            raise ValueError("amount must be a valid decimal string")
+        return v
+
+
+class BankTransactionResponse(BaseModel):
+    id: str
+    bank_account_id: str
+    transaction_date: Any  # date stored as Date column
+    description: str | None
+    reference: str | None
+    amount: str
+    currency: str
+    is_reconciled: bool
+    reconciled_at: datetime | None
+    journal_line_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+    @field_validator("transaction_date", mode="before")
+    @classmethod
+    def date_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class MatchTransactionRequest(BaseModel):
+    journal_line_id: str
+
+
+# ── Bank Reconciliations ──────────────────────────────────────────────────────
+
+class BankReconciliationCreate(BaseModel):
+    period_id: str | None = None
+    statement_closing_balance: str = Field(..., description="Statement closing balance as decimal string")
+    book_balance: str = Field(..., description="Book balance as decimal string")
+    status: str = Field(default="in_progress", pattern="^(in_progress|completed)$")
+
+    @field_validator("statement_closing_balance", "book_balance")
+    @classmethod
+    def must_be_decimal(cls, v: str) -> str:
+        try:
+            Decimal(v)
+        except Exception:
+            raise ValueError("must be a valid decimal string")
+        return v
+
+
+class BankReconciliationResponse(BaseModel):
+    id: str
+    bank_account_id: str
+    period_id: str | None
+    statement_closing_balance: str
+    book_balance: str
+    difference: str
+    status: str
+    reconciled_at: datetime | None
+    reconciled_by: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("statement_closing_balance", "book_balance", "difference", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+# ── Expense Claims ────────────────────────────────────────────────────────────
+
+class ExpenseClaimLineCreate(BaseModel):
+    account_id: str
+    tax_code_id: str | None = None
+    description: str | None = Field(default=None, max_length=500)
+    amount: str = Field(..., description="Line amount as decimal string")
+    tax_amount: str = Field(default="0", description="Tax amount as decimal string")
+    receipt_url: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("amount", "tax_amount")
+    @classmethod
+    def must_be_non_negative(cls, v: str) -> str:
+        if Decimal(v) < 0:
+            raise ValueError("must be non-negative")
+        return v
+
+
+class ExpenseClaimCreate(BaseModel):
+    contact_id: str
+    claim_date: date
+    title: str = Field(..., min_length=1, max_length=255)
+    description: str | None = None
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    lines: list[ExpenseClaimLineCreate] = Field(..., min_length=1)
+
+
+class ExpenseClaimLineResponse(BaseModel):
+    id: str
+    account_id: str
+    tax_code_id: str | None
+    description: str | None
+    amount: str
+    tax_amount: str
+    receipt_url: str | None
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("amount", "tax_amount", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class ExpenseClaimResponse(BaseModel):
+    id: str
+    number: str
+    contact_id: str
+    status: str
+    claim_date: Any  # date stored as Date column
+    title: str
+    description: str | None
+    currency: str
+    total_amount: str
+    tax_total: str
+    journal_entry_id: str | None
+    approved_by: str | None
+    approved_at: datetime | None
+    paid_by: str | None
+    paid_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    lines: list[ExpenseClaimLineResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("total_amount", "tax_total", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+    @field_validator("claim_date", mode="before")
+    @classmethod
+    def date_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class ExpenseClaimListResponse(BaseModel):
+    items: list[ExpenseClaimResponse]

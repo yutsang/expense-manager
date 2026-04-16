@@ -117,3 +117,4 @@ backend/openapi.json
 # Misc
 .tmp/
 tmp/
+.vercel

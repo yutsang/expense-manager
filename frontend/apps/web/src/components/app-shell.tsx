@@ -24,6 +24,9 @@ import {
   Settings,
   LogOut,
   HelpCircle,
+  Calendar,
+  Percent,
+  Landmark,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
 
@@ -31,10 +34,14 @@ const NAV_ITEMS = [
   { group: null,        href: "/dashboard",              label: "Dashboard",        icon: LayoutDashboard },
   { group: "Ledger",    href: "/accounts",               label: "Chart of Accounts",icon: BookOpen },
   { group: "Ledger",    href: "/journals",               label: "Journal Entries",  icon: BookMarked },
+  { group: "Ledger",    href: "/periods",                label: "Periods",          icon: Calendar },
   { group: "Sales",     href: "/contacts",               label: "Contacts",         icon: Users },
   { group: "Sales",     href: "/invoices",               label: "Invoices",         icon: FileText },
   { group: "Purchases", href: "/bills",                  label: "Bills",            icon: Receipt },
   { group: "Purchases", href: "/payments",               label: "Payments",         icon: CreditCard },
+  { group: "Purchases", href: "/tax-codes",              label: "Tax Codes",        icon: Percent },
+  { group: "Purchases", href: "/bank",                   label: "Bank",             icon: Landmark },
+  { group: "Purchases", href: "/expense-claims",         label: "Expense Claims",   icon: Receipt },
   { group: "Reports",   href: "/reports/pl",             label: "Profit & Loss",    icon: TrendingUp },
   { group: "Reports",   href: "/reports/balance-sheet",  label: "Balance Sheet",    icon: Scale },
   { group: "Reports",   href: "/reports/cash-flow",      label: "Cash Flow",        icon: ArrowLeftRight },

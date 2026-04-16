@@ -19,6 +19,7 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Date,
     ForeignKey,
     Integer,
     LargeBinary,
@@ -605,3 +606,153 @@ class PaymentAllocation(Base):
             name="ck_palloc_exclusive",
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — Bank Accounts, Bank Transactions, Bank Reconciliations,
+#            Expense Claims
+# ---------------------------------------------------------------------------
+
+
+class BankAccount(Base):
+    """A bank or cash account linked to a Chart of Accounts entry."""
+
+    __tablename__ = "bank_accounts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    bank_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    account_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    coa_account_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=True
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_reconciled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    last_reconciled_balance: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class BankTransaction(Base):
+    """An individual line on a bank statement."""
+
+    __tablename__ = "bank_transactions"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    bank_account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("bank_accounts.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    transaction_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)  # positive = in, negative = out
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    is_reconciled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    reconciled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    journal_line_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("journal_lines.id", ondelete="RESTRICT"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+
+class BankReconciliation(Base):
+    """A completed or in-progress bank reconciliation snapshot."""
+
+    __tablename__ = "bank_reconciliations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    bank_account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("bank_accounts.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    period_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("periods.id", ondelete="RESTRICT"), nullable=True
+    )
+    statement_closing_balance: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    book_balance: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    difference: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)  # statement - book
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="in_progress")  # in_progress|completed
+    reconciled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    reconciled_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('in_progress','completed')", name="ck_bank_recon_status"),
+    )
+
+
+class ExpenseClaim(Base):
+    """An employee expense claim."""
+
+    __tablename__ = "expense_claims"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    number: Mapped[str] = mapped_column(String(20), nullable=False)  # EXP-000001
+    contact_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    # draft | submitted | approved | rejected | paid
+    claim_date: Mapped[datetime] = mapped_column(Date, nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    total_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    tax_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    journal_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True
+    )
+    approved_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    paid_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "number", name="uq_expense_claims_tenant_number"),
+        CheckConstraint(
+            "status IN ('draft','submitted','approved','rejected','paid')",
+            name="ck_expense_claims_status",
+        ),
+    )
+
+
+class ExpenseClaimLine(Base):
+    """A line item on an expense claim."""
+
+    __tablename__ = "expense_claim_lines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    claim_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("expense_claims.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
+    )
+    tax_code_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tax_codes.id", ondelete="RESTRICT"), nullable=True
+    )
+    description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    tax_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    receipt_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)

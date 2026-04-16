@@ -272,6 +272,8 @@ export const accountsApi = {
 
 export const periodsApi = {
   list: () => request<{ items: Period[] }>("GET", "/v1/periods"),
+  transition: (id: string, status: string) =>
+    request<Period>("POST", `/v1/periods/${id}/transition`, { status }),
 };
 
 // ── Journals ─────────────────────────────────────────────────────────────────
@@ -367,6 +369,10 @@ export const taxCodesApi = {
     if (params?.active_only === false) q.set("active_only", "false");
     return request<{ items: TaxCode[] }>("GET", `/v1/tax-codes?${q}`);
   },
+  create: (data: { code: string; name: string; rate: string; tax_type: string; country?: string }) =>
+    request<TaxCode>("POST", "/v1/tax-codes", data),
+  update: (id: string, data: Partial<{ code: string; name: string; rate: string; tax_type: string; is_active: boolean }>) =>
+    request<TaxCode>("PATCH", `/v1/tax-codes/${id}`, data),
 };
 
 // ── Invoices ─────────────────────────────────────────────────────────────────
@@ -549,6 +555,102 @@ export interface PaymentAllocation {
   amount_applied: string;
   created_at: string;
 }
+
+// ── Bank Reconciliation ──────────────────────────────────────────────────────
+
+export interface BankAccount {
+  id: string;
+  name: string;
+  bank_name: string | null;
+  account_number: string | null;
+  currency: string;
+  coa_account_id: string | null;
+  last_reconciled_date: string | null;
+  balance: string;
+}
+
+export interface BankTransaction {
+  id: string;
+  bank_account_id: string;
+  date: string;
+  description: string;
+  reference: string | null;
+  amount: string;
+  is_reconciled: boolean;
+  journal_line_id: string | null;
+}
+
+export interface BankReconciliation {
+  id: string;
+  bank_account_id: string;
+  reconciliation_date: string;
+  statement_balance: string;
+  book_balance: string;
+  difference: string;
+  status: string;
+  created_at: string;
+}
+
+export const bankReconciliationApi = {
+  listAccounts: () => request<BankAccount[]>("GET", "/v1/bank-accounts"),
+  createAccount: (data: Partial<BankAccount> & { name: string; currency: string }) =>
+    request<BankAccount>("POST", "/v1/bank-accounts", data),
+  listTransactions: (accountId: string) =>
+    request<BankTransaction[]>("GET", `/v1/bank-accounts/${accountId}/transactions`),
+  createTransaction: (accountId: string, data: Partial<BankTransaction> & { date: string; description: string; amount: string }) =>
+    request<BankTransaction>("POST", `/v1/bank-accounts/${accountId}/transactions`, data),
+  matchTransaction: (txId: string, journalLineId: string) =>
+    request<BankTransaction>("POST", `/v1/bank-transactions/${txId}/match`, { journal_line_id: journalLineId }),
+  unmatchTransaction: (txId: string) =>
+    request<void>("DELETE", `/v1/bank-transactions/${txId}/match`),
+  listReconciliations: (accountId: string) =>
+    request<BankReconciliation[]>("GET", `/v1/bank-accounts/${accountId}/reconciliations`),
+  createReconciliation: (accountId: string, data: { statement_balance: string; reconciliation_date: string }) =>
+    request<BankReconciliation>("POST", `/v1/bank-accounts/${accountId}/reconciliations`, data),
+};
+
+// ── Expense Claims ───────────────────────────────────────────────────────────
+
+export interface ExpenseClaimLine {
+  id: string;
+  account_id: string;
+  description: string | null;
+  amount: string;
+  tax_code_id: string | null;
+}
+
+export interface ExpenseClaim {
+  id: string;
+  number: string;
+  status: string;
+  contact_id: string;
+  claim_date: string;
+  title: string;
+  description: string | null;
+  total: string;
+  created_at: string;
+  lines: ExpenseClaimLine[];
+}
+
+export interface ExpenseClaimsListResponse {
+  items: ExpenseClaim[];
+  next_cursor: string | null;
+}
+
+export const expenseClaimsApi = {
+  list: (params?: { status?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    const qs = q.toString();
+    return request<ExpenseClaimsListResponse>("GET", `/v1/expense-claims${qs ? `?${qs}` : ""}`);
+  },
+  create: (data: unknown) => request<ExpenseClaim>("POST", "/v1/expense-claims", data),
+  get: (id: string) => request<ExpenseClaim>("GET", `/v1/expense-claims/${id}`),
+  submit: (id: string) => request<ExpenseClaim>("POST", `/v1/expense-claims/${id}/submit`),
+  approve: (id: string) => request<ExpenseClaim>("POST", `/v1/expense-claims/${id}/approve`),
+  reject: (id: string) => request<ExpenseClaim>("POST", `/v1/expense-claims/${id}/reject`),
+  pay: (id: string) => request<ExpenseClaim>("POST", `/v1/expense-claims/${id}/pay`),
+};
 
 export const paymentsApi = {
   list: (params?: { payment_type?: string; status?: string }) => {
