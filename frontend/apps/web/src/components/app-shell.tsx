@@ -37,6 +37,7 @@ import {
   Moon,
   Sun,
   ShieldCheck,
+  List,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
 
@@ -49,6 +50,7 @@ const NAV_ITEMS = [
   { group: "Ledger",    href: "/periods",                label: "Periods",          icon: Calendar },
   { group: "Sales",     href: "/contacts",               label: "Contacts",         icon: Users },
   { group: "Sales",     href: "/contacts/kyc",           label: "KYC / Sanctions",  icon: ShieldCheck },
+  { group: "Compliance", href: "/compliance/sanctions",  label: "Sanctions Lists",  icon: List },
   { group: "Sales",     href: "/invoices",               label: "Invoices",         icon: FileText },
   { group: "Purchases", href: "/bills",                  label: "Bills",            icon: Receipt },
   { group: "Purchases", href: "/payments",               label: "Payments",         icon: CreditCard },

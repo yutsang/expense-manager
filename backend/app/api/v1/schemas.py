@@ -1156,3 +1156,22 @@ class ContactScreeningResultResponse(BaseModel):
     details: list[dict[str, Any]]
 
     model_config = {"from_attributes": True}
+
+
+class SanctionsEntryResponse(BaseModel):
+    id: str
+    ref_id: str
+    entity_type: str
+    primary_name: str
+    aliases: list[dict[str, Any]]
+    countries: list[str]
+    programs: list[str]
+    remarks: str | None
+    source: str
+
+    model_config = {"from_attributes": True}
+
+
+class SanctionsEntryListResponse(BaseModel):
+    items: list[SanctionsEntryResponse]
+    total: int

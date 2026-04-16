@@ -877,9 +877,32 @@ export interface SanctionsScreeningResult {
   details: Array<{ entry_id: string; name: string; score: number; source: string }>;
 }
 
+export interface SanctionsEntry {
+  id: string;
+  ref_id: string;
+  entity_type: string;
+  primary_name: string;
+  aliases: Array<{ type: string; name: string }>;
+  countries: string[];
+  programs: string[];
+  remarks: string | null;
+  source: string;
+}
+
 export const sanctionsApi = {
   snapshots: () => request<SanctionsSnapshot[]>("GET", "/v1/sanctions/snapshots"),
   refresh: () => request<{ status: string }>("POST", "/v1/sanctions/refresh"),
+  entries: (params: { q?: string; source?: string; limit?: number; offset?: number }) => {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set("q", params.q);
+    if (params.source) qs.set("source", params.source);
+    if (params.limit !== undefined) qs.set("limit", String(params.limit));
+    if (params.offset !== undefined) qs.set("offset", String(params.offset));
+    return request<{ items: SanctionsEntry[]; total: number }>(
+      "GET",
+      `/v1/sanctions/entries?${qs.toString()}`
+    );
+  },
   screenContact: (contactId: string) =>
     request<SanctionsScreeningResult>("POST", `/v1/sanctions/screen/${contactId}`),
   getScreenResult: (contactId: string) =>

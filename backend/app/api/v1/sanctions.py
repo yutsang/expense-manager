@@ -1,12 +1,17 @@
-"""Sanctions API — manual refresh trigger, snapshot status, screen single contact."""
+"""Sanctions API — manual refresh trigger, snapshot status, entry search, screen contact."""
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from sqlalchemy import func, or_, select
 
 from app.api.v1.deps import DbSession, TenantId
-from app.api.v1.schemas import ContactScreeningResultResponse, SanctionsSnapshotResponse
-from app.infra.models import Contact
+from app.api.v1.schemas import (
+    ContactScreeningResultResponse,
+    SanctionsEntryListResponse,
+    SanctionsEntryResponse,
+    SanctionsSnapshotResponse,
+)
+from app.infra.models import Contact, SanctionsListEntry, SanctionsListSnapshot
 from app.services.sanctions import (
     get_latest_snapshots,
     get_screening_result,
@@ -71,6 +76,50 @@ async def screen_contact_now(
     )
     await db.commit()
     return ContactScreeningResultResponse.model_validate(result)
+
+
+@router.get("/entries", response_model=SanctionsEntryListResponse)
+async def search_entries(
+    db: DbSession,
+    q: str | None = Query(default=None, description="Name search (case-insensitive)"),
+    source: str | None = Query(default=None, description="Filter by source: ofac_consolidated | fatf_blacklist | fatf_greylist"),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> SanctionsEntryListResponse:
+    """Search sanctions list entries across active snapshots."""
+    # active snapshot IDs
+    snap_ids_result = await db.execute(
+        select(SanctionsListSnapshot.id).where(SanctionsListSnapshot.is_active.is_(True))
+    )
+    snap_ids = [row[0] for row in snap_ids_result.all()]
+    if not snap_ids:
+        return SanctionsEntryListResponse(items=[], total=0)
+
+    base = select(SanctionsListEntry).where(SanctionsListEntry.snapshot_id.in_(snap_ids))
+    count_base = select(func.count(SanctionsListEntry.id)).where(
+        SanctionsListEntry.snapshot_id.in_(snap_ids)
+    )
+
+    if source:
+        base = base.where(SanctionsListEntry.source == source)
+        count_base = count_base.where(SanctionsListEntry.source == source)
+
+    if q:
+        pattern = f"%{q}%"
+        name_filter = or_(
+            SanctionsListEntry.primary_name.ilike(pattern),
+            SanctionsListEntry.ref_id.ilike(pattern),
+        )
+        base = base.where(name_filter)
+        count_base = count_base.where(name_filter)
+
+    total = await db.scalar(count_base) or 0
+    rows = await db.execute(base.order_by(SanctionsListEntry.primary_name).offset(offset).limit(limit))
+    entries = list(rows.scalars())
+    return SanctionsEntryListResponse(
+        items=[SanctionsEntryResponse.model_validate(e) for e in entries],
+        total=total,
+    )
 
 
 @router.get("/screen/{contact_id}", response_model=ContactScreeningResultResponse | None)
