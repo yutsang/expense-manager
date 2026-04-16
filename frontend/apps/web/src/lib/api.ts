@@ -59,6 +59,14 @@ async function request<T>(
   });
 
   if (!res.ok) {
+    // 401 means the stored token is missing or expired — clear auth and force re-login
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("aegis_token");
+      localStorage.removeItem("aegis_tenant_id");
+      localStorage.removeItem("aegis-auth");
+      window.location.href = "/login";
+      return undefined as T;
+    }
     let detail = res.statusText;
     try {
       const err = await res.json();
