@@ -47,9 +47,16 @@ export const useAuthStore = create<AuthState>()(
           const detail = (await res.json().catch(() => ({}))) as { detail?: string };
           throw new Error(detail.detail ?? "Login failed");
         }
-        const data = (await res.json()) as { user: User; tenant_id?: string };
-        if (data.tenant_id && typeof window !== "undefined") {
-          localStorage.setItem("aegis_tenant_id", data.tenant_id);
+        const data = (await res.json()) as {
+          access_token: string;
+          user: User;
+          tenant_ids?: string[];
+          tenant_id?: string;
+        };
+        if (typeof window !== "undefined") {
+          if (data.access_token) localStorage.setItem("aegis_token", data.access_token);
+          const tid = data.tenant_id ?? data.tenant_ids?.[0];
+          if (tid) localStorage.setItem("aegis_tenant_id", tid);
         }
         set({ user: data.user, isAuthenticated: true });
         return { requires_mfa: false };
@@ -60,7 +67,10 @@ export const useAuthStore = create<AuthState>()(
           method: "POST",
           credentials: "include",
         }).catch(() => {});
-        if (typeof window !== "undefined") localStorage.removeItem("aegis_tenant_id");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("aegis_tenant_id");
+          localStorage.removeItem("aegis_token");
+        }
         set({ user: null, isAuthenticated: false });
       },
 

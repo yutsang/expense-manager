@@ -6,7 +6,11 @@
  * Until full auth is wired, we read tenant_id from localStorage (dev only).
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Always use relative URLs so requests flow through the Next.js/Vercel proxy.
+// In dev: next.config.mjs rewrites /v1/* → localhost:8000/v1/*
+// In prod: vercel.json rewrites /v1/* → cloud-run-url/v1/*
+// This ensures auth cookies (set on vercel.app) are forwarded correctly.
+const BASE = "";
 
 class ApiError extends Error {
   constructor(
@@ -27,6 +31,13 @@ function getTenantId(): string {
   return DEV_TENANT_ID;
 }
 
+function getToken(): string | null {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("aegis_token");
+  }
+  return null;
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -36,8 +47,9 @@ async function request<T>(
     "Content-Type": "application/json",
     Accept: "application/json",
     "X-Tenant-ID": getTenantId(),
-    "X-Actor-ID": "dev-actor",
   };
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE}${path}`, {
     method,
@@ -697,8 +709,7 @@ export interface ChatRequest {
 
 // Streaming fetch — returns a ReadableStream
 export function streamChat(body: ChatRequest): Promise<Response> {
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-  return fetch(`${BASE_URL}/v1/ai/chat`, {
+  return fetch(`/v1/ai/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",

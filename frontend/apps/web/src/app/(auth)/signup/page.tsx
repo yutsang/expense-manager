@@ -46,11 +46,15 @@ export default function SignupPage() {
         throw new Error(detail.detail ?? "Signup failed");
       }
       const result = (await res.json()) as {
+        access_token?: string;
         user: { id: string; email: string; display_name: string; current_tenant_id: string | null };
         tenant_id?: string;
+        tenant_ids?: string[];
       };
-      if (result.tenant_id && typeof window !== "undefined") {
-        localStorage.setItem("aegis_tenant_id", result.tenant_id);
+      if (typeof window !== "undefined") {
+        if (result.access_token) localStorage.setItem("aegis_token", result.access_token);
+        const tid = result.tenant_id ?? result.tenant_ids?.[0];
+        if (tid) localStorage.setItem("aegis_tenant_id", tid);
       }
       setUser(result.user);
       router.push("/dashboard");
