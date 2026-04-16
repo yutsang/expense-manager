@@ -157,6 +157,380 @@ async def archive_account_endpoint(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
+@router.post("/seed-demo", status_code=status.HTTP_201_CREATED)
+async def seed_demo_endpoint(
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> dict:
+    """Seed demo contacts, KYC records, tax codes, and journal entries.
+
+    No-op if >= 3 contacts already exist for tenant.
+    Returns counts of created records.
+    """
+    from datetime import date as _date
+    from decimal import Decimal
+    from sqlalchemy import select as sa_select, func as sa_func
+
+    from app.infra.models import Contact, ContactKyc, TaxCode, JournalEntry, JournalLine, Period
+    from app.services.contacts import create_contact
+
+    # Guard: skip if tenant already has contacts seeded
+    contact_count = await db.scalar(
+        sa_select(sa_func.count(Contact.id)).where(
+            Contact.tenant_id == tenant_id,
+            Contact.is_archived.is_(False),
+        )
+    )
+    if (contact_count or 0) >= 3:
+        return {"seeded": False, "reason": "contacts already exist"}
+
+    # ── Contacts ──────────────────────────────────────────────────────────────
+    _CONTACTS = [
+        {"contact_type": "customer", "name": "Acme Corporation",    "currency": "USD"},
+        {"contact_type": "customer", "name": "TechStart Ltd",       "currency": "USD"},
+        {"contact_type": "customer", "name": "Global Traders HK",   "currency": "HKD"},
+        {"contact_type": "supplier", "name": "Office Depot",        "currency": "USD"},
+        {"contact_type": "supplier", "name": "AWS Cloud Services",  "currency": "USD"},
+    ]
+    contacts_created: list[Contact] = []
+    for spec in _CONTACTS:
+        c = await create_contact(
+            db,
+            tenant_id,
+            actor_id,
+            contact_type=spec["contact_type"],
+            name=spec["name"],
+            currency=spec["currency"],
+        )
+        contacts_created.append(c)
+
+    await db.flush()
+
+    # Map by name for KYC seeding
+    by_name = {c.name: c for c in contacts_created}
+
+    # ── KYC records ───────────────────────────────────────────────────────────
+    _KYC_SEED = [
+        {
+            "name":             "Acme Corporation",
+            "kyc_status":       "approved",
+            "sanctions_status": "clear",
+            "id_type":          "passport",
+            "id_number":        "P12345678",
+            "id_expiry_date":   _date(2026, 8, 15),
+            "poa_type":         "bank_statement",
+            "poa_date":         _date(2024, 3, 10),
+            "last_review_date": _date(2024, 3, 10),
+            "next_review_date": _date(2027, 3, 10),
+        },
+        {
+            "name":             "TechStart Ltd",
+            "kyc_status":       "pending",
+            "sanctions_status": "not_checked",
+            "id_type":          "national_id",
+            "id_number":        "NI9876543",
+            "id_expiry_date":   _date(2025, 5, 20),   # expired!
+            "poa_type":         "utility_bill",
+            "poa_date":         _date(2022, 11, 1),   # stale (> 3 years)
+            "last_review_date": _date(2022, 11, 1),
+            "next_review_date": _date(2023, 11, 1),
+        },
+        {
+            "name":             "Global Traders HK",
+            "kyc_status":       "approved",
+            "sanctions_status": "flagged",
+            "id_type":          "passport",
+            "id_number":        "HK8881234",
+            "id_expiry_date":   _date(2027, 2, 28),
+            "poa_type":         "tax_document",
+            "poa_date":         _date(2024, 1, 15),
+            "last_review_date": _date(2024, 1, 15),
+            "next_review_date": _date(2025, 1, 15),
+            "notes":            "Flagged by OFAC screening 2024-01-20. Under investigation.",
+        },
+        {
+            "name":             "Office Depot",
+            "kyc_status":       "approved",
+            "sanctions_status": "clear",
+            "id_type":          "drivers_license",
+            "id_number":        "DL-OD-4321",
+            "id_expiry_date":   _date(2028, 6, 30),
+            "poa_type":         "bank_statement",
+            "poa_date":         _date(2024, 6, 1),
+            "last_review_date": _date(2024, 6, 1),
+            "next_review_date": _date(2027, 6, 1),
+        },
+        {
+            "name":             "AWS Cloud Services",
+            "kyc_status":       "approved",
+            "sanctions_status": "clear",
+            "id_type":          "other",
+            "id_number":        "AWS-CORP-001",
+            "id_expiry_date":   _date(2029, 12, 31),
+            "poa_type":         "tax_document",
+            "poa_date":         _date(2024, 4, 1),
+            "last_review_date": _date(2024, 4, 1),
+            "next_review_date": _date(2027, 4, 1),
+        },
+    ]
+
+    for spec in _KYC_SEED:
+        contact = by_name.get(spec["name"])
+        if not contact:
+            continue
+        kyc = ContactKyc(
+            tenant_id=tenant_id,
+            contact_id=contact.id,
+            id_type=spec.get("id_type"),
+            id_number=spec.get("id_number"),
+            id_expiry_date=spec.get("id_expiry_date"),
+            poa_type=spec.get("poa_type"),
+            poa_date=spec.get("poa_date"),
+            sanctions_status=spec.get("sanctions_status", "not_checked"),
+            kyc_status=spec.get("kyc_status", "pending"),
+            last_review_date=spec.get("last_review_date"),
+            next_review_date=spec.get("next_review_date"),
+            notes=spec.get("notes"),
+            created_by=actor_id,
+            updated_by=actor_id,
+        )
+        db.add(kyc)
+
+    await db.flush()
+
+    # ── Tax codes ─────────────────────────────────────────────────────────────
+    _TAX_CODES = [
+        {"code": "DEMO_GST",   "name": "GST 10% (AU)",      "rate": Decimal("0.100000"), "tax_type": "output", "country": "AU"},
+        {"code": "DEMO_VAT",   "name": "VAT 20% (GB)",       "rate": Decimal("0.200000"), "tax_type": "output", "country": "GB"},
+        {"code": "DEMO_USTAX", "name": "Sales Tax 8% (US)", "rate": Decimal("0.080000"), "tax_type": "output", "country": "US"},
+    ]
+    for tc_spec in _TAX_CODES:
+        exists = await db.scalar(
+            sa_select(TaxCode.id).where(
+                TaxCode.tenant_id == tenant_id,
+                TaxCode.code == tc_spec["code"],
+            )
+        )
+        if not exists:
+            tc = TaxCode(
+                tenant_id=tenant_id,
+                code=tc_spec["code"],
+                name=tc_spec["name"],
+                rate=tc_spec["rate"],
+                tax_type=tc_spec["tax_type"],
+                country=tc_spec["country"],
+                created_by=actor_id,
+                updated_by=actor_id,
+            )
+            db.add(tc)
+
+    await db.flush()
+
+    # ── Journal entries (only if periods exist) ───────────────────────────────
+    period_result = await db.execute(
+        sa_select(Period).where(
+            Period.tenant_id == tenant_id,
+            Period.status == "open",
+        ).order_by(Period.start_date).limit(1)
+    )
+    period = period_result.scalar_one_or_none()
+
+    if period:
+        _now_ts = __import__("datetime").datetime.now(tz=__import__("datetime").timezone.utc)
+
+        # Check existing JE count to avoid duplicates
+        je_count = await db.scalar(
+            sa_select(sa_func.count(JournalEntry.id)).where(
+                JournalEntry.tenant_id == tenant_id,
+            )
+        )
+
+        if (je_count or 0) == 0:
+            # ── Opening balance JE ────────────────────────────────────────────
+            # Get account IDs
+            from app.infra.models import Account
+            cash_acct = await db.scalar(
+                sa_select(Account).where(
+                    Account.tenant_id == tenant_id, Account.code == "1000"
+                )
+            )
+            equity_acct = await db.scalar(
+                sa_select(Account).where(
+                    Account.tenant_id == tenant_id, Account.code == "3000"
+                )
+            )
+            revenue_acct = await db.scalar(
+                sa_select(Account).where(
+                    Account.tenant_id == tenant_id, Account.code == "4000"
+                )
+            )
+            expense_acct = await db.scalar(
+                sa_select(Account).where(
+                    Account.tenant_id == tenant_id, Account.code == "6000"
+                )
+            )
+
+            if cash_acct and equity_acct and revenue_acct and expense_acct:
+                # JE-1: Opening balance
+                je1 = JournalEntry(
+                    tenant_id=tenant_id,
+                    number="JE-DEMO-001",
+                    date=_now_ts,
+                    period_id=period.id,
+                    description="Opening balance — demo seed",
+                    source_type="manual",
+                    status="posted",
+                    total_debit=Decimal("50000.0000"),
+                    total_credit=Decimal("50000.0000"),
+                    currency="USD",
+                    posted_at=_now_ts,
+                    posted_by=actor_id,
+                    created_by=actor_id,
+                    updated_by=actor_id,
+                )
+                db.add(je1)
+                await db.flush()
+                db.add(JournalLine(
+                    tenant_id=tenant_id,
+                    journal_entry_id=je1.id,
+                    line_no=1,
+                    account_id=cash_acct.id,
+                    description="Cash deposit",
+                    debit=Decimal("50000.0000"),
+                    credit=Decimal("0"),
+                    currency="USD",
+                    fx_rate=Decimal("1"),
+                    functional_debit=Decimal("50000.0000"),
+                    functional_credit=Decimal("0"),
+                ))
+                db.add(JournalLine(
+                    tenant_id=tenant_id,
+                    journal_entry_id=je1.id,
+                    line_no=2,
+                    account_id=equity_acct.id,
+                    description="Common stock issued",
+                    debit=Decimal("0"),
+                    credit=Decimal("50000.0000"),
+                    currency="USD",
+                    fx_rate=Decimal("1"),
+                    functional_debit=Decimal("0"),
+                    functional_credit=Decimal("50000.0000"),
+                ))
+
+                # JE-2: Revenue
+                je2 = JournalEntry(
+                    tenant_id=tenant_id,
+                    number="JE-DEMO-002",
+                    date=_now_ts,
+                    period_id=period.id,
+                    description="Sales revenue — Acme Corporation",
+                    source_type="manual",
+                    status="posted",
+                    total_debit=Decimal("12500.0000"),
+                    total_credit=Decimal("12500.0000"),
+                    currency="USD",
+                    posted_at=_now_ts,
+                    posted_by=actor_id,
+                    created_by=actor_id,
+                    updated_by=actor_id,
+                )
+                db.add(je2)
+                await db.flush()
+                ar_acct = await db.scalar(
+                    sa_select(Account).where(
+                        Account.tenant_id == tenant_id, Account.code == "1100"
+                    )
+                )
+                if ar_acct:
+                    db.add(JournalLine(
+                        tenant_id=tenant_id,
+                        journal_entry_id=je2.id,
+                        line_no=1,
+                        account_id=ar_acct.id,
+                        description="AR - Acme Corp invoice",
+                        debit=Decimal("12500.0000"),
+                        credit=Decimal("0"),
+                        currency="USD",
+                        fx_rate=Decimal("1"),
+                        functional_debit=Decimal("12500.0000"),
+                        functional_credit=Decimal("0"),
+                    ))
+                    db.add(JournalLine(
+                        tenant_id=tenant_id,
+                        journal_entry_id=je2.id,
+                        line_no=2,
+                        account_id=revenue_acct.id,
+                        description="Sales revenue",
+                        debit=Decimal("0"),
+                        credit=Decimal("12500.0000"),
+                        currency="USD",
+                        fx_rate=Decimal("1"),
+                        functional_debit=Decimal("0"),
+                        functional_credit=Decimal("12500.0000"),
+                    ))
+
+                # JE-3: Expense
+                je3 = JournalEntry(
+                    tenant_id=tenant_id,
+                    number="JE-DEMO-003",
+                    date=_now_ts,
+                    period_id=period.id,
+                    description="Office supplies expense — Office Depot",
+                    source_type="manual",
+                    status="posted",
+                    total_debit=Decimal("3200.0000"),
+                    total_credit=Decimal("3200.0000"),
+                    currency="USD",
+                    posted_at=_now_ts,
+                    posted_by=actor_id,
+                    created_by=actor_id,
+                    updated_by=actor_id,
+                )
+                db.add(je3)
+                await db.flush()
+                ap_acct = await db.scalar(
+                    sa_select(Account).where(
+                        Account.tenant_id == tenant_id, Account.code == "2000"
+                    )
+                )
+                if ap_acct:
+                    db.add(JournalLine(
+                        tenant_id=tenant_id,
+                        journal_entry_id=je3.id,
+                        line_no=1,
+                        account_id=expense_acct.id,
+                        description="Office supplies",
+                        debit=Decimal("3200.0000"),
+                        credit=Decimal("0"),
+                        currency="USD",
+                        fx_rate=Decimal("1"),
+                        functional_debit=Decimal("3200.0000"),
+                        functional_credit=Decimal("0"),
+                    ))
+                    db.add(JournalLine(
+                        tenant_id=tenant_id,
+                        journal_entry_id=je3.id,
+                        line_no=2,
+                        account_id=ap_acct.id,
+                        description="AP - Office Depot",
+                        debit=Decimal("0"),
+                        credit=Decimal("3200.0000"),
+                        currency="USD",
+                        fx_rate=Decimal("1"),
+                        functional_debit=Decimal("0"),
+                        functional_credit=Decimal("3200.0000"),
+                    ))
+
+    await db.commit()
+    return {
+        "seeded": True,
+        "contacts": len(contacts_created),
+        "kyc_records": len(_KYC_SEED),
+        "tax_codes": len(_TAX_CODES),
+    }
+
+
 @router.post("/seed-default", response_model=AccountListResponse, status_code=status.HTTP_201_CREATED)
 async def seed_default_coa_endpoint(
     db: DbSession,

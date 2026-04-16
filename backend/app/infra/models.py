@@ -348,6 +348,54 @@ class Contact(Base):
     )
 
 
+class ContactKyc(Base):
+    """KYC / sanctions record for a contact (one per contact per tenant)."""
+
+    __tablename__ = "contact_kyc"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    contact_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False, index=True)
+    id_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    id_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    id_expiry_date: Mapped[object | None] = mapped_column(Date, nullable=True)
+    poa_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    poa_date: Mapped[object | None] = mapped_column(Date, nullable=True)
+    sanctions_status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_checked")
+    sanctions_checked_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    kyc_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    kyc_approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    kyc_approved_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    last_review_date: Mapped[object | None] = mapped_column(Date, nullable=True)
+    next_review_date: Mapped[object | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "contact_id", name="uq_contact_kyc_tenant_contact"),
+        CheckConstraint(
+            "id_type IN ('passport','national_id','drivers_license','other') OR id_type IS NULL",
+            name="ck_kyc_id_type",
+        ),
+        CheckConstraint(
+            "poa_type IN ('utility_bill','bank_statement','tax_document','other') OR poa_type IS NULL",
+            name="ck_kyc_poa_type",
+        ),
+        CheckConstraint(
+            "sanctions_status IN ('not_checked','clear','flagged','under_review')",
+            name="ck_kyc_sanctions_status",
+        ),
+        CheckConstraint(
+            "kyc_status IN ('pending','approved','expired','flagged')",
+            name="ck_kyc_status",
+        ),
+    )
+
+
 class Item(Base):
     """Products or services that appear on invoice/bill lines."""
 

@@ -289,6 +289,11 @@ export const accountsApi = {
   archive: (id: string) => request<void>("DELETE", `/v1/accounts/${id}`),
   seedDefault: () =>
     request<{ items: Account[]; total: number }>("POST", "/v1/accounts/seed-default"),
+  seedDemo: () =>
+    request<{ seeded: boolean; reason?: string; contacts?: number; kyc_records?: number; tax_codes?: number }>(
+      "POST",
+      "/v1/accounts/seed-demo"
+    ),
 };
 
 // ── Periods ─────────────────────────────────────────────────────────────────
@@ -773,6 +778,82 @@ export function getAnomalies(): Promise<Anomaly[]> {
 export function getCashFlow(from_date: string, to_date: string): Promise<CashFlowReport> {
   return reportsApi.cashFlow(from_date, to_date);
 }
+
+// ── KYC / Sanctions ──────────────────────────────────────────────────────────
+
+export interface KycListItem {
+  contact_id: string;
+  contact_name: string;
+  contact_type: string;
+  kyc_id: string | null;
+  id_type: string | null;
+  id_number: string | null;
+  id_expiry_date: string | null;
+  poa_type: string | null;
+  poa_date: string | null;
+  sanctions_status: string;
+  sanctions_checked_at: string | null;
+  kyc_status: string;
+  kyc_approved_at: string | null;
+  kyc_approved_by: string | null;
+  last_review_date: string | null;
+  next_review_date: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  version: number | null;
+}
+
+export interface ContactKycResponse {
+  id: string;
+  contact_id: string;
+  id_type: string | null;
+  id_number: string | null;
+  id_expiry_date: string | null;
+  poa_type: string | null;
+  poa_date: string | null;
+  sanctions_status: string;
+  sanctions_checked_at: string | null;
+  kyc_status: string;
+  kyc_approved_at: string | null;
+  kyc_approved_by: string | null;
+  last_review_date: string | null;
+  next_review_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  version: number;
+}
+
+export interface KycUpdate {
+  id_type?: string | null;
+  id_number?: string | null;
+  id_expiry_date?: string | null;
+  poa_type?: string | null;
+  poa_date?: string | null;
+  sanctions_status?: string | null;
+  kyc_status?: string | null;
+  kyc_approved_by?: string | null;
+  last_review_date?: string | null;
+  next_review_date?: string | null;
+  notes?: string | null;
+}
+
+export interface KycDashboardAlerts {
+  id_expiring_soon: number;
+  id_expired: number;
+  poa_stale: number;
+  pending_kyc: number;
+  flagged: number;
+}
+
+export const kycApi = {
+  list: () => request<KycListItem[]>("GET", "/v1/kyc"),
+  get: (contactId: string) => request<ContactKycResponse>("GET", `/v1/kyc/${contactId}`),
+  update: (contactId: string, body: KycUpdate) =>
+    request<ContactKycResponse>("PUT", `/v1/kyc/${contactId}`, body),
+  dashboardAlerts: () => request<KycDashboardAlerts>("GET", "/v1/kyc/dashboard-alerts"),
+};
 
 // ── Audit ─────────────────────────────────────────────────────────────────────
 

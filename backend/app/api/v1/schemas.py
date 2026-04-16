@@ -1060,3 +1060,73 @@ class ExpenseClaimResponse(BaseModel):
 
 class ExpenseClaimListResponse(BaseModel):
     items: list[ExpenseClaimResponse]
+
+
+# ── KYC / Sanctions ───────────────────────────────────────────────────────────
+
+class ContactKycUpdate(BaseModel):
+    id_type: str | None = Field(default=None, pattern="^(passport|national_id|drivers_license|other)$")
+    id_number: str | None = Field(default=None, max_length=100)
+    id_expiry_date: date | None = None
+    poa_type: str | None = Field(default=None, pattern="^(utility_bill|bank_statement|tax_document|other)$")
+    poa_date: date | None = None
+    sanctions_status: str | None = Field(default=None, pattern="^(not_checked|clear|flagged|under_review)$")
+    kyc_status: str | None = Field(default=None, pattern="^(pending|approved|expired|flagged)$")
+    kyc_approved_by: str | None = None
+    last_review_date: date | None = None
+    next_review_date: date | None = None
+    notes: str | None = None
+
+
+class ContactKycResponse(BaseModel):
+    id: str
+    contact_id: str
+    id_type: str | None
+    id_number: str | None
+    id_expiry_date: date | None
+    poa_type: str | None
+    poa_date: date | None
+    sanctions_status: str
+    sanctions_checked_at: datetime | None
+    kyc_status: str
+    kyc_approved_at: datetime | None
+    kyc_approved_by: str | None
+    last_review_date: date | None
+    next_review_date: date | None
+    notes: str | None
+    created_at: datetime
+    updated_at: datetime
+    version: int
+
+    model_config = {"from_attributes": True}
+
+
+class KycListItem(BaseModel):
+    contact_id: str
+    contact_name: str
+    contact_type: str
+    kyc_id: str | None
+    id_type: str | None
+    id_number: str | None
+    id_expiry_date: date | None
+    poa_type: str | None
+    poa_date: date | None
+    sanctions_status: str
+    sanctions_checked_at: datetime | None
+    kyc_status: str
+    kyc_approved_at: datetime | None
+    kyc_approved_by: str | None
+    last_review_date: date | None
+    next_review_date: date | None
+    notes: str | None
+    created_at: datetime | None
+    updated_at: datetime | None
+    version: int | None
+
+
+class KycDashboardAlerts(BaseModel):
+    id_expiring_soon: int
+    id_expired: int
+    poa_stale: int
+    pending_kyc: int
+    flagged: int

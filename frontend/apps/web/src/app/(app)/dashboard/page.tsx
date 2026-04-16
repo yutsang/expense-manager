@@ -15,8 +15,10 @@ import {
   BookMarked,
   ShieldAlert,
   CheckCircle2,
+  ShieldCheck,
+  Database,
 } from "lucide-react";
-import { reportsApi, journalsApi, getAnomalies, type DashboardData, type JournalEntry, type Anomaly } from "@/lib/api";
+import { reportsApi, journalsApi, getAnomalies, kycApi, accountsApi, type DashboardData, type JournalEntry, type Anomaly, type KycDashboardAlerts } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -158,6 +160,8 @@ export default function DashboardPage() {
   const [journalsError, setJournalsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [journalsLoading, setJournalsLoading] = useState(true);
+  const [kycAlerts, setKycAlerts] = useState<KycDashboardAlerts | null>(null);
+  const [seedLoading, setSeedLoading] = useState(false);
 
   const { data: anomalies, isLoading: anomaliesLoading, error: anomaliesError } = useQuery({
     queryKey: ["anomalies"],
@@ -176,7 +180,19 @@ export default function DashboardPage() {
       .then((res) => setJournals(res.items))
       .catch((err: Error) => setJournalsError(err.message))
       .finally(() => setJournalsLoading(false));
+
+    kycApi.dashboardAlerts().then(setKycAlerts).catch(() => null);
   }, []);
+
+  async function handleSeedDemo() {
+    setSeedLoading(true);
+    try {
+      await accountsApi.seedDemo();
+      window.location.reload();
+    } catch {
+      setSeedLoading(false);
+    }
+  }
 
   const netProfit =
     dashboard
@@ -206,6 +222,18 @@ export default function DashboardPage() {
 
   const quickActions = (
     <>
+      <button
+        onClick={() => { void handleSeedDemo(); }}
+        disabled={seedLoading}
+        className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-60"
+      >
+        {seedLoading ? (
+          <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+        ) : (
+          <Database className="h-4 w-4" />
+        )}
+        Load Demo Data
+      </button>
       <Link
         href="/invoices"
         className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -306,6 +334,69 @@ export default function DashboardPage() {
                 <AttentionCard key={item.href} {...item} />
               ))}
             </div>
+          </section>
+        )}
+
+        {/* KYC Compliance Alerts */}
+        {kycAlerts !== null && (
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-base font-semibold">Compliance Alerts</h2>
+            </div>
+            {kycAlerts.id_expired === 0 &&
+            kycAlerts.id_expiring_soon === 0 &&
+            kycAlerts.poa_stale === 0 &&
+            kycAlerts.pending_kyc === 0 &&
+            kycAlerts.flagged === 0 ? (
+              <div className="flex items-center gap-2 rounded-xl border bg-green-50 px-4 py-3 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                All KYC records current
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                {kycAlerts.id_expired > 0 && (
+                  <AttentionCard
+                    label={`${kycAlerts.id_expired} contact${kycAlerts.id_expired > 1 ? "s" : ""} with expired ID`}
+                    count={kycAlerts.id_expired}
+                    href="/contacts/kyc"
+                    urgency="high"
+                  />
+                )}
+                {kycAlerts.id_expiring_soon > 0 && (
+                  <AttentionCard
+                    label={`${kycAlerts.id_expiring_soon} contact${kycAlerts.id_expiring_soon > 1 ? "s" : ""} ID expiring within 60 days`}
+                    count={kycAlerts.id_expiring_soon}
+                    href="/contacts/kyc"
+                    urgency="medium"
+                  />
+                )}
+                {kycAlerts.poa_stale > 0 && (
+                  <AttentionCard
+                    label={`${kycAlerts.poa_stale} contact${kycAlerts.poa_stale > 1 ? "s" : ""} with stale proof of address`}
+                    count={kycAlerts.poa_stale}
+                    href="/contacts/kyc"
+                    urgency="medium"
+                  />
+                )}
+                {kycAlerts.pending_kyc > 0 && (
+                  <AttentionCard
+                    label={`${kycAlerts.pending_kyc} contact${kycAlerts.pending_kyc > 1 ? "s" : ""} pending KYC review`}
+                    count={kycAlerts.pending_kyc}
+                    href="/contacts/kyc"
+                    urgency="medium"
+                  />
+                )}
+                {kycAlerts.flagged > 0 && (
+                  <AttentionCard
+                    label={`${kycAlerts.flagged} contact${kycAlerts.flagged > 1 ? "s" : ""} flagged`}
+                    count={kycAlerts.flagged}
+                    href="/contacts/kyc"
+                    urgency="high"
+                  />
+                )}
+              </div>
+            )}
           </section>
         )}
 
