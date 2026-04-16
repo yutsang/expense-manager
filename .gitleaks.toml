@@ -1,0 +1,13 @@
+title = "Aegis ERP gitleaks config"
+
+[allowlist]
+description = "Suppress false positives in CI workflow files"
+paths = [
+  ".github/workflows",
+]
+regexes = [
+  # CI placeholder values that are not real secrets
+  '''not-a-real-secret''',
+  # GitHub Actions secret expression syntax
+  '''\$\{\{\s*secrets\.',
+]
