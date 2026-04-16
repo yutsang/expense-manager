@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime
 
 import boto3
@@ -157,12 +158,10 @@ async def delete_attachment(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Attachment not found")
 
     s3 = _s3_client()
-    try:
+    with contextlib.suppress(Exception):  # Best-effort S3 delete; DB record still removed
         s3.delete_object(  # type: ignore[union-attr]
             Bucket=settings.s3_bucket_documents, Key=att.s3_key
         )
-    except Exception:
-        pass  # Best-effort S3 delete; DB record still removed
 
     await db.delete(att)
     await db.commit()
