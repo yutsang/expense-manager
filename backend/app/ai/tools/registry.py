@@ -226,7 +226,7 @@ DRAFT_TOOLS: list[ToolSchema] = [DRAFT_JOURNAL_ENTRY]
 MUTATION_TOOLS: list[ToolSchema] = [POST_JOURNAL_ENTRY]
 MUTATION_TOOL_NAMES: frozenset[str] = frozenset(t["name"] for t in MUTATION_TOOLS)
 
-# Full tool registry
+# Full tool registry (Anthropic-style schemas — source of truth)
 ALL_TOOLS: list[ToolSchema] = READ_TOOLS + DRAFT_TOOLS + MUTATION_TOOLS
 
 TOOL_NAMES: frozenset[str] = frozenset(t["name"] for t in ALL_TOOLS)
@@ -235,3 +235,21 @@ TOOL_NAMES: frozenset[str] = frozenset(t["name"] for t in ALL_TOOLS)
 def get_tool_schema(name: str) -> ToolSchema | None:
     """Return the schema for a named tool, or None if not found."""
     return next((t for t in ALL_TOOLS if t["name"] == name), None)
+
+
+def to_openai_tools(tools: list[ToolSchema]) -> list[dict]:
+    """Convert Anthropic-style tool schemas to OpenAI function-calling format."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t["description"],
+                "parameters": t["input_schema"],
+            },
+        }
+        for t in tools
+    ]
+
+
+ALL_TOOLS_OPENAI: list[dict] = to_openai_tools(ALL_TOOLS)

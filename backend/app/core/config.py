@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 30
     jwt_algorithm: str = "HS256"
 
-    # Anthropic
-    anthropic_api_key: str = ""
+    # AI (DeepSeek — OpenAI-compatible)
+    deepseek_api_key: str = ""
 
     # S3 / MinIO
     s3_endpoint_url: str = "http://localhost:9000"
