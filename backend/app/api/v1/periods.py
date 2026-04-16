@@ -1,7 +1,10 @@
-"""Periods API — list, get, transition."""
+"""Periods API — list, get, create, transition."""
 from __future__ import annotations
 
+from datetime import date, datetime, timezone
+
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import PeriodListResponse, PeriodResponse, PeriodTransitionRequest
@@ -10,11 +13,47 @@ from app.services.periods import (
     PeriodPostingError,
     get_period,
     list_periods,
+    provision_periods,
     transition_period,
 )
 from app.domain.ledger.period import PeriodTransitionError
 
 router = APIRouter(prefix="/periods", tags=["periods"])
+
+
+class PeriodProvisionRequest(BaseModel):
+    months: int = 24
+
+
+@router.post("/provision", response_model=PeriodListResponse)
+async def provision_periods_endpoint(
+    body: PeriodProvisionRequest,
+    db: DbSession,
+    tenant_id: TenantId,
+) -> PeriodListResponse:
+    """Create monthly periods for this tenant (idempotent). Call once on onboarding."""
+    from sqlalchemy import select as sa_select
+    from app.infra.models import Tenant as TenantModel
+    result = await db.execute(sa_select(TenantModel).where(TenantModel.id == tenant_id))
+    tenant = result.scalar_one_or_none()
+    currency = tenant.functional_currency if tenant else "USD"
+    fiscal_start = tenant.fiscal_year_start_month if tenant else 1
+    from_date = date.today().replace(day=1)
+    # Go back 3 months so past data is covered
+    import calendar
+    m = from_date.month - 3
+    y = from_date.year
+    while m <= 0:
+        m += 12
+        y -= 1
+    from_date = date(y, m, 1)
+    periods = await provision_periods(
+        db, tenant_id=tenant_id, functional_currency=currency,
+        fiscal_year_start_month=fiscal_start, from_date=from_date, months=body.months,
+    )
+    await db.commit()
+    all_periods = await list_periods(db, tenant_id=tenant_id)
+    return PeriodListResponse(items=[PeriodResponse.model_validate(p) for p in all_periods])
 
 
 @router.get("", response_model=PeriodListResponse)

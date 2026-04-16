@@ -55,5 +55,8 @@ async def set_rls_tenant(session: AsyncSession, tenant_id: str) -> None:
     """
     from sqlalchemy import text
     # tenant_id is UUID-validated by set_tenant_id() — safe to embed directly
-    await session.execute(text(f"SET LOCAL app.tenant_id = '{tenant_id}'"))
+    # Use SET (session-level) instead of SET LOCAL (transaction-level) so the
+    # value persists across commit boundaries within the same request.
+    # Safe: tenant_id always comes from JWT and is overwritten at request start.
+    await session.execute(text(f"SET app.tenant_id = '{tenant_id}'"))
     log.debug("rls_tenant_set", tenant_id=tenant_id)
