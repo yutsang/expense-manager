@@ -153,6 +153,34 @@ export default function InvoicesPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSendReminder = async (id: string, number: string) => {
+    if (!confirm(`Send payment reminder for invoice ${number}?`)) return;
+    try {
+      const res = await invoicesApi.sendReminder(id);
+      if (res.sent) {
+        await load();
+      } else {
+        alert("Reminder not sent — email not configured or contact has no email.");
+      }
+    } catch (e) {
+      alert(`Error: ${e}`);
+    }
+  };
+
+  const reminderLabel = (inv: Invoice): string | null => {
+    if (!inv.last_reminder_sent_at) return null;
+    const diffMs = Date.now() - new Date(inv.last_reminder_sent_at).getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "Reminded today";
+    return `Reminded ${diffDays}d ago`;
+  };
+
+  const isOverdue = (inv: Invoice): boolean => {
+    if (!inv.due_date) return false;
+    return inv.due_date < new Date().toISOString().slice(0, 10) &&
+      (inv.status === "sent" || inv.status === "partial");
+  };
+
   const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
 
   const headerActions = (
@@ -221,7 +249,14 @@ export default function InvoicesPage() {
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(inv.total, inv.currency)}</td>
                     <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(inv.amount_due, inv.currency)}</td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={inv.status} />
+                      <div className="flex flex-col gap-1">
+                        <StatusBadge status={inv.status} />
+                        {isOverdue(inv) && reminderLabel(inv) && (
+                          <span className="text-[10px] text-amber-600 font-medium">
+                            {reminderLabel(inv)}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right space-x-2">
                       {inv.status === "draft" && (
@@ -230,6 +265,15 @@ export default function InvoicesPage() {
                           className="text-xs font-medium text-blue-600 hover:underline"
                         >
                           Authorise
+                        </button>
+                      )}
+                      {isOverdue(inv) && (
+                        <button
+                          onClick={() => { void handleSendReminder(inv.id, inv.number); }}
+                          className="text-xs font-medium text-amber-600 hover:text-amber-800"
+                          title="Send payment reminder"
+                        >
+                          🔔 Remind
                         </button>
                       )}
                       {inv.status !== "void" && inv.status !== "paid" && (

@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import io
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import Response
+from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
@@ -13,6 +15,8 @@ from app.api.v1.schemas import (
     InvoiceListResponse,
     InvoiceResponse,
 )
+from app.infra.models import Contact, Invoice
+from app.services.email_service import send_email
 from app.services.invoices import (
     InvoiceNotFoundError,
     InvoiceTransitionError,
@@ -24,6 +28,7 @@ from app.services.invoices import (
     void_invoice,
 )
 from app.services.tax_codes import get_tax_code, TaxCodeNotFoundError
+from app.workers.reminders import _build_reminder_html
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -276,3 +281,53 @@ async def download_pdf(invoice_id: str, db: DbSession, tenant_id: TenantId) -> R
             "Content-Disposition": f'attachment; filename="invoice-{inv.number}.pdf"',
         },
     )
+
+
+@router.post("/{invoice_id}/reminder", status_code=status.HTTP_202_ACCEPTED)
+async def send_reminder(invoice_id: str, db: DbSession, tenant_id: TenantId):
+    """Manually trigger a payment reminder for a single invoice."""
+    # Load invoice scoped to tenant
+    result = await db.execute(
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.tenant_id == tenant_id)
+    )
+    inv = result.scalar_one_or_none()
+    if inv is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+    # Load contact
+    contact_result = await db.execute(
+        select(Contact).where(Contact.id == inv.contact_id, Contact.tenant_id == tenant_id)
+    )
+    contact = contact_result.scalar_one_or_none()
+    if contact is None or not contact.email:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Contact has no email address",
+        )
+
+    from datetime import date as _date  # noqa: PLC0415
+    due_date_str = str(inv.due_date) if inv.due_date else "N/A"
+    if inv.due_date:
+        days_overdue = (_date.today() - _date.fromisoformat(str(inv.due_date))).days
+    else:
+        days_overdue = 0
+
+    html = _build_reminder_html(
+        contact_name=contact.name,
+        invoice_number=inv.number,
+        due_date=due_date_str,
+        amount_due=str(inv.amount_due),
+        currency=inv.currency,
+        days_overdue=days_overdue,
+    )
+    ok = await send_email(
+        to=contact.email,
+        subject=f"Payment Reminder: Invoice {inv.number}",
+        html=html,
+    )
+    if ok:
+        inv.last_reminder_sent_at = datetime.now(tz=timezone.utc)
+        inv.reminder_count = (inv.reminder_count or 0) + 1
+        await db.commit()
+
+    return {"sent": ok}

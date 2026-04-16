@@ -529,6 +529,8 @@ class InvoiceResponse(BaseModel):
     functional_total: str
     journal_entry_id: str | None
     notes: str | None
+    last_reminder_sent_at: datetime | None
+    reminder_count: int
     created_at: datetime
     updated_at: datetime
     lines: list[InvoiceLineResponse] = Field(default_factory=list)

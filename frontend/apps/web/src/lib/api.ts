@@ -428,6 +428,8 @@ export interface Invoice {
   tax_total: string;
   total: string;
   amount_due: string;
+  last_reminder_sent_at: string | null;
+  reminder_count: number;
   created_at: string;
   lines: InvoiceLine[];
 }
@@ -446,6 +448,8 @@ export const invoicesApi = {
   create: (body: unknown) => request<Invoice>("POST", "/v1/invoices", body),
   authorise: (id: string) => request<Invoice>("POST", `/v1/invoices/${id}/authorise`),
   void: (id: string) => request<Invoice>("POST", `/v1/invoices/${id}/void`),
+  sendReminder: (id: string) =>
+    request<{ sent: boolean }>("POST", `/v1/invoices/${id}/reminder`),
 };
 
 // ── Bills ────────────────────────────────────────────────────────────────────
