@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     s3_bucket_exports: str = "aegis-exports"
     s3_region: str = "us-east-1"
 
+    # Email — Resend API
+    resend_api_key: str = ""
+    email_from: str = "noreply@aegis-erp.com"
+
     # Email (SMTP)
     smtp_host: str = "localhost"
     smtp_port: int = 1025  # Mailhog dev default
