@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.ai.orchestrator import run_chat
 from app.api.v1.deps import ActorId, DbSession, TenantId
@@ -100,3 +101,89 @@ async def get_messages(
         }
         for m in msgs
     ]
+
+
+@router.get("/ai/cost-summary")
+async def cost_summary(
+    db: DbSession,
+    tenant_id: TenantId,
+) -> dict:
+    """Return token usage and message counts for this tenant.
+
+    Provides today, this month, and a per-day breakdown for the last 30 days.
+    """
+    now = datetime.now(tz=timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    thirty_days_ago = now - timedelta(days=30)
+
+    # Today summary
+    today_row = await db.execute(
+        text("""
+            SELECT
+                COALESCE(SUM(input_tokens), 0)  AS input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                COUNT(*)                         AS messages
+            FROM ai_messages
+            WHERE tenant_id = :tid
+              AND role = 'assistant'
+              AND created_at >= :start
+        """),
+        {"tid": tenant_id, "start": today_start},
+    )
+    today_stats = today_row.fetchone()
+
+    # Month summary
+    month_row = await db.execute(
+        text("""
+            SELECT
+                COALESCE(SUM(input_tokens), 0)  AS input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS output_tokens,
+                COUNT(*)                         AS messages
+            FROM ai_messages
+            WHERE tenant_id = :tid
+              AND role = 'assistant'
+              AND created_at >= :start
+        """),
+        {"tid": tenant_id, "start": month_start},
+    )
+    month_stats = month_row.fetchone()
+
+    # Per-day last 30 days
+    daily_rows = await db.execute(
+        text("""
+            SELECT
+                DATE(created_at AT TIME ZONE 'UTC') AS day,
+                COALESCE(SUM(input_tokens), 0)      AS input_tokens,
+                COALESCE(SUM(output_tokens), 0)     AS output_tokens
+            FROM ai_messages
+            WHERE tenant_id = :tid
+              AND role = 'assistant'
+              AND created_at >= :start
+            GROUP BY day
+            ORDER BY day DESC
+        """),
+        {"tid": tenant_id, "start": thirty_days_ago},
+    )
+    daily = daily_rows.fetchall()
+
+    return {
+        "today": {
+            "input_tokens": int(today_stats.input_tokens),
+            "output_tokens": int(today_stats.output_tokens),
+            "messages": int(today_stats.messages),
+        },
+        "this_month": {
+            "input_tokens": int(month_stats.input_tokens),
+            "output_tokens": int(month_stats.output_tokens),
+            "messages": int(month_stats.messages),
+        },
+        "by_day": [
+            {
+                "date": str(row.day),
+                "input_tokens": int(row.input_tokens),
+                "output_tokens": int(row.output_tokens),
+            }
+            for row in daily
+        ],
+    }

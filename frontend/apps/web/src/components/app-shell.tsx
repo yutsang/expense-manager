@@ -32,11 +32,13 @@ import {
   CheckSquare,
   SlidersHorizontal,
   Package,
+  BarChart2,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
 
 const NAV_ITEMS = [
   { group: "AI",       href: "/assistant",              label: "AI Assistant",     icon: Sparkles },
+  { group: "AI",       href: "/assistant/cost",          label: "AI Usage",         icon: BarChart2 },
   { group: null,        href: "/dashboard",              label: "Dashboard",        icon: LayoutDashboard },
   { group: "Ledger",    href: "/accounts",               label: "Chart of Accounts",icon: BookOpen },
   { group: "Ledger",    href: "/journals",               label: "Journal Entries",  icon: BookMarked },

@@ -22,6 +22,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.context import build_tenant_context
 from app.ai.prompts import SYSTEM_PROMPT, SYSTEM_PROMPT_VERSION
 from app.ai.tools.draft_handlers import DRAFT_HANDLERS, handle_post_journal_entry
 from app.ai.tools.read_handlers import dispatch as read_dispatch
@@ -178,11 +179,18 @@ async def run_chat(
         # System message
         system_message = {"role": "system", "content": SYSTEM_PROMPT}
 
+        # Tenant context block (cached 5 min) — prepended before history
+        tenant_ctx = await build_tenant_context(db, tenant_id)
+        ctx_injection: list[dict[str, Any]] = [
+            {"role": "user", "content": f"<tenant_context>\n{tenant_ctx}\n</tenant_context>"},
+            {"role": "assistant", "content": "Understood. I have your account context loaded."},
+        ]
+
         accumulated_text = ""
         persisted_tool_calls: list[dict[str, Any]] = []
         input_tokens = output_tokens = 0
 
-        current_messages = [system_message] + list(history)
+        current_messages = [system_message] + ctx_injection + list(history)
 
         while True:
             stream = await client.chat.completions.create(

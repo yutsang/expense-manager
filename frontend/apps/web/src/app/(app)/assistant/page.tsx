@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Sparkles, Send, Plus, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import { Sparkles, Send, Plus, ChevronDown, ChevronRight, Loader2, Paperclip, X } from "lucide-react";
 import { streamChat, aiApi } from "@/lib/api";
 import type { AiConversation } from "@/lib/api";
 
@@ -233,8 +233,12 @@ export default function AssistantPage() {
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
 
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -288,10 +292,32 @@ export default function AssistantPage() {
     setInput("");
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachedFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setAttachedPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  }
+
+  function clearAttachment() {
+    setAttachedFile(null);
+    setAttachedPreview(null);
+  }
+
   async function sendMessage(text: string, confirmedDraftId?: string) {
     if (!text.trim() || isStreaming) return;
 
-    const userMsg: ChatMessage = { id: uid(), role: "user", content: text };
+    // If there's an attachment, prefix the message with receipt context
+    const effectiveText = attachedFile
+      ? `Please analyse this receipt: ${attachedFile.name}\n\n${text}`
+      : text;
+    clearAttachment();
+
+    const userMsg: ChatMessage = { id: uid(), role: "user", content: effectiveText };
     const assistantMsgId = uid();
     const assistantMsg: ChatMessage = {
       id: assistantMsgId,
@@ -306,7 +332,7 @@ export default function AssistantPage() {
     setInput("");
 
     const body = {
-      message: text,
+      message: effectiveText,
       ...(conversationId !== null ? { conversation_id: conversationId } : {}),
       ...(confirmedDraftId !== undefined ? { confirmed_draft_id: confirmedDraftId } : {}),
     };
@@ -516,7 +542,50 @@ export default function AssistantPage() {
         {/* Input area */}
         <div className="border-t bg-card px-4 py-3 md:px-8">
           <div className="mx-auto max-w-3xl">
+            {/* Attachment preview */}
+            {attachedPreview && attachedFile && (
+              <div className="mb-2 flex items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={attachedPreview}
+                  alt={attachedFile.name}
+                  className="h-16 w-16 rounded-md object-cover border"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="truncate text-xs font-medium text-foreground">{attachedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">Image attached</p>
+                </div>
+                <button
+                  onClick={clearAttachment}
+                  className="rounded-full p-1 hover:bg-muted transition-colors"
+                  aria-label="Remove attachment"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            )}
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
             <div className="flex items-end gap-2 rounded-xl border bg-background px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/30 transition-all">
+              {/* Attachment button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isStreaming}
+                className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Attach image"
+                title="Attach receipt image"
+              >
+                <Paperclip className="h-4 w-4" />
+              </button>
+
               <textarea
                 ref={textareaRef}
                 value={input}

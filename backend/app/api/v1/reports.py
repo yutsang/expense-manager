@@ -1,4 +1,4 @@
-"""Reports API — trial balance, general ledger, dashboard, and P&L."""
+"""Reports API — trial balance, general ledger, dashboard, P&L, cash flow, anomalies."""
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
@@ -24,6 +24,7 @@ from app.api.v1.schemas import (
     TrialBalanceResponse,
     TrialBalanceRowResponse,
 )
+from app.services.anomaly import scan_anomalies
 from app.services.reports import general_ledger, trial_balance
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -823,3 +824,16 @@ async def cash_flow_endpoint(
         closing_cash=f"{closing_cash:.2f}",
         generated_at=datetime.now(tz=timezone.utc),
     )
+
+
+@router.get("/anomalies")
+async def anomalies_endpoint(
+    db: DbSession,
+    tenant_id: TenantId,
+) -> list[dict]:
+    """Scan last 30 days of posted journal entries for anomalies.
+
+    Returns a list of detected anomalies with type, severity, journal reference,
+    amount, and detail message.
+    """
+    return await scan_anomalies(db, tenant_id)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -12,8 +13,10 @@ import {
   Receipt,
   ArrowRight,
   BookMarked,
+  ShieldAlert,
+  CheckCircle2,
 } from "lucide-react";
-import { reportsApi, journalsApi, type DashboardData, type JournalEntry } from "@/lib/api";
+import { reportsApi, journalsApi, getAnomalies, type DashboardData, type JournalEntry, type Anomaly } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -130,6 +133,24 @@ function AttentionCard({
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+// ── Anomaly badge ─────────────────────────────────────────────────────────────
+
+function AnomalySeverityBadge({ severity }: { severity: Anomaly["severity"] }) {
+  const cls =
+    severity === "high"
+      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+      : severity === "medium"
+      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+      : "bg-muted text-muted-foreground";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+      {severity.charAt(0).toUpperCase() + severity.slice(1)}
+    </span>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [journals, setJournals] = useState<JournalEntry[] | null>(null);
@@ -137,6 +158,11 @@ export default function DashboardPage() {
   const [journalsError, setJournalsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [journalsLoading, setJournalsLoading] = useState(true);
+
+  const { data: anomalies, isLoading: anomaliesLoading, error: anomaliesError } = useQuery({
+    queryKey: ["anomalies"],
+    queryFn: getAnomalies,
+  });
 
   useEffect(() => {
     reportsApi
@@ -338,6 +364,56 @@ export default function DashboardPage() {
               >
                 <Plus className="h-3.5 w-3.5" /> Post your first entry
               </Link>
+            </div>
+          )}
+        </section>
+
+        {/* Anomalies */}
+        <section>
+          <div className="mb-3 flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-base font-semibold">Anomalies</h2>
+          </div>
+
+          {anomaliesLoading ? (
+            <div className="rounded-xl border bg-card shadow-sm p-4 space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
+            </div>
+          ) : anomaliesError ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              Failed to load anomalies: {anomaliesError instanceof Error ? anomaliesError.message : String(anomaliesError)}
+            </div>
+          ) : anomalies && anomalies.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Severity</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Journal</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detail</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {anomalies.map((a) => (
+                    <tr key={a.journal_id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <AnomalySeverityBadge severity={a.severity} />
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs font-medium">{a.journal_number}</td>
+                      <td className="px-4 py-3 max-w-xs truncate text-foreground">{a.description}</td>
+                      <td className="px-4 py-3 max-w-xs truncate text-muted-foreground text-xs">{a.detail}</td>
+                      <td className="px-4 py-3 text-right font-mono tabular-nums">{a.amount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl border bg-green-50 px-4 py-3 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              No anomalies detected
             </div>
           )}
         </section>

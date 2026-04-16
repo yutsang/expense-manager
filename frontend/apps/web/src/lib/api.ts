@@ -712,6 +712,46 @@ export const aiApi = {
     request<AiMessage[]>("GET", `/v1/ai/conversations/${conversationId}/messages`),
 };
 
+// ── AI Cost ───────────────────────────────────────────────────────────────────
+
+export interface CostPeriod {
+  input_tokens: number;
+  output_tokens: number;
+  messages: number;
+}
+
+export interface CostSummary {
+  today: CostPeriod;
+  this_month: CostPeriod;
+  by_day: Array<{ date: string; input_tokens: number; output_tokens: number }>;
+}
+
+export function getAiCostSummary(): Promise<CostSummary> {
+  return request<CostSummary>("GET", "/v1/ai/cost-summary");
+}
+
+// ── Anomalies ─────────────────────────────────────────────────────────────────
+
+export interface Anomaly {
+  type: "duplicate" | "round_number" | "statistical_outlier";
+  severity: "high" | "medium" | "low";
+  journal_id: string;
+  journal_number: string;
+  description: string;
+  amount: string;
+  detail: string;
+}
+
+export function getAnomalies(): Promise<Anomaly[]> {
+  return request<Anomaly[]>("GET", "/v1/reports/anomalies");
+}
+
+// ── Cash Flow (standalone helper matching task spec) ──────────────────────────
+
+export function getCashFlow(from_date: string, to_date: string): Promise<CashFlowReport> {
+  return reportsApi.cashFlow(from_date, to_date);
+}
+
 // ── Audit ─────────────────────────────────────────────────────────────────────
 
 export interface AuditEvent {
