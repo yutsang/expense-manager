@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { periodsApi, type Period } from "@/lib/api";
+import { getTenantIdOrRedirect } from "@/lib/get-tenant-id";
 import { PageHeader } from "@/components/page-header";
 
 // ── Period status badge ───────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ function QuickLink({ href, title, description }: { href: string; title: string; 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AuditCentrePage() {
+  const router = useRouter();
   const [periods, setPeriods] = useState<Period[]>([]);
   const [periodsLoading, setPeriodsLoading] = useState(true);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>("");
@@ -84,10 +87,13 @@ export default function AuditCentrePage() {
     try {
       const token =
         typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
-      const tenantId =
-        typeof window !== "undefined"
-          ? (localStorage.getItem("aegis_tenant_id") ?? "00000000-0000-0000-0000-000000000001")
-          : "00000000-0000-0000-0000-000000000001";
+      let tenantId: string;
+      try {
+        tenantId = getTenantIdOrRedirect(router);
+      } catch {
+        setGenerating(false);
+        return;
+      }
 
       const res = await fetch("/v1/audit/evidence-package", {
         method: "POST",

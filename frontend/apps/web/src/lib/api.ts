@@ -22,13 +22,12 @@ class ApiError extends Error {
   }
 }
 
-const DEV_TENANT_ID = "00000000-0000-0000-0000-000000000001";
+import { getTenantIdOrRedirect, MissingTenantError } from "@/lib/get-tenant-id";
+
+export { MissingTenantError };
 
 function getTenantId(): string {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("aegis_tenant_id") ?? DEV_TENANT_ID;
-  }
-  return DEV_TENANT_ID;
+  return getTenantIdOrRedirect();
 }
 
 function getToken(): string | null {
@@ -1049,10 +1048,7 @@ export const receiptsApi = {
     const form = new FormData();
     form.append("file", file);
     const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
-    const tenantId =
-      typeof window !== "undefined"
-        ? (localStorage.getItem("aegis_tenant_id") ?? "00000000-0000-0000-0000-000000000001")
-        : "00000000-0000-0000-0000-000000000001";
+    const tenantId = getTenantId();
     const headers: Record<string, string> = { "X-Tenant-ID": tenantId };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const res = await fetch(`${BASE}/v1/receipts`, {
@@ -1274,10 +1270,7 @@ export const attachmentsApi = {
   delete: (id: string) => request<void>("DELETE", `/v1/attachments/${id}`),
   upload: async (entityType: string, entityId: string, file: File): Promise<Attachment> => {
     const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
-    const tenantId =
-      typeof window !== "undefined"
-        ? (localStorage.getItem("aegis_tenant_id") ?? "00000000-0000-0000-0000-000000000001")
-        : "00000000-0000-0000-0000-000000000001";
+    const tenantId = getTenantId();
     const fd = new FormData();
     fd.append("entity_type", entityType);
     fd.append("entity_id", entityId);

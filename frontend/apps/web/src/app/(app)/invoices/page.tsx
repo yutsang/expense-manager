@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BASE, type Account, type Contact, type Invoice, accountsApi, contactsApi, invoicesApi } from "@/lib/api";
+import { getTenantIdOrRedirect } from "@/lib/get-tenant-id";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -21,6 +23,7 @@ interface LineInput {
 }
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -133,10 +136,12 @@ export default function InvoicesPage() {
 
   const handleDownloadPdf = async (invoiceId: string, number: string) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
-    const tenantId =
-      typeof window !== "undefined"
-        ? (localStorage.getItem("aegis_tenant_id") ?? "00000000-0000-0000-0000-000000000001")
-        : "00000000-0000-0000-0000-000000000001";
+    let tenantId: string;
+    try {
+      tenantId = getTenantIdOrRedirect(router);
+    } catch {
+      return;
+    }
     const headers: Record<string, string> = { "X-Tenant-ID": tenantId };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const res = await fetch(`${BASE}/v1/invoices/${invoiceId}/pdf`, { headers });
