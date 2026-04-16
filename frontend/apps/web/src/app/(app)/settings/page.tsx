@@ -1,118 +1,511 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/page-header";
+import { Settings, User, Bell, Check } from "lucide-react";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface OrgSettings {
+  org_name: string;
+  country: string;
+  functional_currency: string;
+  fiscal_year_start_month: number;
+}
+
+interface ProfileSettings {
+  display_name: string;
+  email: string;
+}
+
+interface NotificationSettings {
+  email_overdue_invoices: boolean;
+  daily_sanctions_scan: boolean;
+  period_close_reminders: boolean;
+  kyc_expiry_alerts: boolean;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const CURRENCIES = ["AUD", "USD", "GBP", "EUR", "HKD", "SGD", "JPY"] as const;
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+const COUNTRIES = [
+  "Australia", "Canada", "France", "Germany", "Hong Kong", "Japan",
+  "New Zealand", "Singapore", "United Kingdom", "United States",
+] as const;
+
+const LS_ORG = "aegis_org_settings";
+const LS_NOTIF = "aegis_notif_settings";
+
+const DEFAULT_ORG: OrgSettings = {
+  org_name: "My Organisation",
+  country: "Australia",
+  functional_currency: "AUD",
+  fiscal_year_start_month: 7,
+};
+
+const DEFAULT_NOTIF: NotificationSettings = {
+  email_overdue_invoices: true,
+  daily_sanctions_scan: false,
+  period_close_reminders: true,
+  kyc_expiry_alerts: true,
+};
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-gray-100 dark:text-gray-900">
+      <Check className="h-4 w-4 shrink-0 text-green-400 dark:text-green-600" />
+      {message}
+    </div>
+  );
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+type Tab = "organisation" | "profile" | "notifications";
+
+const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: "organisation",  label: "Organisation",  icon: Settings },
+  { id: "profile",       label: "Profile",        icon: User },
+  { id: "notifications", label: "Notifications",  icon: Bell },
+];
+
+// ── Shared form primitives ────────────────────────────────────────────────────
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      {children}
+    </label>
+  );
+}
+
+function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const { className, ...rest } = props;
+  return (
+    <input
+      {...rest}
+      className={
+        "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder-gray-400 " +
+        "focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 " +
+        "disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 " +
+        "dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 " +
+        "dark:focus:border-indigo-400 dark:focus:ring-indigo-400/20 " +
+        (className ?? "")
+      }
+    />
+  );
+}
+
+function SelectInput(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const { className, ...rest } = props;
+  return (
+    <select
+      {...rest}
+      className={
+        "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm " +
+        "focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 " +
+        "disabled:cursor-not-allowed disabled:bg-gray-50 " +
+        "dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 " +
+        "dark:focus:border-indigo-400 " +
+        (className ?? "")
+      }
+    />
+  );
+}
+
+function SaveButton({ loading, onClick }: { loading?: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-60 transition-colors"
+    >
+      {loading && (
+        <span className="h-3.5 w-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+      )}
+      Save changes
+    </button>
+  );
+}
+
+// ── Organisation tab ──────────────────────────────────────────────────────────
+
+function OrganisationTab({ onSaved }: { onSaved: () => void }) {
+  const [form, setForm] = useState<OrgSettings>(DEFAULT_ORG);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_ORG);
+      if (raw) setForm(JSON.parse(raw) as OrgSettings);
+    } catch {
+      // use defaults
+    }
+  }, []);
+
+  function patch<K extends keyof OrgSettings>(key: K, value: OrgSettings[K]) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleSave() {
+    setLoading(true);
+    setTimeout(() => {
+      localStorage.setItem(LS_ORG, JSON.stringify(form));
+      setLoading(false);
+      onSaved();
+    }, 300);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+          Organisation Settings
+        </h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          These settings apply to your entire organisation.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 space-y-5">
+        <div>
+          <FieldLabel>Organisation name</FieldLabel>
+          <TextInput
+            type="text"
+            value={form.org_name}
+            onChange={(e) => patch("org_name", e.target.value)}
+            placeholder="Acme Corp"
+          />
+        </div>
+
+        <div>
+          <FieldLabel>Country</FieldLabel>
+          <SelectInput
+            value={form.country}
+            onChange={(e) => patch("country", e.target.value)}
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </SelectInput>
+        </div>
+
+        <div>
+          <FieldLabel>Functional currency</FieldLabel>
+          <SelectInput
+            value={form.functional_currency}
+            onChange={(e) => patch("functional_currency", e.target.value)}
+          >
+            {CURRENCIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </SelectInput>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            The base currency for your general ledger. Changing this after data entry requires a full revaluation.
+          </p>
+        </div>
+
+        <div>
+          <FieldLabel>Fiscal year start month</FieldLabel>
+          <SelectInput
+            value={String(form.fiscal_year_start_month)}
+            onChange={(e) => patch("fiscal_year_start_month", Number(e.target.value))}
+          >
+            {MONTHS.map((m, i) => (
+              <option key={m} value={String(i + 1)}>{m}</option>
+            ))}
+          </SelectInput>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <SaveButton loading={loading} onClick={handleSave} />
+      </div>
+    </div>
+  );
+}
+
+// ── Profile tab ───────────────────────────────────────────────────────────────
+
+function ProfileTab({ onSaved }: { onSaved: () => void }) {
+  const [profile, setProfile] = useState<ProfileSettings>({ display_name: "", email: "" });
+  const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("aegis-auth");
+      if (raw) {
+        const parsed = JSON.parse(raw) as {
+          state?: { user?: { email?: string; display_name?: string } };
+        };
+        const user = parsed?.state?.user;
+        if (user) {
+          setProfile({
+            display_name: user.display_name ?? "",
+            email: user.email ?? "",
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function handleSaveProfile() {
+    setProfileLoading(true);
+    setTimeout(() => {
+      setProfileLoading(false);
+      onSaved();
+    }, 300);
+  }
+
+  function handleChangePassword() {
+    setPwError(null);
+    if (!pw.current) { setPwError("Current password is required."); return; }
+    if (pw.next.length < 8) { setPwError("New password must be at least 8 characters."); return; }
+    if (pw.next !== pw.confirm) { setPwError("New passwords do not match."); return; }
+    setPwLoading(true);
+    setTimeout(() => {
+      setPwLoading(false);
+      setPw({ current: "", next: "", confirm: "" });
+      onSaved();
+    }, 300);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Profile</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Manage your personal details and password.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 space-y-5">
+        <div>
+          <FieldLabel>Display name</FieldLabel>
+          <TextInput
+            type="text"
+            value={profile.display_name}
+            onChange={(e) => setProfile((p) => ({ ...p, display_name: e.target.value }))}
+            placeholder="Your name"
+          />
+        </div>
+        <div>
+          <FieldLabel>Email address</FieldLabel>
+          <TextInput type="email" value={profile.email} disabled />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Email is managed by your authentication provider and cannot be changed here.
+          </p>
+        </div>
+        <div className="flex justify-end">
+          <SaveButton loading={profileLoading} onClick={handleSaveProfile} />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900 space-y-5">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Change password</h3>
+
+        <div>
+          <FieldLabel>Current password</FieldLabel>
+          <TextInput
+            type="password"
+            value={pw.current}
+            onChange={(e) => setPw((p) => ({ ...p, current: e.target.value }))}
+            autoComplete="current-password"
+          />
+        </div>
+        <div>
+          <FieldLabel>New password</FieldLabel>
+          <TextInput
+            type="password"
+            value={pw.next}
+            onChange={(e) => setPw((p) => ({ ...p, next: e.target.value }))}
+            autoComplete="new-password"
+          />
+        </div>
+        <div>
+          <FieldLabel>Confirm new password</FieldLabel>
+          <TextInput
+            type="password"
+            value={pw.confirm}
+            onChange={(e) => setPw((p) => ({ ...p, confirm: e.target.value }))}
+            autoComplete="new-password"
+          />
+        </div>
+
+        {pwError && (
+          <p className="text-sm text-red-600 dark:text-red-400">{pwError}</p>
+        )}
+
+        <div className="flex justify-end">
+          <SaveButton loading={pwLoading} onClick={handleChangePassword} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Notifications tab ─────────────────────────────────────────────────────────
+
+interface ToggleProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  description?: string;
+}
+
+function Toggle({ checked, onChange, label, description }: ToggleProps) {
+  return (
+    <div className="flex items-start gap-4 py-4 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <button
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={
+          "relative mt-0.5 inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 " +
+          (checked ? "bg-indigo-600" : "bg-gray-200 dark:bg-gray-700")
+        }
+      >
+        <span
+          className={
+            "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out " +
+            (checked ? "translate-x-4" : "translate-x-0")
+          }
+        />
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</p>
+        {description && (
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{description}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotificationsTab({ onSaved }: { onSaved: () => void }) {
+  const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_NOTIF);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_NOTIF);
+      if (raw) setSettings(JSON.parse(raw) as NotificationSettings);
+    } catch {
+      // use defaults
+    }
+  }, []);
+
+  function patch<K extends keyof NotificationSettings>(key: K, value: NotificationSettings[K]) {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleSave() {
+    setLoading(true);
+    setTimeout(() => {
+      localStorage.setItem(LS_NOTIF, JSON.stringify(settings));
+      setLoading(false);
+      onSaved();
+    }, 200);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Notifications</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Choose which alerts you receive by email.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white px-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+        <Toggle
+          checked={settings.email_overdue_invoices}
+          onChange={(v) => patch("email_overdue_invoices", v)}
+          label="Email reminders for overdue invoices"
+          description="Receive a daily digest of invoices that are past their due date."
+        />
+        <Toggle
+          checked={settings.daily_sanctions_scan}
+          onChange={(v) => patch("daily_sanctions_scan", v)}
+          label="Daily sanctions scan alerts"
+          description="Get notified when new potential sanctions matches are detected."
+        />
+        <Toggle
+          checked={settings.period_close_reminders}
+          onChange={(v) => patch("period_close_reminders", v)}
+          label="Period close reminders"
+          description="Reminder emails as the current accounting period approaches its close date."
+        />
+        <Toggle
+          checked={settings.kyc_expiry_alerts}
+          onChange={(v) => patch("kyc_expiry_alerts", v)}
+          label="KYC expiry alerts"
+          description="Alerts when contact identity documents are due to expire within 60 days."
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <SaveButton loading={loading} onClick={handleSave} />
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<Tab>("organisation");
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback(() => setToast("Saved"), []);
+  const dismissToast = useCallback(() => setToast(null), []);
+
   return (
     <>
-      <PageHeader
-        title="Settings"
-        subtitle="Manage your organisation and account"
-      />
-    <div className="mx-auto max-w-7xl px-6 py-6 space-y-8 max-w-2xl">
+      <PageHeader title="Settings" subtitle="Manage your organisation and account preferences" />
 
-      {/* Section 1: Organisation */}
-      <section className="rounded-xl border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <div>
-            <h2 className="font-semibold">Organisation</h2>
-            <p className="text-xs text-muted-foreground">Details about your company</p>
-          </div>
-          <div className="relative group">
+      <div className="mx-auto max-w-3xl px-6 py-6">
+        {/* Tab bar */}
+        <div className="flex gap-1 rounded-lg border border-gray-200 bg-gray-100 p-1 dark:border-gray-800 dark:bg-gray-800/50 mb-6">
+          {TABS.map(({ id, label, icon: Icon }) => (
             <button
-              disabled
-              className="rounded-lg border px-3 py-1.5 text-sm font-medium text-muted-foreground cursor-not-allowed opacity-60"
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={
+                "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors " +
+                (activeTab === id
+                  ? "bg-white text-indigo-700 shadow-sm dark:bg-gray-900 dark:text-indigo-400"
+                  : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200")
+              }
             >
-              Edit
+              <Icon className="h-4 w-4" />
+              {label}
             </button>
-            <div className="absolute right-0 top-9 z-10 hidden group-hover:block whitespace-nowrap rounded-md border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-md">
-              Coming soon
-            </div>
-          </div>
+          ))}
         </div>
-        <dl className="divide-y px-6">
-          <div className="flex items-center justify-between py-4">
-            <dt className="text-sm font-medium text-muted-foreground">Organisation name</dt>
-            <dd className="text-sm font-medium">Aegis Demo Co.</dd>
-          </div>
-          <div className="flex items-center justify-between py-4">
-            <dt className="text-sm font-medium text-muted-foreground">Country</dt>
-            <dd className="text-sm">United States</dd>
-          </div>
-          <div className="flex items-center justify-between py-4">
-            <dt className="text-sm font-medium text-muted-foreground">Functional currency</dt>
-            <dd className="text-sm">USD — US Dollar</dd>
-          </div>
-          <div className="flex items-center justify-between py-4">
-            <dt className="text-sm font-medium text-muted-foreground">Fiscal year start</dt>
-            <dd className="text-sm">1 January</dd>
-          </div>
-        </dl>
-      </section>
 
-      {/* Section 2: Your profile */}
-      <section className="rounded-xl border bg-card shadow-sm">
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <div>
-            <h2 className="font-semibold">Your profile</h2>
-            <p className="text-xs text-muted-foreground">Your personal account details</p>
-          </div>
-        </div>
-        <dl className="divide-y px-6">
-          <div className="flex items-center justify-between py-4">
-            <dt className="text-sm font-medium text-muted-foreground">Display name</dt>
-            <dd className="text-sm font-medium">Admin User</dd>
-          </div>
-          <div className="flex items-center justify-between py-4">
-            <dt className="text-sm font-medium text-muted-foreground">Email</dt>
-            <dd className="text-sm text-muted-foreground">admin@aegis.io</dd>
-          </div>
-          <div className="flex items-center justify-between py-4">
-            <dt className="text-sm font-medium text-muted-foreground">Password</dt>
-            <dd className="text-sm">
-              <div className="relative group inline-block">
-                <button
-                  disabled
-                  className="rounded-lg border px-3 py-1.5 text-sm font-medium text-muted-foreground cursor-not-allowed opacity-60"
-                >
-                  Change password
-                </button>
-                <div className="absolute right-0 top-9 z-10 hidden group-hover:block whitespace-nowrap rounded-md border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-md">
-                  Coming soon
-                </div>
-              </div>
-            </dd>
-          </div>
-        </dl>
-      </section>
+        {activeTab === "organisation" && <OrganisationTab onSaved={showToast} />}
+        {activeTab === "profile" && <ProfileTab onSaved={showToast} />}
+        {activeTab === "notifications" && <NotificationsTab onSaved={showToast} />}
+      </div>
 
-      {/* Section 3: Danger zone */}
-      <section className="rounded-xl border border-destructive/40 bg-card shadow-sm">
-        <div className="border-b border-destructive/40 px-6 py-4">
-          <h2 className="font-semibold text-destructive">Danger zone</h2>
-          <p className="text-xs text-muted-foreground">Irreversible and destructive actions</p>
-        </div>
-        <div className="flex items-center justify-between px-6 py-4">
-          <div>
-            <p className="text-sm font-medium">Delete organisation</p>
-            <p className="text-xs text-muted-foreground">
-              Permanently delete this organisation and all its data. This action cannot be undone.
-            </p>
-          </div>
-          <div className="relative group">
-            <button
-              disabled
-              className="rounded-lg border border-destructive/50 bg-destructive/5 px-3 py-1.5 text-sm font-medium text-destructive cursor-not-allowed opacity-60"
-            >
-              Delete organisation
-            </button>
-            <div className="absolute right-0 top-9 z-10 hidden group-hover:block whitespace-nowrap rounded-md border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-md">
-              Contact support to delete your organisation
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+      {toast && <Toast message={toast} onDismiss={dismissToast} />}
     </>
   );
 }
