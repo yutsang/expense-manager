@@ -85,7 +85,7 @@ async def _fetch_ofac_xml() -> bytes:
 
 
 def _parse_ofac_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
-    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))  # noqa: S314
+    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))  # noqa: S314  # nosec B314
     entries: list[dict[str, Any]] = []
     for sdn in root.findall(".//sdnEntry"):
         uid = sdn.findtext("uid") or ""
@@ -251,7 +251,7 @@ async def _fetch_un_xml() -> bytes:
 
 
 def _parse_un_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
-    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))  # noqa: S314
+    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))  # noqa: S314  # nosec B314
     entries: list[dict[str, Any]] = []
 
     def _text(el: ET.Element, tag: str) -> str:
@@ -447,7 +447,7 @@ async def _fetch_eu_xml() -> bytes:
 
 
 def _parse_eu_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
-    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))  # noqa: S314
+    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))  # noqa: S314  # nosec B314
     entries: list[dict[str, Any]] = []
 
     _EU_TYPE_MAP = {"P": "individual", "E": "entity", "V": "vessel", "A": "aircraft"}

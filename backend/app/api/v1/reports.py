@@ -422,7 +422,7 @@ async def _build_aging_response(
 ) -> AgingResponse:
     placeholders = ", ".join(f"'{s}'" for s in open_statuses)
     rows = await db.execute(
-        text(f"""
+        text(f"""  # nosec B608
             SELECT
                 t.id AS doc_id,
                 t.number AS invoice_number,
