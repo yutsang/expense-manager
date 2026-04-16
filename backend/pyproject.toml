@@ -59,6 +59,7 @@ dev = [
     "hypothesis>=6.115.0",
     "testcontainers[postgres,redis]>=4.8.0",
     "factory-boy>=3.3.0",
+    "bandit>=1.8.0",
     "black>=24.10.0",
     "ruff>=0.7.0",
     "mypy>=1.13.0",
