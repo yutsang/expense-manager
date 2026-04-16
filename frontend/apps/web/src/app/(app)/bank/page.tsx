@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   bankReconciliationApi,
   accountsApi,
   type BankAccount,
   type BankTransaction,
   type BankReconciliation,
+  type BankImportResult,
   type Account,
 } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -58,6 +59,15 @@ export default function BankPage() {
   const [showNewReco, setShowNewReco] = useState(false);
   const [recoForm, setRecoForm] = useState({ reconciliation_date: "", statement_balance: "" });
   const [savingReco, setSavingReco] = useState(false);
+
+  // Import statement
+  const [showImport, setShowImport] = useState(false);
+  const [importAccountId, setImportAccountId] = useState<string>("");
+  const [importCurrency, setImportCurrency] = useState("USD");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<BankImportResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function loadAccounts() {
     setLoading(true);
@@ -174,6 +184,34 @@ export default function BankPage() {
     }
   }
 
+  function openImport() {
+    setImportAccountId(selectedId ?? (accounts[0]?.id ?? ""));
+    setImportCurrency("USD");
+    setImportFile(null);
+    setImportResult(null);
+    setShowImport(true);
+  }
+
+  async function handleImport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!importFile || !importAccountId) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const result = await bankReconciliationApi.importStatement(importAccountId, importFile, importCurrency);
+      setImportResult(result);
+      // Refresh transactions if the imported account is currently selected
+      if (importAccountId === selectedId && tab === "transactions") {
+        const txns = await bankReconciliationApi.listTransactions(importAccountId);
+        setTransactions(txns);
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   const selectedAccount = accounts.find((a) => a.id === selectedId);
 
   return (
@@ -182,12 +220,20 @@ export default function BankPage() {
         title="Bank Accounts"
         subtitle="Manage bank accounts and reconciliations"
         actions={
-          <button
-            onClick={() => setShowCreate((v) => !v)}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            + New Bank Account
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={openImport}
+              className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted"
+            >
+              Import Statement
+            </button>
+            <button
+              onClick={() => setShowCreate((v) => !v)}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              + New Bank Account
+            </button>
+          </div>
         }
       />
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
@@ -268,6 +314,129 @@ export default function BankPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Import Statement modal */}
+        {showImport && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-semibold">Import Bank Statement</h2>
+                <button
+                  onClick={() => setShowImport(false)}
+                  className="text-muted-foreground hover:text-foreground text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+
+              {importResult ? (
+                <div className="space-y-3">
+                  <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+                    {importResult.imported} transaction{importResult.imported !== 1 ? "s" : ""} imported
+                    {importResult.skipped_duplicates > 0 && `, ${importResult.skipped_duplicates} duplicate${importResult.skipped_duplicates !== 1 ? "s" : ""} skipped`}
+                    .
+                  </div>
+                  {importResult.errors.length > 0 && (
+                    <div className="rounded-md bg-yellow-50 p-3 text-xs text-yellow-800 space-y-1">
+                      <p className="font-medium">{importResult.errors.length} row error{importResult.errors.length !== 1 ? "s" : ""}:</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {importResult.errors.slice(0, 10).map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                        {importResult.errors.length > 10 && <li>…and {importResult.errors.length - 10} more</li>}
+                      </ul>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setShowImport(false)}
+                    className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={(e) => void handleImport(e)} className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Bank Account *</label>
+                    <select
+                      required
+                      value={importAccountId}
+                      onChange={(e) => setImportAccountId(e.target.value)}
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                    >
+                      <option value="">— Select account —</option>
+                      {accounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.name}{acc.bank_name ? ` (${acc.bank_name})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Currency *</label>
+                    <select
+                      value={importCurrency}
+                      onChange={(e) => setImportCurrency(e.target.value)}
+                      className="w-full rounded-md border px-3 py-2 text-sm"
+                    >
+                      {["USD", "HKD", "EUR", "GBP", "AUD", "SGD"].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">CSV File *</label>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const f = e.dataTransfer.files[0];
+                        if (f) setImportFile(f);
+                      }}
+                      className="flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed px-4 py-6 text-sm text-muted-foreground hover:border-primary hover:text-foreground transition-colors"
+                    >
+                      {importFile ? (
+                        <span className="text-foreground font-medium">{importFile.name}</span>
+                      ) : (
+                        <>
+                          <span>Drop a .csv file here, or click to browse</span>
+                          <span className="mt-1 text-xs">Supports single-amount and debit/credit column formats</span>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) setImportFile(f);
+                      }}
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={importing || !importFile || !importAccountId}
+                      className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      {importing ? "Importing…" : "Import"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowImport(false)}
+                      className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           </div>
         )}
 
