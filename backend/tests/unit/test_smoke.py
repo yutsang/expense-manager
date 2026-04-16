@@ -1,4 +1,4 @@
-"""Smoke tests — confirm the app starts and /healthz responds."""
+"""Smoke tests — confirm the app starts and /health responds."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ def anyio_backend() -> str:
 
 @pytest.mark.anyio
 async def test_healthz(monkeypatch: pytest.MonkeyPatch) -> None:
-    """GET /healthz returns 200 with status=ok."""
+    """GET /health returns 200 with status=ok."""
     # Patch settings so we don't need a real DB / secret_key in env
     monkeypatch.setenv("SECRET_KEY", "a" * 32)
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://test:test@localhost/test")
@@ -22,7 +22,7 @@ async def test_healthz(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.get("/healthz")
+        response = await client.get("/health")
 
     assert response.status_code == 200
     data = response.json()
