@@ -420,25 +420,16 @@ async def _build_aging_response(
     table: str,
     open_statuses: tuple[str, ...],
 ) -> AgingResponse:
+    # table and open_statuses are internal constants — not user input
     placeholders = ", ".join(f"'{s}'" for s in open_statuses)
-    rows = await db.execute(
-        text(f"""  # nosec B608
-            SELECT
-                t.id AS doc_id,
-                t.number AS invoice_number,
-                t.issue_date,
-                t.due_date,
-                t.total,
-                t.amount_due,
-                t.contact_id,
-                c.name AS contact_name
-            FROM {table} t
-            JOIN contacts c ON c.id = t.contact_id
-            WHERE t.status IN ({placeholders})
-              AND t.amount_due > 0
-            ORDER BY t.due_date ASC NULLS LAST, t.issue_date ASC
-        """),
+    sql_str = (
+        "SELECT t.id AS doc_id, t.number AS invoice_number, t.issue_date, t.due_date,"
+        " t.total, t.amount_due, t.contact_id, c.name AS contact_name"
+        f" FROM {table} t JOIN contacts c ON c.id = t.contact_id"  # nosec B608
+        f" WHERE t.status IN ({placeholders}) AND t.amount_due > 0"  # nosec B608
+        " ORDER BY t.due_date ASC NULLS LAST, t.issue_date ASC"
     )
+    rows = await db.execute(text(sql_str))
     result = rows.fetchall()
 
     aging_rows: list[AgingRowResponse] = []
