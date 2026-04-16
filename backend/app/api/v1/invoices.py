@@ -1,8 +1,7 @@
 """Invoices API."""
 from __future__ import annotations
 
-import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -27,7 +26,7 @@ from app.services.invoices import (
     list_invoices,
     void_invoice,
 )
-from app.services.tax_codes import get_tax_code, TaxCodeNotFoundError
+from app.services.tax_codes import TaxCodeNotFoundError, get_tax_code
 from app.workers.reminders import _build_reminder_html
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -222,7 +221,7 @@ async def download_pdf(invoice_id: str, db: DbSession, tenant_id: TenantId) -> R
     pdf.set_font("Helvetica", "B", 9)
     col_w = [90, 25, 35, 35]
     headers = ["Description", "Qty", "Unit Price", "Amount"]
-    for h, w in zip(headers, col_w):
+    for h, w in zip(headers, col_w, strict=False):
         pdf.cell(w, 7, h, border=0, fill=True, align="C" if h != "Description" else "L")
     pdf.ln()
 
@@ -326,7 +325,7 @@ async def send_reminder(invoice_id: str, db: DbSession, tenant_id: TenantId):
         html=html,
     )
     if ok:
-        inv.last_reminder_sent_at = datetime.now(tz=timezone.utc)
+        inv.last_reminder_sent_at = datetime.now(tz=UTC)
         inv.reminder_count = (inv.reminder_count or 0) + 1
         await db.commit()
 

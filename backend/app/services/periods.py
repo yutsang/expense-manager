@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -102,7 +102,7 @@ async def transition_period(
 
     assert_transition_allowed(current, target)
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     before = {"status": period.status}
 
     period.status = target.value
@@ -168,11 +168,11 @@ async def provision_periods(
             id=str(uuid.uuid4()),
             tenant_id=tenant_id,
             name=pd["name"],
-            start_date=datetime.combine(pd["start_date"], datetime.min.time()).replace(tzinfo=timezone.utc),
-            end_date=datetime.combine(pd["end_date"], datetime.min.time()).replace(tzinfo=timezone.utc),
+            start_date=datetime.combine(pd["start_date"], datetime.min.time()).replace(tzinfo=UTC),
+            end_date=datetime.combine(pd["end_date"], datetime.min.time()).replace(tzinfo=UTC),
             status=PeriodStatus.OPEN.value,
-            created_at=datetime.now(tz=timezone.utc),
-            updated_at=datetime.now(tz=timezone.utc),
+            created_at=datetime.now(tz=UTC),
+            updated_at=datetime.now(tz=UTC),
         )
         db.add(period)
         created.append(period)

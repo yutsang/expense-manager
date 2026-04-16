@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.models import FeatureFlag, FeatureFlagOverride
 
-
 # ── Flag names (add here, never inline strings in call sites) ────────────────
 
 class Flag:

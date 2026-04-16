@@ -14,7 +14,7 @@ Rules:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -41,8 +41,7 @@ def _uuid() -> str:
 
 
 def _now() -> datetime:
-    from datetime import timezone
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 class Tenant(Base):

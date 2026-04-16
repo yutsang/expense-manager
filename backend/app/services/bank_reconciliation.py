@@ -1,7 +1,7 @@
 """Bank reconciliation service — bank accounts, transactions, reconciliations."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -157,7 +157,7 @@ async def match_transaction(
 ) -> BankTransaction:
     """Link a bank transaction to a journal line and mark as reconciled."""
     txn = await _get_transaction(db, tenant_id, transaction_id)
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     txn.journal_line_id = journal_line_id
     txn.is_reconciled = True
     txn.reconciled_at = now
@@ -203,7 +203,7 @@ async def create_reconciliation(
     book_balance = Decimal(str(data["book_balance"]))
     difference = (statement_balance - book_balance).quantize(_QUANTIZE_4)
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     recon = BankReconciliation(
         tenant_id=tenant_id,
         bank_account_id=data["bank_account_id"],

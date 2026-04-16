@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -45,7 +45,7 @@ def needs_rehash(hashed: str) -> bool:
 
 
 def create_access_token(user_id: str, tenant_id: str | None = None) -> str:
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     payload: dict[str, object] = {
         "sub": user_id,
         "iat": now,

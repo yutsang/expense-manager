@@ -47,7 +47,7 @@ def test_commutativity_same_currency(a: Money, b: Money) -> None:
     if a.currency != b.currency:
         try:
             _ = a + b
-            assert False, "Should have raised"
+            raise AssertionError("Should have raised")
         except CurrencyMismatchError:
             pass
     else:
@@ -98,7 +98,7 @@ def test_cross_currency_add_raises(a: Money, b: Money) -> None:
     if a.currency != b.currency:
         try:
             _ = a + b
-            assert False, "Must raise CurrencyMismatchError"
+            raise AssertionError("Must raise CurrencyMismatchError")
         except CurrencyMismatchError:
             pass
 

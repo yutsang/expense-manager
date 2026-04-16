@@ -3,13 +3,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select, distinct
+from sqlalchemy import distinct, select
 
 from app.core.db import AsyncSessionLocal
 from app.core.logging import get_logger
 from app.core.tenant import set_rls_tenant
 from app.infra.models import Contact
-from app.services.sanctions import refresh_additional_lists, refresh_fatf, refresh_ofac, screen_all_contacts
+from app.services.sanctions import (
+    refresh_additional_lists,
+    refresh_fatf,
+    refresh_ofac,
+    screen_all_contacts,
+)
 
 log = get_logger(__name__)
 

@@ -5,7 +5,7 @@ Does NOT import from sibling services. Uses app.core.security and app.infra.mode
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,7 +78,7 @@ async def signup(
         user_id=user.id,
         role="owner",
         status="active",
-        joined_at=datetime.now(tz=timezone.utc),
+        joined_at=datetime.now(tz=UTC),
     )
     db.add(membership)
     await db.flush()
@@ -89,7 +89,7 @@ async def signup(
     session = Session(
         user_id=user.id,
         refresh_token_hash=refresh_hash,
-        expires_at=datetime.now(tz=timezone.utc) + timedelta(days=_REFRESH_TTL_DAYS),
+        expires_at=datetime.now(tz=UTC) + timedelta(days=_REFRESH_TTL_DAYS),
     )
     db.add(session)
     await db.flush()
@@ -133,11 +133,11 @@ async def login(
     session = Session(
         user_id=user.id,
         refresh_token_hash=refresh_hash,
-        expires_at=datetime.now(tz=timezone.utc) + timedelta(days=_REFRESH_TTL_DAYS),
+        expires_at=datetime.now(tz=UTC) + timedelta(days=_REFRESH_TTL_DAYS),
     )
     db.add(session)
 
-    user.last_login_at = datetime.now(tz=timezone.utc)
+    user.last_login_at = datetime.now(tz=UTC)
     user.login_failure_count = 0
     await db.flush()
 
@@ -155,7 +155,7 @@ async def logout(db: AsyncSession, user_id: str, refresh_token_raw: str) -> None
         )
     )
     if session is not None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         # Mark revoked by setting expires_at to the past (no revoked_at column on model)
         session.expires_at = now
         await db.flush()
@@ -171,7 +171,7 @@ async def refresh(
     Raises AuthError if the token is not found or is expired/revoked.
     """
     token_hash = _hash_token(refresh_token_raw)
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     session = await db.scalar(
         select(Session).where(

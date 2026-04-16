@@ -75,7 +75,27 @@ async def request_context_middleware(request: Request, call_next: object) -> Res
 
 
 # ─── Routers ────────────────────────────────────────────────────────────────
-from app.api.v1 import accounts, ai, audit, auth, bank_reconciliation, bills, contacts, expense_claims, fx, invoices, items, journals, kyc, payments, periods, receipts, reports, sanctions, sync  # noqa: E402
+from app.api.v1 import (  # noqa: E402
+    accounts,
+    ai,
+    audit,
+    auth,
+    bank_reconciliation,
+    bills,
+    contacts,
+    expense_claims,
+    fx,
+    invoices,
+    items,
+    journals,
+    kyc,
+    payments,
+    periods,
+    receipts,
+    reports,
+    sanctions,
+    sync,
+)
 
 _API_PREFIX = "/v1"
 app.include_router(accounts.router, prefix=_API_PREFIX)

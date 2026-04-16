@@ -9,7 +9,7 @@ import asyncio
 import os
 import sys
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 # Set env vars before any app imports
@@ -59,7 +59,7 @@ def _uid() -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -154,8 +154,8 @@ async def seed_periods(db: AsyncSession) -> dict[str, str]:
         p = Period(
             id=_uid(), tenant_id=TENANT_ID,
             name=name,
-            start_date=datetime(start.year, start.month, start.day, tzinfo=timezone.utc),
-            end_date=datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=timezone.utc),
+            start_date=datetime(start.year, start.month, start.day, tzinfo=UTC),
+            end_date=datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=UTC),
             status=period_status,
         )
         db.add(p)
@@ -234,7 +234,7 @@ def _make_je(
     period_id: str,
     lines: list[dict],
 ) -> tuple[JournalEntry, list[JournalLine]]:
-    txn_dt = datetime.fromisoformat(txn_date).replace(tzinfo=timezone.utc)
+    txn_dt = datetime.fromisoformat(txn_date).replace(tzinfo=UTC)
     je = JournalEntry(
         id=_uid(), tenant_id=tenant_id,
         number=number, status="posted",
@@ -348,7 +348,7 @@ async def seed_invoices(
     """Create 3 invoices: 1 paid, 1 authorised, 1 draft. Returns number → invoice_id."""
     today = date.today()
     cur_month = f"{today.year}-{today.month:02d}"
-    prev_month = f"{today.year}-{today.month - 1:02d}" if today.month > 1 else f"{today.year - 1}-12"
+    f"{today.year}-{today.month - 1:02d}" if today.month > 1 else f"{today.year - 1}-12"
 
     data = [
         # (number, contact_code, issue_date, due_date, period, rev_acct, description, amount, inv_status)

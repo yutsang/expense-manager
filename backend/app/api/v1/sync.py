@@ -1,6 +1,8 @@
 """Mobile Sync API — device registration, pull, push."""
 from __future__ import annotations
 
+from datetime import UTC
+
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -193,9 +195,9 @@ async def sync_status_endpoint(
     db: DbSession,
     tenant_id: TenantId,
 ) -> SyncStatusResponse:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     count_result = await db.execute(
         select(func.count()).select_from(SyncDevice).where(SyncDevice.tenant_id == tenant_id)
     )

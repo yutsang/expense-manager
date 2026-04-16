@@ -6,14 +6,21 @@ State machine:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.infra.models import Account, ExpenseClaim, ExpenseClaimLine, JournalEntry, JournalLine, Period
+from app.infra.models import (
+    Account,
+    ExpenseClaim,
+    ExpenseClaimLine,
+    JournalEntry,
+    JournalLine,
+    Period,
+)
 
 log = get_logger(__name__)
 
@@ -177,7 +184,7 @@ async def approve_expense_claim(
         raise ExpenseClaimTransitionError(
             f"Cannot approve expense claim with status '{claim.status}'"
         )
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     claim.status = "approved"
     claim.approved_by = actor_id
     claim.approved_at = now
@@ -224,7 +231,7 @@ async def pay_expense_claim(
         )
 
     lines = await get_expense_claim_lines(db, claim_id)
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     # Resolve AP account (code 2000 = Accounts Payable)
     ap_account = await db.scalar(

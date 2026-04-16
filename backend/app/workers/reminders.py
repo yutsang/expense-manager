@@ -1,7 +1,7 @@
 """ARQ worker: daily overdue invoice reminders."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -39,7 +39,7 @@ async def send_overdue_reminders(ctx: dict[str, Any]) -> dict[str, Any]:
         for invoice, contact in rows:
             # Skip if reminded recently
             if invoice.last_reminder_sent_at:
-                days_since = (datetime.now(tz=timezone.utc) - invoice.last_reminder_sent_at).days
+                days_since = (datetime.now(tz=UTC) - invoice.last_reminder_sent_at).days
                 if days_since < _MIN_REMINDER_INTERVAL_DAYS:
                     skipped += 1
                     continue
@@ -63,7 +63,7 @@ async def send_overdue_reminders(ctx: dict[str, Any]) -> dict[str, Any]:
                 html=html,
             )
             if ok:
-                invoice.last_reminder_sent_at = datetime.now(tz=timezone.utc)
+                invoice.last_reminder_sent_at = datetime.now(tz=UTC)
                 invoice.reminder_count = (invoice.reminder_count or 0) + 1
                 sent += 1
 

@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import base64
-import io
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import boto3
 from anthropic import AsyncAnthropic
@@ -91,7 +90,7 @@ async def run_ocr(
         raise ReceiptNotFoundError(receipt_id)
 
     receipt.status = "processing"
-    receipt.updated_at = datetime.now(tz=timezone.utc)
+    receipt.updated_at = datetime.now(tz=UTC)
     await db.flush()
 
     try:
@@ -168,14 +167,14 @@ async def run_ocr(
         receipt.ocr_total = ocr_total_val
         receipt.ocr_raw = parsed
         receipt.status = "done"
-        receipt.updated_at = datetime.now(tz=timezone.utc)
+        receipt.updated_at = datetime.now(tz=UTC)
 
         log.info("receipt.ocr_done", receipt_id=receipt_id, vendor=receipt.ocr_vendor, total=str(ocr_total_val))
 
     except Exception as exc:
         log.error("receipt.ocr_error", receipt_id=receipt_id, error=str(exc))
         receipt.status = "failed"
-        receipt.updated_at = datetime.now(tz=timezone.utc)
+        receipt.updated_at = datetime.now(tz=UTC)
         raise
 
     await db.flush()
@@ -220,7 +219,7 @@ async def delete_receipt(
 ) -> Receipt:
     receipt = await get_receipt(db, tenant_id, receipt_id)
     receipt.status = "deleted"
-    receipt.updated_at = datetime.now(tz=timezone.utc)
+    receipt.updated_at = datetime.now(tz=UTC)
     await db.flush()
     await db.refresh(receipt)
     return receipt

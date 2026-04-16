@@ -6,7 +6,7 @@ import hashlib
 import io
 import json
 import zipfile
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -40,8 +40,8 @@ async def build_evidence_package(
     - manifest.json
     - README.txt
     """
-    from_dt = datetime(from_date.year, from_date.month, from_date.day, tzinfo=timezone.utc)
-    to_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc)
+    from_dt = datetime(from_date.year, from_date.month, from_date.day, tzinfo=UTC)
+    to_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=UTC)
 
     # ── Fetch journal entries in range ──────────────────────────────────────
     je_result = await db.execute(
@@ -152,7 +152,7 @@ async def build_evidence_package(
         "  1. Check chain_verification.json: is_valid must be true.\n"
         "  2. Recompute sha256 of each file and compare against manifest.json file_hashes.\n"
         "  3. Cross-reference journal entry IDs in journals.csv with your GL system.\n"
-    ).encode("utf-8")
+    ).encode()
 
     # ── Compute file hashes ─────────────────────────────────────────────────
     file_hashes = {
@@ -165,7 +165,7 @@ async def build_evidence_package(
 
     manifest = json.dumps(
         {
-            "created_at": datetime.now(tz=timezone.utc).isoformat(),
+            "created_at": datetime.now(tz=UTC).isoformat(),
             "from_date": from_date.isoformat(),
             "to_date": to_date.isoformat(),
             "tenant_id": tenant_id,

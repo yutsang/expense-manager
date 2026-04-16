@@ -99,7 +99,7 @@ class TestJournalLineInput:
 class TestValidateBalance:
     def _make_lines(self, debits: list[str], credits: list[str]) -> list[JournalLineInput]:
         lines = []
-        for i, (d, c) in enumerate(zip(debits, credits)):
+        for i, (d, c) in enumerate(zip(debits, credits, strict=False)):
             lines.append(
                 JournalLineInput(
                     account_id=f"acc-{i}",

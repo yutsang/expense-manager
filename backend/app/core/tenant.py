@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import uuid
 from contextvars import ContextVar
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,7 +17,7 @@ from app.core.logging import get_logger
 
 log = get_logger(__name__)
 
-_tenant_id_var: ContextVar[Optional[str]] = ContextVar("tenant_id", default=None)
+_tenant_id_var: ContextVar[str | None] = ContextVar("tenant_id", default=None)
 
 
 def get_tenant_id() -> str:

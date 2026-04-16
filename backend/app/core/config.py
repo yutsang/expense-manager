@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # S3 / MinIO
     s3_endpoint_url: str = "http://localhost:9000"
     s3_access_key: str = "minioadmin"
-    s3_secret_key: str = "minioadmin"
+    s3_secret_key: str = "minioadmin"  # noqa: S105
     s3_bucket_documents: str = "aegis-documents"
     s3_bucket_exports: str = "aegis-exports"
     s3_region: str = "us-east-1"
@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     feature_flag_ai_enabled: bool = True
 
     @model_validator(mode="after")
-    def validate_secret_key(self) -> "Settings":
+    def validate_secret_key(self) -> Settings:
         if len(self.secret_key) < 32:
             raise ValueError("secret_key must be at least 32 characters")
         return self

@@ -90,6 +90,12 @@ ignore = [
     "S101",  # assert in tests is fine
     "ANN101","ANN102",  # self/cls
     "ANN401",  # Any — handled by mypy
+    "E501",   # line too long — Black handles formatting
+    "B008",   # Query() in FastAPI defaults is idiomatic
+    "B904",   # raise-without-from-cause — too noisy to enforce everywhere
+    "B017",   # assert-raises-exception — acceptable in tests
+    "S608",   # sql-injection-false-positive — parameterized queries flagged
+    "ANN",    # annotations — covered by mypy strict
 ]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S", "ANN"]

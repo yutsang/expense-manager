@@ -1,10 +1,9 @@
 """FX rate service — lookup, upsert, and daily-sync stub."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from decimal import Decimal
-
 import uuid
+from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +38,7 @@ async def get_rate(
         .where(
             FxRate.from_currency == from_currency.upper(),
             FxRate.to_currency == to_currency.upper(),
-            FxRate.rate_date <= datetime.combine(on_date, datetime.min.time()).replace(tzinfo=timezone.utc),
+            FxRate.rate_date <= datetime.combine(on_date, datetime.min.time()).replace(tzinfo=UTC),
         )
         .order_by(FxRate.rate_date.desc())
         .limit(1)
@@ -68,10 +67,10 @@ async def upsert_rate(
         id=str(uuid.uuid4()),
         from_currency=from_currency.upper(),
         to_currency=to_currency.upper(),
-        rate_date=datetime.combine(rate_date, datetime.min.time()).replace(tzinfo=timezone.utc),
+        rate_date=datetime.combine(rate_date, datetime.min.time()).replace(tzinfo=UTC),
         rate=rate,
         source=source,
-        created_at=datetime.now(tz=timezone.utc),
+        created_at=datetime.now(tz=UTC),
     )
     stmt = stmt.on_conflict_do_update(
         constraint="uq_fx_rates_pair_date",
@@ -84,7 +83,7 @@ async def upsert_rate(
         select(FxRate).where(
             FxRate.from_currency == from_currency.upper(),
             FxRate.to_currency == to_currency.upper(),
-            FxRate.rate_date == datetime.combine(rate_date, datetime.min.time()).replace(tzinfo=timezone.utc),
+            FxRate.rate_date == datetime.combine(rate_date, datetime.min.time()).replace(tzinfo=UTC),
         )
     )
     return result.scalar_one()

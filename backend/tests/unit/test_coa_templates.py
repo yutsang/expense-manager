@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from app.infra.templates import get_coa_template, get_tax_codes_template
 
-
 REQUIRED_SYSTEM_ACCOUNTS = {
     "asset": {"1100"},   # AR
     "liability": {"2000"},  # AP

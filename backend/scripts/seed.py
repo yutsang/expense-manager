@@ -9,7 +9,7 @@ import asyncio
 import os
 import sys
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 # Set env vars before any app imports
@@ -26,8 +26,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.infra.models import (
-    Account, Bill, BillLine, Contact, Invoice, InvoiceLine,
-    JournalEntry, JournalLine, Period, Tenant,
+    Account,
+    Bill,
+    BillLine,
+    Contact,
+    Invoice,
+    InvoiceLine,
+    JournalEntry,
+    JournalLine,
+    Period,
+    Tenant,
 )
 
 DATABASE_URL = os.environ["DATABASE_URL"]
@@ -41,7 +49,7 @@ def _uid() -> str:
     return str(uuid.uuid4())
 
 def _now() -> datetime:
-    return datetime.now(tz=timezone.utc)
+    return datetime.now(tz=UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -142,8 +150,8 @@ async def seed_periods(db: AsyncSession) -> dict[str, str]:
     for name, start, end in months:
         p = Period(
             id=_uid(), tenant_id=TENANT_ID,
-            name=name, start_date=datetime(start.year, start.month, start.day, tzinfo=timezone.utc),
-            end_date=datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=timezone.utc),
+            name=name, start_date=datetime(start.year, start.month, start.day, tzinfo=UTC),
+            end_date=datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=UTC),
             status="open" if name >= "2026-01" else "soft_closed",
         )
         db.add(p)
@@ -182,7 +190,7 @@ async def seed_contacts(db: AsyncSession) -> dict[str, str]:
 
 
 def _je(tenant_id, number, desc, txn_date, period_id, lines: list[dict]) -> tuple[JournalEntry, list[JournalLine]]:
-    txn_dt = datetime.fromisoformat(txn_date).replace(tzinfo=timezone.utc)
+    txn_dt = datetime.fromisoformat(txn_date).replace(tzinfo=UTC)
     je = JournalEntry(
         id=_uid(), tenant_id=tenant_id,
         number=number, status="posted",
@@ -191,22 +199,22 @@ def _je(tenant_id, number, desc, txn_date, period_id, lines: list[dict]) -> tupl
         period_id=period_id,
         currency="AUD",
         source_type="manual",
-        total_debit=sum(Decimal(l["debit"]) for l in lines),
-        total_credit=sum(Decimal(l["credit"]) for l in lines),
+        total_debit=sum(Decimal(ln["debit"]) for ln in lines),
+        total_credit=sum(Decimal(ln["credit"]) for ln in lines),
         posted_at=_now(), posted_by=ACTOR_ID,
         created_by=ACTOR_ID, updated_by=ACTOR_ID,
     )
     jls = []
-    for i, l in enumerate(lines, 1):
+    for i, ln in enumerate(lines, 1):
         jls.append(JournalLine(
             id=_uid(), tenant_id=tenant_id,
             journal_entry_id=je.id, line_no=i,
-            account_id=l["account_id"],
-            description=l.get("desc"),
-            debit=Decimal(l["debit"]), credit=Decimal(l["credit"]),
+            account_id=ln["account_id"],
+            description=ln.get("desc"),
+            debit=Decimal(ln["debit"]), credit=Decimal(ln["credit"]),
             currency="AUD", fx_rate=Decimal("1"),
-            functional_debit=Decimal(l["debit"]),
-            functional_credit=Decimal(l["credit"]),
+            functional_debit=Decimal(ln["debit"]),
+            functional_credit=Decimal(ln["credit"]),
         ))
     return je, jls
 
@@ -311,7 +319,7 @@ async def seed_invoices(db: AsyncSession, accs: dict[str, str], contacts: dict[s
     ]
     statuses = ["paid", "paid", "authorised", "authorised", "draft", "draft"]
 
-    for (number, contact_code, issue, due, period, rev_code, _fx, desc, amount), inv_status in zip(data, statuses):
+    for (number, contact_code, issue, due, period, rev_code, _fx, desc, amount), inv_status in zip(data, statuses, strict=False):
         amt = Decimal(amount)
         inv_id = _uid()
         inv = Invoice(
@@ -388,7 +396,7 @@ async def main() -> None:
 
     async with AsyncSessionLocal() as db:
         # Check if already seeded
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
         count = await db.scalar(select(func.count()).select_from(Account).where(Account.tenant_id == TENANT_ID))
         if count and count > 0:
             print(f"⚠️  Already seeded ({count} accounts found for demo tenant). Run with --force to re-seed.")

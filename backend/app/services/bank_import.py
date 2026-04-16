@@ -1,6 +1,7 @@
 """Bank statement CSV import — auto-detects format, creates BankTransaction rows."""
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
 from datetime import date, datetime
@@ -150,10 +151,8 @@ async def import_csv(
 
         description = ""
         if desc_col is not None:
-            try:
+            with contextlib.suppress(IndexError):
                 description = row[desc_col].strip()
-            except IndexError:
-                pass
 
         try:
             if fmt == "split":

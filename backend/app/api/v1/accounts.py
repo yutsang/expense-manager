@@ -170,9 +170,11 @@ async def seed_demo_endpoint(
     """
     from datetime import date as _date
     from decimal import Decimal
-    from sqlalchemy import select as sa_select, func as sa_func
 
-    from app.infra.models import Contact, ContactKyc, TaxCode, JournalEntry, JournalLine, Period
+    from sqlalchemy import func as sa_func
+    from sqlalchemy import select as sa_select
+
+    from app.infra.models import Contact, ContactKyc, JournalEntry, JournalLine, Period, TaxCode
     from app.services.contacts import create_contact
 
     # Guard: skip if tenant already has contacts seeded
@@ -561,10 +563,11 @@ async def seed_default_coa_endpoint(
     # Also provision accounting periods (current month ± 3 months, 24 months forward)
     try:
         from datetime import date
-        import calendar
-        from app.services.periods import provision_periods
-        from app.infra.models import Tenant as TenantModel
+
         from sqlalchemy import select as sa_select
+
+        from app.infra.models import Tenant as TenantModel
+        from app.services.periods import provision_periods
         result = await db.execute(sa_select(TenantModel).where(TenantModel.id == tenant_id))
         tenant_row = result.scalar_one_or_none()
         currency = tenant_row.functional_currency if tenant_row else "USD"
@@ -579,7 +582,7 @@ async def seed_default_coa_endpoint(
         await provision_periods(db, tenant_id=tenant_id, functional_currency=currency,
                                 fiscal_year_start_month=fiscal_start, from_date=from_date, months=24)
         await db.commit()
-    except Exception:  # noqa: BLE001 — periods are optional; don't fail CoA creation
+    except Exception:  # noqa: BLE001, S110 — periods are optional; don't fail CoA creation
         pass
 
     return AccountListResponse(items=[AccountResponse.model_validate(a) for a in created], total=len(created))

@@ -8,7 +8,7 @@ All handlers are idempotent and safe to call at any time.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -36,7 +36,7 @@ async def handle_get_account_balance(
     if not acct:
         return {"error": f"Account with code '{code}' not found"}
 
-    as_of_dt = datetime.combine(as_of, datetime.max.time()).replace(tzinfo=timezone.utc)
+    as_of_dt = datetime.combine(as_of, datetime.max.time()).replace(tzinfo=UTC)
 
     sums = await db.execute(
         select(
@@ -163,10 +163,10 @@ async def handle_search_transactions(
         .limit(limit)
     )
     if from_date:
-        from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+        from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=UTC)
         q = q.where(JournalEntry.date >= from_dt)
     if to_date:
-        to_dt = datetime.combine(to_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+        to_dt = datetime.combine(to_date, datetime.max.time()).replace(tzinfo=UTC)
         q = q.where(JournalEntry.date <= to_dt)
 
     result = await db.execute(q)

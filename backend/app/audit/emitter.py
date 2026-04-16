@@ -11,10 +11,9 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -72,7 +71,7 @@ async def emit(
     from sqlalchemy import insert
 
     event_id = str(uuid.uuid4())
-    occurred_at = datetime.now(tz=timezone.utc)
+    occurred_at = datetime.now(tz=UTC)
 
     prev_hash = await _get_prev_hash(session, tenant_id)
 

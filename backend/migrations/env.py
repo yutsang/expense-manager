@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.infra.models  # noqa: F401  — registers all SQLAlchemy models
 from app.core.config import get_settings
 
 # Import Base so Alembic can see all ORM models for autogenerate
 from app.core.db import Base  # noqa: F401
-import app.infra.models  # noqa: F401  — registers all SQLAlchemy models
 
 config = context.config
 settings = get_settings()

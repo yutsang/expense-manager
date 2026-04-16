@@ -19,7 +19,7 @@ class Currency(StrEnum):
     USD = "USD"
 
     @classmethod
-    def from_str(cls, value: str) -> "Currency":
+    def from_str(cls, value: str) -> Currency:
         try:
             return cls(value.upper())
         except ValueError:

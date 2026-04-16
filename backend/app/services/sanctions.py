@@ -11,7 +11,7 @@ import csv
 import hashlib
 import io
 import xml.etree.ElementTree as ET  # noqa: S405 — parsing trusted government XML, not user input
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -168,7 +168,7 @@ async def _store_snapshot(
 
     snapshot = SanctionsListSnapshot(
         source=source,
-        fetched_at=datetime.now(tz=timezone.utc),
+        fetched_at=datetime.now(tz=UTC),
         entry_count=len(entries),
         sha256_hash=raw_hash,
         is_active=True,
@@ -702,7 +702,7 @@ async def screen_contact(
             kyc.sanctions_status = "under_review"
         else:
             kyc.sanctions_status = "clear"
-        kyc.sanctions_checked_at = datetime.now(tz=timezone.utc)
+        kyc.sanctions_checked_at = datetime.now(tz=UTC)
         await db.flush()
 
     return result
@@ -726,7 +726,7 @@ async def _upsert_result(
             ContactSanctionsResult.tenant_id == tenant_id,
         )
     )
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     if existing:
         existing.screened_at = now
         existing.match_status = match_status

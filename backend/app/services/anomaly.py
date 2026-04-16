@@ -8,7 +8,7 @@ Detects:
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import text
@@ -22,7 +22,7 @@ async def scan_anomalies(db: AsyncSession, tenant_id: str) -> list[dict]:
         type, severity, journal_id, journal_number, description, amount,
         detected_at, detail
     """
-    cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=30)).date()
+    cutoff = (datetime.now(tz=UTC) - timedelta(days=30)).date()
 
     # Fetch all posted journal entries in the window
     rows_result = await db.execute(
@@ -46,7 +46,7 @@ async def scan_anomalies(db: AsyncSession, tenant_id: str) -> list[dict]:
     if not entries:
         return []
 
-    now = datetime.now(tz=timezone.utc).isoformat()
+    now = datetime.now(tz=UTC).isoformat()
     anomalies: list[dict] = []
 
     amounts = [Decimal(str(e.total_debit)) for e in entries]
@@ -85,7 +85,7 @@ async def scan_anomalies(db: AsyncSession, tenant_id: str) -> list[dict]:
                 if isinstance(v, datetime):
                     return v
                 if isinstance(v, _date):
-                    return datetime(v.year, v.month, v.day, tzinfo=timezone.utc)
+                    return datetime(v.year, v.month, v.day, tzinfo=UTC)
                 return datetime.fromisoformat(str(v))
 
             d1 = _to_date(entry.date)

@@ -6,7 +6,7 @@ State machine:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 
 from sqlalchemy import func, select
@@ -181,7 +181,7 @@ async def approve_bill(
         raise BillTransitionError(f"Cannot approve bill with status '{bill.status}'")
 
     lines = await get_bill_lines(db, bill_id)
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     # Resolve AP account (code 2000 = Accounts Payable)
     ap_account = await db.scalar(

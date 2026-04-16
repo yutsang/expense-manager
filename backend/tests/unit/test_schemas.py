@@ -1,8 +1,6 @@
 """Unit tests for API v1 Pydantic schemas."""
 from __future__ import annotations
 
-from decimal import Decimal
-
 import pytest
 
 from app.api.v1.schemas import (

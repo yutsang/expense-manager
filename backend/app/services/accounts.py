@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.emitter import emit
@@ -72,8 +72,8 @@ async def create_account(
         is_system=is_system,
         currency=currency,
         description=description,
-        created_at=datetime.now(tz=timezone.utc),
-        updated_at=datetime.now(tz=timezone.utc),
+        created_at=datetime.now(tz=UTC),
+        updated_at=datetime.now(tz=UTC),
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -133,7 +133,7 @@ async def update_account(
         account.name = name
     if description is not None:
         account.description = description
-    account.updated_at = datetime.now(tz=timezone.utc)
+    account.updated_at = datetime.now(tz=UTC)
     account.updated_by = actor_id
     account.version += 1
     await db.flush()
@@ -169,7 +169,7 @@ async def archive_account(
         )
 
     account.is_active = False
-    account.updated_at = datetime.now(tz=timezone.utc)
+    account.updated_at = datetime.now(tz=UTC)
     account.updated_by = actor_id
     account.version += 1
     await db.flush()

@@ -94,7 +94,8 @@ async def handle_post_journal_entry(
 
     # Import here to avoid circular imports
     from app.domain.ledger.journal import JournalLineInput
-    from app.services.journals import create_draft as svc_create, post_journal as svc_post
+    from app.services.journals import create_draft as svc_create
+    from app.services.journals import post_journal as svc_post
 
     # Look up account IDs and build line inputs
     lines_input = []

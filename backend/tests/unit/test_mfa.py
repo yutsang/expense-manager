@@ -1,8 +1,6 @@
 """Unit tests for MFA — TOTP enrollment, verification, recovery codes (T0.9 DoD)."""
 from __future__ import annotations
 
-import time
-
 import pyotp
 import pytest
 
@@ -78,7 +76,7 @@ class TestRecoveryCodes:
 
     def test_raw_and_hashed_differ(self) -> None:
         raw, hashed = generate_recovery_codes()
-        for r, h in zip(raw, hashed):
+        for r, h in zip(raw, hashed, strict=False):
             assert r != h
             assert len(h) == 64  # sha256 hex
 

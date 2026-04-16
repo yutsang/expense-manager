@@ -13,7 +13,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── Shared ────────────────────────────────────────────────────────────────────
 
 class ProblemDetail(BaseModel):
@@ -669,7 +668,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
 
 
 class AuthUserResponse(BaseModel):
@@ -681,7 +680,7 @@ class AuthUserResponse(BaseModel):
 class SignupResponse(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     user: AuthUserResponse
     tenant_id: str
     tenant_name: str
@@ -690,7 +689,7 @@ class SignupResponse(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     user: AuthUserResponse
     tenant_ids: list[str]
 
@@ -725,7 +724,7 @@ class PaymentAllocationResponse(BaseModel):
     model_config = {"from_attributes": True, "populate_by_name": True}
 
     @classmethod
-    def model_validate(cls, obj: Any, **kwargs: Any) -> "PaymentAllocationResponse":  # type: ignore[override]
+    def model_validate(cls, obj: Any, **kwargs: Any) -> PaymentAllocationResponse:  # type: ignore[override]
         # ORM column is `amount`; expose as `amount_applied`
         if hasattr(obj, "__dict__"):
             d = {**obj.__dict__}

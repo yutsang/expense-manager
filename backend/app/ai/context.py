@@ -5,8 +5,7 @@ Cached per tenant for 5 minutes so repeated chats don't re-query.
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -99,7 +98,7 @@ async def _build(db: AsyncSession, tenant_id: str) -> str:
         sections.append("## Open Periods\n_No open periods._")
 
     # --- Recent activity (last 7 days) ---
-    cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=7)).date()
+    cutoff = (datetime.now(tz=UTC) - timedelta(days=7)).date()
 
     je_row = await db.execute(
         text("""

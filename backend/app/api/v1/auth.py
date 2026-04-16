@@ -123,20 +123,19 @@ async def do_logout(
         # Best-effort revocation — don't expose whether token was valid
         try:
             # We don't have user_id here; scan by token hash
+            from sqlalchemy import select as _select
+
+            from app.infra.models import Session as _Session
             from app.services.auth import _hash_token as _ht
 
-            from sqlalchemy import select as _select
-            from app.infra.models import Session as _Session
-
             token_hash = _ht(refresh_token)
-            from datetime import datetime, timezone as _tz
             session_row = await db.scalar(
                 _select(_Session).where(_Session.refresh_token_hash == token_hash)
             )
             if session_row is not None:
                 await logout(db, user_id=session_row.user_id, refresh_token_raw=refresh_token)
                 await db.commit()
-        except Exception:  # noqa: BLE001 — intentional catch-all for logout
+        except Exception:  # noqa: BLE001, S110 — intentional catch-all for logout
             pass
 
     response.delete_cookie(_COOKIE_ACCESS)

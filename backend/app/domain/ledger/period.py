@@ -36,9 +36,7 @@ def can_post(status: PeriodStatus, *, admin_override: bool = False) -> bool:
     """Return True if a journal entry can be posted into this period."""
     if status == PeriodStatus.OPEN:
         return True
-    if status == PeriodStatus.SOFT_CLOSED and admin_override:
-        return True
-    return False
+    return bool(status == PeriodStatus.SOFT_CLOSED and admin_override)
 
 
 def generate_period_name(year: int, month: int) -> str:

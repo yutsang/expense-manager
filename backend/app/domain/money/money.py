@@ -12,14 +12,13 @@ Rules (from CLAUDE.md §8):
 from __future__ import annotations
 
 from decimal import ROUND_HALF_EVEN, Decimal
-from typing import Union
 
 from app.domain.money.currency import Currency
 
 _STORAGE_PLACES = Decimal("0.0001")  # 4 decimal places for DB storage
 _ZERO = Decimal("0")
 
-Number = Union[Decimal, int, str]
+Number = Decimal | int | str
 
 
 class CurrencyMismatchError(ValueError):
@@ -62,19 +61,19 @@ class Money:
 
     # ── Arithmetic ────────────────────────────────────────────────────────────
 
-    def _check_currency(self, other: "Money") -> None:
+    def _check_currency(self, other: Money) -> None:
         if self._currency != other._currency:
             raise CurrencyMismatchError(self._currency, other._currency)
 
-    def __add__(self, other: "Money") -> "Money":
+    def __add__(self, other: Money) -> Money:
         self._check_currency(other)
         return Money(self._amount + other._amount, self._currency)
 
-    def __sub__(self, other: "Money") -> "Money":
+    def __sub__(self, other: Money) -> Money:
         self._check_currency(other)
         return Money(self._amount - other._amount, self._currency)
 
-    def __mul__(self, factor: Number) -> "Money":
+    def __mul__(self, factor: Number) -> Money:
         if isinstance(factor, Money):
             raise TypeError("Cannot multiply Money by Money. Use a plain Decimal factor.")
         if isinstance(factor, float):
@@ -82,13 +81,13 @@ class Money:
         f = Decimal(factor) if not isinstance(factor, Decimal) else factor
         return Money(self._amount * f, self._currency)
 
-    def __rmul__(self, factor: Number) -> "Money":
+    def __rmul__(self, factor: Number) -> Money:
         return self.__mul__(factor)
 
-    def __neg__(self) -> "Money":
+    def __neg__(self) -> Money:
         return Money(-self._amount, self._currency)
 
-    def __abs__(self) -> "Money":
+    def __abs__(self) -> Money:
         return Money(abs(self._amount), self._currency)
 
     # ── Comparison ────────────────────────────────────────────────────────────
@@ -98,19 +97,19 @@ class Money:
             return NotImplemented
         return self._currency == other._currency and self._amount == other._amount
 
-    def __lt__(self, other: "Money") -> bool:
+    def __lt__(self, other: Money) -> bool:
         self._check_currency(other)
         return self._amount < other._amount
 
-    def __le__(self, other: "Money") -> bool:
+    def __le__(self, other: Money) -> bool:
         self._check_currency(other)
         return self._amount <= other._amount
 
-    def __gt__(self, other: "Money") -> bool:
+    def __gt__(self, other: Money) -> bool:
         self._check_currency(other)
         return self._amount > other._amount
 
-    def __ge__(self, other: "Money") -> bool:
+    def __ge__(self, other: Money) -> bool:
         self._check_currency(other)
         return self._amount >= other._amount
 
@@ -139,7 +138,7 @@ class Money:
         return str(self._amount)
 
     @classmethod
-    def zero(cls, currency: Currency | str) -> "Money":
+    def zero(cls, currency: Currency | str) -> Money:
         return cls("0", currency)
 
     # ── Repr / hash ───────────────────────────────────────────────────────────

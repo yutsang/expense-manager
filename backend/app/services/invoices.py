@@ -7,7 +7,7 @@ State machine:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 
 from sqlalchemy import func, select
@@ -198,7 +198,7 @@ async def authorise_invoice(
         )
     )
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     # Generate sequential invoice number
     count_result = await db.execute(
@@ -302,7 +302,7 @@ async def void_invoice(
         raise InvoiceTransitionError("Cannot void a fully paid invoice — issue a credit note")
 
     inv.status = "void"
-    inv.voided_at = datetime.now(tz=timezone.utc)
+    inv.voided_at = datetime.now(tz=UTC)
     inv.updated_by = actor_id
     inv.version += 1
 

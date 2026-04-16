@@ -4,14 +4,13 @@ from __future__ import annotations
 import hashlib
 import json
 import random
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.models import AuditChainVerification, AuditEvent, JournalEntry, ReportSnapshot
-
 
 # ---------------------------------------------------------------------------
 # Chain verification
@@ -75,7 +74,7 @@ async def verify_chain(db: AsyncSession, tenant_id: str) -> dict[str, Any]:
 
     verification = AuditChainVerification(
         tenant_id=tenant_id,
-        verified_at=datetime.now(tz=timezone.utc),
+        verified_at=datetime.now(tz=UTC),
         chain_length=len(events),
         last_event_id=last_event_id,
         is_valid=is_valid,
@@ -196,9 +195,9 @@ async def sample_journal_entries(
         .where(JournalEntry.tenant_id == tenant_id, JournalEntry.status == "posted")
     )
     if from_date is not None:
-        q = q.where(JournalEntry.date >= datetime(from_date.year, from_date.month, from_date.day, tzinfo=timezone.utc))
+        q = q.where(JournalEntry.date >= datetime(from_date.year, from_date.month, from_date.day, tzinfo=UTC))
     if to_date is not None:
-        q = q.where(JournalEntry.date <= datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc))
+        q = q.where(JournalEntry.date <= datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=UTC))
 
     result = await db.execute(q.order_by(JournalEntry.date.asc(), JournalEntry.id.asc()))
     all_entries = list(result.scalars().all())
@@ -206,7 +205,7 @@ async def sample_journal_entries(
     if not all_entries:
         return []
 
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     effective_size = min(size, len(all_entries))
 
     if method == "random":
@@ -267,8 +266,8 @@ async def get_je_testing_report(
     to_date: date,
 ) -> dict[str, Any]:
     """Return analytical signals useful for journal entry testing."""
-    from_dt = datetime(from_date.year, from_date.month, from_date.day, tzinfo=timezone.utc)
-    to_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc)
+    from_dt = datetime(from_date.year, from_date.month, from_date.day, tzinfo=UTC)
+    to_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=UTC)
 
     q_base = (
         select(JournalEntry)
@@ -284,7 +283,6 @@ async def get_je_testing_report(
     entries = list(result.scalars().all())
 
     # Cutoff entries: within 3 days of month boundary
-    from datetime import timedelta
     cutoff_entries = []
     for e in entries:
         entry_date = e.date if isinstance(e.date, datetime) else datetime.fromisoformat(str(e.date))
@@ -362,7 +360,7 @@ async def create_report_snapshot(
         tenant_id=tenant_id,
         report_type=report_type,
         params=params,
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=datetime.now(tz=UTC),
         data=data,
         sha256=sha256_hex,
         created_by=created_by,

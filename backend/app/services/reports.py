@@ -6,10 +6,10 @@ Report rows use Decimal for all amounts — never float.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infra.models import Account, JournalEntry, JournalLine
@@ -84,7 +84,7 @@ async def trial_balance(
     as_of: date,
 ) -> TrialBalanceReport:
     """Return trial balance as of `as_of` (all posted entries on or before that date)."""
-    as_of_dt = datetime.combine(as_of, datetime.max.time()).replace(tzinfo=timezone.utc)
+    as_of_dt = datetime.combine(as_of, datetime.max.time()).replace(tzinfo=UTC)
 
     # Sum functional_debit and functional_credit per account from posted JEs
     result = await db.execute(
@@ -129,7 +129,7 @@ async def trial_balance(
         as_of=as_of,
         tenant_id=tenant_id,
         rows=rows,
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=datetime.now(tz=UTC),
     )
 
 
@@ -142,8 +142,8 @@ async def general_ledger(
     to_date: date,
 ) -> GLReport:
     """Return GL detail for one account over a date range."""
-    from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc)
-    to_dt = datetime.combine(to_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+    from_dt = datetime.combine(from_date, datetime.min.time()).replace(tzinfo=UTC)
+    to_dt = datetime.combine(to_date, datetime.max.time()).replace(tzinfo=UTC)
 
     # Load account
     acct_result = await db.execute(

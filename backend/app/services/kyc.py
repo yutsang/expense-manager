@@ -1,7 +1,7 @@
 """KYC / Sanctions service — get_or_create, update, list, dashboard alerts."""
 from __future__ import annotations
 
-from datetime import date, timezone, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -66,7 +66,7 @@ async def update_kyc(
         if key in allowed:
             setattr(kyc, key, val)
     kyc.version += 1
-    kyc.updated_at = datetime.now(tz=timezone.utc)
+    kyc.updated_at = datetime.now(tz=UTC)
     await db.flush()
     await db.refresh(kyc)
     log.info("kyc.updated", tenant_id=tenant_id, contact_id=contact_id)

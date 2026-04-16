@@ -1,7 +1,7 @@
 """Reports API — trial balance, general ledger, dashboard, P&L, cash flow, anomalies."""
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -222,7 +222,7 @@ async def dashboard_endpoint(
         expenses_mtd=fmt(expenses_mtd),
         invoices_overdue=invoices_overdue,
         bills_awaiting_approval=bills_awaiting_approval,
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=datetime.now(tz=UTC),
     )
 
 
@@ -305,7 +305,7 @@ async def pl_endpoint(
         is_profitable=net_profit >= Decimal("0"),
         revenue_lines=revenue_lines,
         expense_lines=expense_lines,
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=datetime.now(tz=UTC),
     )
 
 
@@ -404,7 +404,7 @@ async def balance_sheet_endpoint(
         ),
         total_liabilities_and_equity=f"{total_liabilities_and_equity:.2f}",
         is_balanced=is_balanced,
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=datetime.now(tz=UTC),
     )
 
 
@@ -506,7 +506,7 @@ async def _build_aging_response(
         bucket_90_plus=f"{bucket_totals['90+']:.2f}",
         grand_total=f"{grand_total:.2f}",
         rows=aging_rows,
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=datetime.now(tz=UTC),
     )
 
 
@@ -822,7 +822,7 @@ async def cash_flow_endpoint(
         net_change=f"{net_change:.2f}",
         opening_cash=f"{opening_cash:.2f}",
         closing_cash=f"{closing_cash:.2f}",
-        generated_at=datetime.now(tz=timezone.utc),
+        generated_at=datetime.now(tz=UTC),
     )
 
 

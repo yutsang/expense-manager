@@ -39,17 +39,17 @@ async def trigger_refresh(
     """Trigger an immediate sanctions list refresh (runs in background)."""
 
     async def _do_refresh() -> None:
-        try:
+        try:  # noqa: SIM105
             await refresh_ofac(db)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass  # errors logged inside service
-        try:
+        try:  # noqa: SIM105
             await refresh_fatf(db)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass
-        try:
+        try:  # noqa: SIM105
             await refresh_additional_lists(db)
-        except Exception as exc:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass  # errors logged inside service
         await db.commit()
 
@@ -110,8 +110,7 @@ async def search_entries(
         count_base = count_base.where(SanctionsListEntry.source == source)
 
     if q:
-        from sqlalchemy import cast, text
-        from sqlalchemy.dialects.postgresql import JSONB as _JSONB
+        from sqlalchemy import text
 
         pattern = f"%{q}%"
         # Search primary_name, ref_id, and any alias name inside the JSONB array

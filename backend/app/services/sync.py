@@ -1,7 +1,7 @@
 """Mobile Sync service — device registration, pull, push operations."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -69,7 +69,7 @@ async def register_device(
     push_token: str | None = None,
 ) -> SyncDevice:
     """Upsert device registration — update push_token + last_seen if fingerprint exists."""
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     device = await db.scalar(
         select(SyncDevice).where(
             SyncDevice.tenant_id == tenant_id,
@@ -116,7 +116,7 @@ async def update_push_token(
     if not device:
         raise SyncDeviceNotFoundError(device_fingerprint)
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     device.push_token = push_token
     device.last_seen = now
     device.updated_at = now
@@ -153,7 +153,7 @@ async def pull_changes(
       }
     Each entity is a dict with all scalar fields serialized (Decimal → str, datetime → isoformat).
     """
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     since: datetime | None = None
     if cursor:
         try:
@@ -271,7 +271,7 @@ async def push_operations(
 
     Returns list of {client_op_id, status, applied_version?, server_state?, error?}
     """
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     results: list[dict] = []
 
     for op in ops:

@@ -80,7 +80,7 @@ async def update(contact_id: str, body: ContactUpdate, db: DbSession, tenant_id:
 
 
 @router.delete("/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def archive(contact_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def archive(contact_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId) -> None:
     try:
         await archive_contact(db, tenant_id, contact_id, actor_id)
         await db.commit()

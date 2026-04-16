@@ -96,7 +96,7 @@ async def update_item_endpoint(item_id: str, body: ItemUpdate, db: DbSession, te
 
 
 @items_router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def archive_item_endpoint(item_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def archive_item_endpoint(item_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId) -> None:
     try:
         await archive_item(db, tenant_id, item_id, actor_id)
         await db.commit()

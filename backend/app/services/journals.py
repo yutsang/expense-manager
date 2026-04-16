@@ -8,7 +8,7 @@ Invariants enforced at three layers (CLAUDE.md §2.1):
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import select, text
@@ -23,7 +23,7 @@ from app.domain.ledger.journal import (
     validate_balance,
 )
 from app.infra.models import JournalEntry, JournalLine
-from app.services.periods import PeriodPostingError, assert_can_post
+from app.services.periods import assert_can_post
 
 log = get_logger(__name__)
 
@@ -61,7 +61,7 @@ async def create_draft(
         if ln.debit < Decimal("0") or ln.credit < Decimal("0"):
             raise JournalBalanceError("Line amounts must be non-negative")
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     je_id = str(uuid.uuid4())
     total_d = sum(ln.functional_debit for ln in lines)
     total_c = sum(ln.functional_credit for ln in lines)
@@ -70,7 +70,7 @@ async def create_draft(
         id=je_id,
         tenant_id=tenant_id,
         number=f"DRAFT-{je_id[:8]}",  # real number assigned on post
-        date=datetime.combine(date_, datetime.min.time()).replace(tzinfo=timezone.utc),
+        date=datetime.combine(date_, datetime.min.time()).replace(tzinfo=UTC),
         period_id=period_id,
         description=description,
         source_type=source_type,
@@ -154,7 +154,7 @@ async def post_journal(
     ]
     validate_balance(domain_lines)  # Layer 2 check
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     number = await _next_number(db, tenant_id, je.date.year)  # type: ignore[attr-defined]
     before = {"status": je.status, "number": je.number}
 
@@ -234,7 +234,7 @@ async def void_journal(
     )
 
     # Mark original as void
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     original.status = "void"
     original.updated_at = now
     original.updated_by = actor_id
