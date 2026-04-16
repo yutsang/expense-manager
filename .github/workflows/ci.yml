@@ -143,9 +143,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: pip-audit
+        working-directory: backend
         run: |
           pip install pip-audit
-          pip-audit -r backend/pyproject.toml --desc
+          pip install -e ".[dev]"
+          pip-audit --desc
         continue-on-error: false
 
   # ── Deploy to Cloud Run (main branch only) ──────────────────────────────────
