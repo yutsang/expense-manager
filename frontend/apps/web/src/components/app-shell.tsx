@@ -33,6 +33,9 @@ import {
   SlidersHorizontal,
   Package,
   BarChart2,
+  Plus,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
 
@@ -81,10 +84,10 @@ function NavItem({
       href={href}
       {...(onClick ? { onClick } : {})}
       className={
-        "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors " +
+        "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors relative " +
         (active
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground")
+          ? "bg-indigo-50 text-indigo-700 font-medium border-l-2 border-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-500"
+          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100")
       }
     >
       <Icon className="h-4 w-4 shrink-0" />
@@ -93,10 +96,9 @@ function NavItem({
   );
 }
 
-function UserMenu() {
+function NewActionDropdown() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -108,73 +110,155 @@ function UserMenu() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  async function handleSignOut() {
-    try { await authApi.logout(); } catch { /* ignore */ }
-    router.push("/login");
-  }
-
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative px-3 mt-3">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted transition-colors"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors dark:bg-indigo-700 dark:hover:bg-indigo-600"
       >
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-          A
-        </div>
-        <span className="hidden sm:block text-sm font-medium text-foreground">Admin</span>
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        <Plus className="h-4 w-4" />
+        New
+        <ChevronDown className="h-3.5 w-3.5 ml-auto" />
       </button>
-
       {open && (
-        <div className="absolute right-0 mt-1 w-48 rounded-lg border bg-card shadow-md z-50 py-1">
-          <div className="border-b px-3 py-2">
-            <p className="text-sm font-medium">Admin User</p>
-            <p className="text-xs text-muted-foreground">admin@aegis.io</p>
-          </div>
+        <div className="absolute left-3 right-3 mt-1 rounded-lg border bg-white shadow-lg z-50 py-1 dark:bg-gray-900 dark:border-gray-700">
           <Link
-            href="/settings"
+            href="/invoices"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
           >
-            <Settings className="h-4 w-4 text-muted-foreground" />
-            Settings
+            <FileText className="h-4 w-4 text-indigo-500" />
+            New Invoice
           </Link>
           <Link
-            href="/help"
+            href="/bills"
             onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
           >
-            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-            Help & docs
+            <Receipt className="h-4 w-4 text-indigo-500" />
+            New Bill
           </Link>
-          <div className="border-t mt-1">
-            <button
-              onClick={() => { void handleSignOut(); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
-          </div>
+          <Link
+            href="/journals"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+          >
+            <BookMarked className="h-4 w-4 text-indigo-500" />
+            New Journal
+          </Link>
         </div>
       )}
     </div>
   );
 }
 
+function DarkModeToggle() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setIsDark(stored === "dark" || (!stored && prefersDark));
+  }, []);
+
+  const toggle = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (next) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100 transition-colors w-full"
+    >
+      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {isDark ? "Light mode" : "Dark mode"}
+    </button>
+  );
+}
+
+function UserSection() {
+  const router = useRouter();
+  const [userInfo, setUserInfo] = useState<{ initials: string; email: string }>({
+    initials: "U",
+    email: "",
+  });
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("aegis-auth");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { state?: { user?: { email?: string; display_name?: string } } };
+        const user = parsed?.state?.user;
+        if (user) {
+          const name = user.display_name ?? user.email ?? "";
+          const initials = name
+            .split(" ")
+            .map((w: string) => w[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase() || "U";
+          setUserInfo({ initials, email: user.email ?? "" });
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleSignOut = async () => {
+    try { await authApi.logout(); } catch { /* ignore */ }
+    router.push("/login");
+  };
+
+  return (
+    <div className="border-t border-gray-200 dark:border-gray-800 px-3 py-3 shrink-0">
+      <div className="flex items-center gap-2.5 mb-2">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-400">
+          {userInfo.initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium text-gray-900 dark:text-gray-100">
+            {userInfo.email || "Admin User"}
+          </p>
+          {userInfo.email && (
+            <p className="truncate text-xs text-gray-500 dark:text-gray-500">{userInfo.email}</p>
+          )}
+        </div>
+        <button
+          onClick={() => { void handleSignOut(); }}
+          title="Sign out"
+          className="shrink-0 rounded p-1 text-gray-400 hover:text-red-500 transition-colors"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SidebarContent({ onNavClick }: { onNavClick?: (() => void) | undefined }) {
   return (
-    <div className="flex h-full flex-col bg-card">
+    <div className="flex h-full flex-col bg-white border-r border-gray-200 dark:bg-gray-900 dark:border-gray-800">
       {/* Logo */}
-      <div className="flex h-14 items-center px-4 border-b shrink-0">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
+      <div className="flex h-14 items-center px-4 border-b border-gray-200 dark:border-gray-800 shrink-0">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-900 text-white text-sm font-bold dark:bg-indigo-600">
             A
           </div>
-          <span className="text-base font-bold tracking-tight">Aegis ERP</span>
+          <span className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">Aegis ERP</span>
         </Link>
       </div>
+
+      {/* New + button */}
+      <NewActionDropdown />
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
@@ -185,7 +269,7 @@ function SidebarContent({ onNavClick }: { onNavClick?: (() => void) | undefined 
             return (
               <li key={item.href}>
                 {showHeader && (
-                  <p className="mt-4 mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-3 mb-1 mt-4 dark:text-gray-500">
                     {item.group}
                   </p>
                 )}
@@ -201,16 +285,13 @@ function SidebarContent({ onNavClick }: { onNavClick?: (() => void) | undefined 
         </ul>
       </nav>
 
-      {/* Footer */}
-      <div className="border-t px-2 py-2 shrink-0">
-        <Link
-          href="/settings"
-          className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-        >
-          <Settings className="h-4 w-4 shrink-0" />
-          Settings
-        </Link>
+      {/* Dark mode toggle */}
+      <div className="px-2 py-1 shrink-0">
+        <DarkModeToggle />
       </div>
+
+      {/* User section */}
+      <UserSection />
     </div>
   );
 }
@@ -231,14 +312,14 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
       {/* Sidebar */}
       <aside
         className={
-          "fixed inset-y-0 left-0 z-50 w-56 border-r shadow-sm transition-transform duration-200 md:static md:translate-x-0 md:shadow-none " +
+          "fixed inset-y-0 left-0 z-50 w-60 shadow-sm transition-transform duration-200 md:static md:translate-x-0 md:shadow-none " +
           (sidebarOpen ? "translate-x-0" : "-translate-x-full")
         }
       >
         {/* Mobile close button */}
         <button
           onClick={() => setSidebarOpen(false)}
-          className="absolute right-2 top-2 rounded-md p-1.5 text-muted-foreground hover:bg-muted md:hidden"
+          className="absolute right-2 top-2 rounded-md p-1.5 text-gray-500 hover:bg-gray-100 md:hidden"
         >
           <X className="h-4 w-4" />
         </button>
@@ -246,18 +327,17 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
       </aside>
 
       {/* Main column */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden min-h-screen bg-gray-50 dark:bg-gray-950">
         {/* Top bar */}
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-card px-4">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b bg-white dark:bg-gray-900 dark:border-gray-800 px-4">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-muted transition-colors md:hidden"
+            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors md:hidden"
             aria-label="Open navigation"
           >
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1" />
-          <UserMenu />
         </header>
 
         {/* Page content */}

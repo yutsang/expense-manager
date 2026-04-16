@@ -56,7 +56,7 @@ export default function BillsPage() {
     }
   };
 
-  useEffect(() => { load(); }, [filterStatus]);
+  useEffect(() => { void load(); }, [filterStatus]);
 
   const addLine = () =>
     setForm((f) => ({ ...f, lines: [...f.lines, { account_id: "", description: "", quantity: "1", unit_price: "0" }] }));
@@ -118,7 +118,7 @@ export default function BillsPage() {
   const headerActions = (
     <button
       onClick={() => setShowForm(true)}
-      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
     >
       + New Bill
     </button>
@@ -131,40 +131,122 @@ export default function BillsPage() {
         subtitle="Purchase bills from suppliers"
         actions={headerActions}
       />
-    <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
+      <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
-      {/* Approval inbox banner */}
-      {bills.filter((b) => b.status === "awaiting_approval").length > 0 && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          <strong>{bills.filter((b) => b.status === "awaiting_approval").length}</strong> bill(s) awaiting your approval.
+        {/* Approval inbox banner */}
+        {bills.filter((b) => b.status === "awaiting_approval").length > 0 && (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-300">
+            <strong>{bills.filter((b) => b.status === "awaiting_approval").length}</strong> bill(s) awaiting your approval.
+          </div>
+        )}
+
+        {/* Filter */}
+        <div className="flex gap-3 flex-wrap">
+          {["", "draft", "awaiting_approval", "approved", "paid", "void"].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterStatus === s ? "bg-indigo-600 text-white" : "border hover:bg-muted"}`}
+            >
+              {s.replace("_", " ") || "All"}
+            </button>
+          ))}
         </div>
-      )}
 
-      {/* Filter */}
-      <div className="flex gap-3">
-        {["", "draft", "awaiting_approval", "approved", "paid", "void"].map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilterStatus(s)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary text-primary-foreground" : "border hover:bg-muted"}`}
-          >
-            {s.replace("_", " ") || "All"}
-          </button>
-        ))}
+        {/* List */}
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : bills.length === 0 ? (
+          <div className="rounded-xl border bg-card p-12 text-center">
+            <p className="text-muted-foreground">No bills found.</p>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/40">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Number</th>
+                  <th className="px-4 py-3 text-left font-medium">Supplier</th>
+                  <th className="px-4 py-3 text-left font-medium">Supplier Ref</th>
+                  <th className="px-4 py-3 text-left font-medium">Bill Date</th>
+                  <th className="px-4 py-3 text-left font-medium">Due</th>
+                  <th className="px-4 py-3 text-right font-medium">Total</th>
+                  <th className="px-4 py-3 text-right font-medium">Due Amount</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {bills.map((bill) => (
+                  <tr key={bill.id} className="hover:bg-muted/20">
+                    <td className="px-4 py-3 font-mono text-xs font-medium">{bill.number}</td>
+                    <td className="px-4 py-3">{contactName(bill.contact_id)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{bill.supplier_reference ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{bill.issue_date}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{bill.due_date ?? "—"}</td>
+                    <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(bill.total, bill.currency)}</td>
+                    <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(bill.amount_due, bill.currency)}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={bill.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-2">
+                      {bill.status === "draft" && (
+                        <button
+                          onClick={() => { void billsApi.submit(bill.id).then(load); }}
+                          className="text-xs font-medium text-yellow-600 hover:underline"
+                        >
+                          Submit
+                        </button>
+                      )}
+                      {bill.status === "awaiting_approval" && (
+                        <button
+                          onClick={() => { void billsApi.approve(bill.id).then(load); }}
+                          className="text-xs font-medium text-blue-600 hover:underline"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {bill.status !== "void" && bill.status !== "paid" && (
+                        <button
+                          onClick={() => { if (confirm(`Void ${bill.number}?`)) void billsApi.void(bill.id).then(load); }}
+                          className="text-xs text-muted-foreground hover:text-red-600"
+                        >
+                          Void
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* Create form */}
+      {/* Slide-over panel */}
       {showForm && (
-        <div className="rounded-xl border bg-card p-6 shadow-sm">
-          <h2 className="mb-4 font-semibold">New Bill</h2>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-4 gap-4">
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-40"
+            onClick={() => setShowForm(false)}
+          />
+          <div className="fixed right-0 top-0 h-full w-[480px] bg-background border-l shadow-xl z-50 flex flex-col overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold">New Bill</h2>
+              <button
+                onClick={() => setShowForm(false)}
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-muted transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={(e) => { void handleCreate(e); }} className="space-y-4 flex-1">
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Supplier *</label>
                 <select
                   value={form.contact_id}
                   onChange={(e) => setForm({ ...form, contact_id: e.target.value })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
                   required
                 >
                   <option value="">Select supplier…</option>
@@ -173,182 +255,132 @@ export default function BillsPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Bill Date *</label>
-                <input
-                  type="date"
-                  value={form.issue_date}
-                  onChange={(e) => setForm({ ...form, issue_date: e.target.value })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Due Date</label>
-                <input
-                  type="date"
-                  value={form.due_date}
-                  onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Bill Date *</label>
+                  <input
+                    type="date"
+                    value={form.issue_date}
+                    onChange={(e) => setForm({ ...form, issue_date: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Due Date</label>
+                  <input
+                    type="date"
+                    value={form.due_date}
+                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
+                  />
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Supplier Ref</label>
                 <input
                   value={form.supplier_reference}
                   onChange={(e) => setForm({ ...form, supplier_reference: e.target.value })}
-                  className="w-full rounded-lg border px-3 py-2 text-sm"
+                  className="w-full rounded-lg border px-3 py-2 text-sm bg-background"
                   placeholder="INV-2025-001"
                 />
               </div>
-            </div>
 
-            {/* Lines */}
-            <div>
-              <div className="mb-2 grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground">
-                <div className="col-span-4">Account</div>
-                <div className="col-span-4">Description</div>
-                <div className="col-span-1">Qty</div>
-                <div className="col-span-2">Unit Price</div>
-                <div className="col-span-1">Total</div>
-              </div>
-              {form.lines.map((line, i) => (
-                <div key={i} className="mb-2 grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-4">
-                    <select
-                      value={line.account_id}
-                      onChange={(e) => updateLine(i, "account_id", e.target.value)}
-                      className="w-full rounded-lg border px-2 py-1.5 text-sm"
-                      required
-                    >
-                      <option value="">Account…</option>
-                      {accounts.map((a) => (
-                        <option key={a.id} value={a.id}>{a.code} {a.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-span-4">
-                    <input
-                      value={line.description}
-                      onChange={(e) => updateLine(i, "description", e.target.value)}
-                      placeholder="Description"
-                      className="w-full rounded-lg border px-2 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div className="col-span-1">
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={line.quantity}
-                      onChange={(e) => updateLine(i, "quantity", e.target.value)}
-                      className="w-full rounded-lg border px-2 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={line.unit_price}
-                      onChange={(e) => updateLine(i, "unit_price", e.target.value)}
-                      className="w-full rounded-lg border px-2 py-1.5 text-sm"
-                    />
-                  </div>
-                  <div className="col-span-1 flex items-center gap-1">
-                    <span className="text-sm font-mono">{lineTotal(line)}</span>
-                    {form.lines.length > 1 && (
-                      <button type="button" onClick={() => removeLine(i)} className="text-red-400 hover:text-red-600 ml-auto">✕</button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              <button type="button" onClick={addLine} className="text-xs text-primary hover:underline">
-                + Add line
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between border-t pt-4">
+              {/* Lines */}
               <div>
-                <span className="text-sm text-muted-foreground">Total: </span>
-                <span className="text-lg font-bold">{fmt(grandTotal, form.currency)}</span>
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                  {saving ? "Saving…" : "Save Draft"}
-                </button>
-                <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border px-4 py-2 text-sm hover:bg-muted">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* List */}
-      {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : bills.length === 0 ? (
-        <div className="rounded-xl border bg-card p-12 text-center">
-          <p className="text-muted-foreground">No bills found.</p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Number</th>
-                <th className="px-4 py-3 text-left font-medium">Supplier</th>
-                <th className="px-4 py-3 text-left font-medium">Supplier Ref</th>
-                <th className="px-4 py-3 text-left font-medium">Bill Date</th>
-                <th className="px-4 py-3 text-left font-medium">Due</th>
-                <th className="px-4 py-3 text-right font-medium">Total</th>
-                <th className="px-4 py-3 text-right font-medium">Due Amount</th>
-                <th className="px-4 py-3 text-left font-medium">Status</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {bills.map((bill) => (
-                <tr key={bill.id} className="hover:bg-muted/20">
-                  <td className="px-4 py-3 font-mono text-xs font-medium">{bill.number}</td>
-                  <td className="px-4 py-3">{contactName(bill.contact_id)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{bill.supplier_reference ?? "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{bill.issue_date}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{bill.due_date ?? "—"}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(bill.total, bill.currency)}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">{fmt(bill.amount_due, bill.currency)}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={bill.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right space-x-2">
-                    {bill.status === "draft" && (
-                      <button onClick={() => billsApi.submit(bill.id).then(load)} className="text-xs font-medium text-yellow-600 hover:underline">
-                        Submit
-                      </button>
-                    )}
-                    {bill.status === "awaiting_approval" && (
-                      <button onClick={() => billsApi.approve(bill.id).then(load)} className="text-xs font-medium text-blue-600 hover:underline">
-                        Approve
-                      </button>
-                    )}
-                    {bill.status !== "void" && bill.status !== "paid" && (
-                      <button
-                        onClick={() => { if (confirm(`Void ${bill.number}?`)) billsApi.void(bill.id).then(load); }}
-                        className="text-xs text-muted-foreground hover:text-red-600"
+                <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Line Items
+                </p>
+                {form.lines.map((line, i) => (
+                  <div key={i} className="mb-3 space-y-2 rounded-lg border p-3 bg-muted/20">
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={line.account_id}
+                        onChange={(e) => updateLine(i, "account_id", e.target.value)}
+                        className="col-span-2 rounded-lg border px-2 py-1.5 text-sm bg-background"
+                        required
                       >
-                        Void
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                        <option value="">Account…</option>
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id}>{a.code} {a.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        value={line.description}
+                        onChange={(e) => updateLine(i, "description", e.target.value)}
+                        placeholder="Description"
+                        className="col-span-2 rounded-lg border px-2 py-1.5 text-sm bg-background"
+                      />
+                      <div>
+                        <label className="text-xs text-muted-foreground">Qty</label>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={line.quantity}
+                          onChange={(e) => updateLine(i, "quantity", e.target.value)}
+                          className="w-full rounded-lg border px-2 py-1.5 text-sm bg-background"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">Unit Price</label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={line.unit_price}
+                          onChange={(e) => updateLine(i, "unit_price", e.target.value)}
+                          className="w-full rounded-lg border px-2 py-1.5 text-sm bg-background"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        Line total: <span className="font-mono font-medium">{lineTotal(line)}</span>
+                      </span>
+                      {form.lines.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeLine(i)}
+                          className="text-xs text-red-400 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <button type="button" onClick={addLine} className="text-xs text-indigo-600 hover:underline">
+                  + Add line
+                </button>
+              </div>
+
+              <div className="border-t pt-4 flex items-center justify-between">
+                <div>
+                  <span className="text-sm text-muted-foreground">Total: </span>
+                  <span className="text-lg font-bold">{fmt(grandTotal, form.currency)}</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                  >
+                    {saving ? "Saving…" : "Save Draft"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="rounded-lg border px-4 py-2 text-sm hover:bg-muted transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </>
       )}
-    </div>
     </>
   );
 }
