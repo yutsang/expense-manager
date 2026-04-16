@@ -46,7 +46,8 @@ function JsonDiff({ label, data }: { label: string; data: Record<string, unknown
 
 const ENTITY_TYPE_OPTIONS = [
   "", "journal_entry", "account", "period", "invoice", "bill", "contact",
-  "payment", "user", "tenant",
+  "payment", "user", "tenant", "kyc", "sanctions_result", "receipt",
+  "expense_claim", "bank_reconciliation",
 ];
 
 const ACTOR_TYPE_OPTIONS = ["", "user", "ai", "system", "integration"];
