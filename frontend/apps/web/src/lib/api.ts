@@ -10,7 +10,7 @@
 // In dev: next.config.mjs rewrites /v1/* → localhost:8000/v1/*
 // In prod: vercel.json rewrites /v1/* → cloud-run-url/v1/*
 // This ensures auth cookies (set on vercel.app) are forwarded correctly.
-const BASE = "";
+export const BASE = "";
 
 class ApiError extends Error {
   constructor(
@@ -931,6 +931,54 @@ export const sanctionsApi = {
     request<SanctionsScreeningResult>("POST", `/v1/sanctions/screen/${contactId}`),
   getScreenResult: (contactId: string) =>
     request<SanctionsScreeningResult | null>("GET", `/v1/sanctions/screen/${contactId}`),
+};
+
+// ── Receipts ──────────────────────────────────────────────────────────────────
+
+export interface ReceiptOcrLine {
+  description: string | null;
+  quantity: number | null;
+  unit_price: number | null;
+  amount: number | null;
+}
+
+export interface Receipt {
+  id: string;
+  filename: string;
+  content_type: string;
+  file_size_kb: number;
+  status: string;
+  ocr_vendor: string | null;
+  ocr_date: string | null;
+  ocr_currency: string | null;
+  ocr_total: string | null;
+  ocr_raw: { line_items?: ReceiptOcrLine[] };
+  linked_bill_id: string | null;
+  created_at: string;
+}
+
+export const receiptsApi = {
+  upload: async (file: File): Promise<Receipt> => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
+    const tenantId =
+      typeof window !== "undefined"
+        ? (localStorage.getItem("aegis_tenant_id") ?? "00000000-0000-0000-0000-000000000001")
+        : "00000000-0000-0000-0000-000000000001";
+    const headers: Record<string, string> = { "X-Tenant-ID": tenantId };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/v1/receipts`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json() as Promise<Receipt>;
+  },
+  list: () => request<Receipt[]>("GET", "/v1/receipts"),
+  get: (id: string) => request<Receipt>("GET", `/v1/receipts/${id}`),
+  delete: (id: string) => request<void>("DELETE", `/v1/receipts/${id}`),
 };
 
 // ── Audit ─────────────────────────────────────────────────────────────────────

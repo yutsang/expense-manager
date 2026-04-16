@@ -1183,3 +1183,35 @@ class BankImportResult(BaseModel):
     imported: int
     skipped_duplicates: int
     errors: list[str]
+
+
+# ── Receipts ──────────────────────────────────────────────────────────────────
+
+class ReceiptOcrLine(BaseModel):
+    description: str | None = None
+    quantity: float | None = None
+    unit_price: float | None = None
+    amount: float | None = None
+
+
+class ReceiptResponse(BaseModel):
+    id: str
+    tenant_id: str
+    filename: str
+    content_type: str
+    file_size_kb: int
+    status: str
+    ocr_vendor: str | None
+    ocr_date: str | None
+    ocr_currency: str | None
+    ocr_total: str | None
+    ocr_raw: dict
+    linked_bill_id: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("ocr_total", mode="before")
+    @classmethod
+    def decimal_to_str_or_none(cls, v: Any) -> str | None:
+        return str(v) if v is not None else None
