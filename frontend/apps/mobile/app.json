@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "Aegis ERP",
+    "slug": "aegis-erp",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aegiserp.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used to capture receipts",
+        "NSFaceIDUsageDescription": "Used for biometric login"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f172a"
+      },
+      "package": "com.aegiserp.app",
+      "permissions": ["CAMERA", "USE_BIOMETRIC", "USE_FINGERPRINT"]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-local-authentication",
+      ["expo-camera", {"cameraPermission": "Allow Aegis to access camera for receipt capture"}],
+      ["expo-notifications", {"icon": "./assets/notification-icon.png", "color": "#6366f1"}]
+    ],
+    "scheme": "aegiserp",
+    "web": {"bundler": "metro"}
+  }
+}

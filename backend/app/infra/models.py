@@ -849,3 +849,55 @@ class ReportSnapshot(Base):
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 — Mobile Sync: sync_devices + sync_ops
+# ---------------------------------------------------------------------------
+
+
+class SyncDevice(Base):
+    """A registered mobile or web device for sync."""
+
+    __tablename__ = "sync_devices"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    device_fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
+    platform: Mapped[str] = mapped_column(String(10), nullable=False, default="web")
+    app_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    push_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "device_fingerprint", name="uq_sync_devices_tenant_fp"),
+        CheckConstraint("platform IN ('ios','android','web')", name="ck_sync_devices_platform"),
+    )
+
+
+class SyncOp(Base):
+    """Server-side record of a client push operation (idempotency log)."""
+
+    __tablename__ = "sync_ops"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    client_op_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    device_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("sync_devices.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    entity_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    entity_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    base_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    applied_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    applied_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('applied','conflict','error')", name="ck_sync_ops_status"),
+    )
