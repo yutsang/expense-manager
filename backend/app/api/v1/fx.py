@@ -23,7 +23,9 @@ async def list_fx_rates(
     limit: int = Query(default=200, ge=1, le=500),
 ) -> list[FxRate]:
     result = await db.execute(
-        select(FxRate).order_by(FxRate.from_currency, FxRate.to_currency, FxRate.rate_date.desc()).limit(limit)
+        select(FxRate)
+        .order_by(FxRate.from_currency, FxRate.to_currency, FxRate.rate_date.desc())
+        .limit(limit)
     )
     return list(result.scalars().all())
 
