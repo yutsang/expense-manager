@@ -378,6 +378,64 @@ export const contactsApi = {
   archive: (id: string) => request<void>("DELETE", `/v1/contacts/${id}`),
 };
 
+// ── Items / Product Catalog ──────────────────────────────────────────────────
+
+export interface Item {
+  id: string;
+  code: string;
+  name: string;
+  item_type: string;
+  description: string | null;
+  unit_of_measure: string | null;
+  sales_unit_price: string | null;
+  purchase_unit_price: string | null;
+  currency: string;
+  sales_account_id: string | null;
+  cogs_account_id: string | null;
+  purchase_account_id: string | null;
+  is_tracked: boolean;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ItemCreate {
+  code: string;
+  name: string;
+  item_type: string;
+  description?: string | null;
+  unit_of_measure?: string | null;
+  sales_unit_price?: string | null;
+  purchase_unit_price?: string | null;
+  currency?: string;
+}
+
+export interface ItemUpdate {
+  name?: string | null;
+  description?: string | null;
+  unit_of_measure?: string | null;
+  sales_unit_price?: string | null;
+  purchase_unit_price?: string | null;
+  currency?: string | null;
+}
+
+export const itemsApi = {
+  list: (params?: { item_type?: string; include_archived?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.item_type) q.set("item_type", params.item_type);
+    if (params?.include_archived) q.set("include_archived", "true");
+    return request<{ items: Item[]; next_cursor: string | null }>(
+      "GET",
+      `/v1/items?${q}`
+    );
+  },
+  get: (id: string) => request<Item>("GET", `/v1/items/${id}`),
+  create: (body: ItemCreate) => request<Item>("POST", "/v1/items", body),
+  update: (id: string, body: ItemUpdate) =>
+    request<Item>("PATCH", `/v1/items/${id}`, body),
+  archive: (id: string) => request<void>("DELETE", `/v1/items/${id}`),
+};
+
 // ── Tax Codes ────────────────────────────────────────────────────────────────
 
 export interface TaxCode {

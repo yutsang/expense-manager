@@ -54,6 +54,7 @@ const NAV_ITEMS = [
   { group: "Sales",     href: "/contacts",               label: "Contacts",         icon: Users },
   { group: "Sales",     href: "/contacts/kyc",           label: "KYC / Sanctions",  icon: ShieldCheck },
   { group: "Compliance", href: "/compliance/sanctions",  label: "Sanctions Lists",  icon: List },
+  { group: "Sales",     href: "/items",                  label: "Items / Products", icon: Package },
   { group: "Sales",     href: "/invoices",               label: "Invoices",         icon: FileText },
   { group: "Sales",     href: "/receipts",               label: "Receipts / OCR",   icon: ScanLine },
   { group: "Purchases", href: "/bills",                  label: "Bills",            icon: Receipt },
