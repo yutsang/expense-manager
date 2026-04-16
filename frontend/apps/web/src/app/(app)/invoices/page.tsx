@@ -25,6 +25,7 @@ export default function InvoicesPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
@@ -38,6 +39,7 @@ export default function InvoicesPage() {
   });
 
   const load = async () => {
+    setError(null);
     try {
       setLoading(true);
       const [invRes, contRes, accRes] = await Promise.all([
@@ -49,7 +51,7 @@ export default function InvoicesPage() {
       setContacts(contRes.items);
       setAccounts(accRes.items.filter((a) => a.type === "revenue"));
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : "Failed to load invoices");
     } finally {
       setLoading(false);
     }
@@ -163,6 +165,9 @@ export default function InvoicesPage() {
         </div>
 
         {/* Invoice list */}
+        {error && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        )}
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : invoices.length === 0 ? (

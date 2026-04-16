@@ -11,7 +11,10 @@ export function middleware(request: NextRequest) {
   }
 
   const isPublic = pathname === "/" || PUBLIC_PATHS.some((p) => pathname.startsWith(p));
-  const hasToken = request.cookies.has("aegis_access") || request.cookies.has("aegis_refresh");
+  const hasToken =
+    request.cookies.has("aegis_access") ||
+    request.cookies.has("aegis_refresh") ||
+    request.cookies.has("aegis_client");
 
   if (!isPublic && !hasToken) {
     const loginUrl = new URL("/login", request.url);

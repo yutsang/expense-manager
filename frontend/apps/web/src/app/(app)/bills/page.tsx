@@ -25,6 +25,7 @@ export default function BillsPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
@@ -39,6 +40,7 @@ export default function BillsPage() {
   });
 
   const load = async () => {
+    setError(null);
     try {
       setLoading(true);
       const [billRes, contRes, accRes] = await Promise.all([
@@ -50,7 +52,7 @@ export default function BillsPage() {
       setContacts(contRes.items);
       setAccounts(accRes.items.filter((a) => a.type === "expense"));
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : "Failed to load bills");
     } finally {
       setLoading(false);
     }
@@ -154,6 +156,9 @@ export default function BillsPage() {
         </div>
 
         {/* List */}
+        {error && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        )}
         {loading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : bills.length === 0 ? (

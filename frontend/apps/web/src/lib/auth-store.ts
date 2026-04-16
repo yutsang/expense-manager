@@ -57,6 +57,8 @@ export const useAuthStore = create<AuthState>()(
           if (data.access_token) localStorage.setItem("aegis_token", data.access_token);
           const tid = data.tenant_id ?? data.tenant_ids?.[0];
           if (tid) localStorage.setItem("aegis_tenant_id", tid);
+          // Set a JS-visible cookie so the Next.js middleware can detect auth state
+          document.cookie = "aegis_client=1; path=/; max-age=86400; SameSite=Lax";
         }
         set({ user: data.user, isAuthenticated: true });
         return { requires_mfa: false };
@@ -70,6 +72,7 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== "undefined") {
           localStorage.removeItem("aegis_tenant_id");
           localStorage.removeItem("aegis_token");
+          document.cookie = "aegis_client=; path=/; max-age=0";
         }
         set({ user: null, isAuthenticated: false });
       },

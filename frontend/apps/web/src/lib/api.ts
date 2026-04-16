@@ -64,8 +64,9 @@ async function request<T>(
       localStorage.removeItem("aegis_token");
       localStorage.removeItem("aegis_tenant_id");
       localStorage.removeItem("aegis-auth");
+      document.cookie = "aegis_client=; path=/; max-age=0";
       window.location.href = "/login";
-      return undefined as T;
+      throw new ApiError(401, "Session expired. Redirecting to login…");
     }
     let detail = res.statusText;
     try {

@@ -55,6 +55,7 @@ export default function SignupPage() {
         if (result.access_token) localStorage.setItem("aegis_token", result.access_token);
         const tid = result.tenant_id ?? result.tenant_ids?.[0];
         if (tid) localStorage.setItem("aegis_tenant_id", tid);
+        document.cookie = "aegis_client=1; path=/; max-age=86400; SameSite=Lax";
       }
       setUser(result.user);
       router.push("/dashboard");
