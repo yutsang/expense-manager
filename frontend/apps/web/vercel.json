@@ -17,10 +17,10 @@
   "rewrites": [
     {
       "source": "/v1/:path*",
-      "destination": "https://api.aegis-erp.fly.dev/v1/:path*"
+      "destination": "https://aegis-erp-api-551455410644.asia-southeast1.run.app/v1/:path*"
     }
   ],
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://api.aegis-erp.fly.dev"
+    "NEXT_PUBLIC_API_URL": "https://aegis-erp-api-551455410644.asia-southeast1.run.app"
   }
 }
