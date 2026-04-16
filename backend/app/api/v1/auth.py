@@ -1,4 +1,5 @@
 """Auth API — signup, login, logout, token refresh."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -152,7 +153,9 @@ async def do_refresh(
         access_token, new_refresh_token = await refresh(db, refresh_token_raw=refresh_token)
         await db.commit()
     except AuthError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Refresh token is invalid or expired")
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, detail="Refresh token is invalid or expired"
+        )
 
     _set_auth_cookies(response, access_token, new_refresh_token)
     return TokenResponse(access_token=access_token, refresh_token=new_refresh_token)

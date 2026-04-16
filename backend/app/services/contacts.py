@@ -1,4 +1,5 @@
 """Contact CRUD service (customers, suppliers, employees)."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -115,8 +116,18 @@ async def update_contact(
 ) -> Contact:
     contact = await get_contact(db, tenant_id, contact_id)
     allowed = {
-        "name", "code", "email", "phone", "currency", "tax_number",
-        "address_line1", "address_line2", "city", "region", "postal_code", "country",
+        "name",
+        "code",
+        "email",
+        "phone",
+        "currency",
+        "tax_number",
+        "address_line1",
+        "address_line2",
+        "city",
+        "region",
+        "postal_code",
+        "country",
         "contact_type",
     }
     for key, val in updates.items():

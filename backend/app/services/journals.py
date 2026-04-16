@@ -5,6 +5,7 @@ Invariants enforced at three layers (CLAUDE.md §2.1):
   2. validate_balance() in domain/ledger/journal.py
   3. Postgres trigger trg_check_journal_balance on status→posted
 """
+
 from __future__ import annotations
 
 import uuid
@@ -256,9 +257,7 @@ async def void_journal(
     return original, reversal
 
 
-async def get_journal(
-    db: AsyncSession, *, journal_id: str, tenant_id: str
-) -> JournalEntry:
+async def get_journal(db: AsyncSession, *, journal_id: str, tenant_id: str) -> JournalEntry:
     return await _get_je(db, journal_id=journal_id, tenant_id=tenant_id)
 
 
@@ -287,9 +286,7 @@ async def list_journals(
     return list(result.scalars().all())
 
 
-async def _get_je(
-    db: AsyncSession, *, journal_id: str, tenant_id: str
-) -> JournalEntry:
+async def _get_je(db: AsyncSession, *, journal_id: str, tenant_id: str) -> JournalEntry:
     result = await db.execute(
         select(JournalEntry).where(
             JournalEntry.id == journal_id, JournalEntry.tenant_id == tenant_id

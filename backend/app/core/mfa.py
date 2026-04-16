@@ -9,6 +9,7 @@ Rules:
   - Recovery codes: 8 × 8-char alphanumeric, hashed with sha256 in DB, single-use.
   - WebAuthn: server-side state (challenge) stored in Redis with 5-minute TTL.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -134,9 +135,7 @@ def begin_webauthn_authentication(rp_id: str, allowed_credentials: list[bytes]) 
 
     options = generate_authentication_options(
         rp_id=rp_id,
-        allow_credentials=[
-            PublicKeyCredentialDescriptor(id=c) for c in allowed_credentials
-        ],
+        allow_credentials=[PublicKeyCredentialDescriptor(id=c) for c in allowed_credentials],
         user_verification=UserVerificationRequirement.PREFERRED,
     )
     return options  # type: ignore[return-value]

@@ -9,6 +9,7 @@ Rules (from CLAUDE.md §8):
 - Cross-currency arithmetic raises CurrencyMismatchError.
 - Multiplication by Decimal (for FX, tax) is allowed; Money * Money is not.
 """
+
 from __future__ import annotations
 
 from decimal import ROUND_HALF_EVEN, Decimal

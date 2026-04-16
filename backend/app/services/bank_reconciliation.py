@@ -1,4 +1,5 @@
 """Bank reconciliation service — bank accounts, transactions, reconciliations."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

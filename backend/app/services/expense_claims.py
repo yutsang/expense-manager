@@ -4,6 +4,7 @@ State machine:
   draft → submitted → approved → paid
   submitted → rejected
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -140,9 +141,7 @@ async def get_expense_claim_lines(
     db: AsyncSession,
     claim_id: str,
 ) -> list[ExpenseClaimLine]:
-    result = await db.execute(
-        select(ExpenseClaimLine).where(ExpenseClaimLine.claim_id == claim_id)
-    )
+    result = await db.execute(select(ExpenseClaimLine).where(ExpenseClaimLine.claim_id == claim_id))
     return list(result.scalars())
 
 
@@ -226,9 +225,7 @@ async def pay_expense_claim(
     """Transition approved → paid. Posts a journal entry: DR expense accounts, CR AP."""
     claim = await get_expense_claim(db, tenant_id, claim_id)
     if claim.status != "approved":
-        raise ExpenseClaimTransitionError(
-            f"Cannot pay expense claim with status '{claim.status}'"
-        )
+        raise ExpenseClaimTransitionError(f"Cannot pay expense claim with status '{claim.status}'")
 
     lines = await get_expense_claim_lines(db, claim_id)
     now = datetime.now(tz=UTC)

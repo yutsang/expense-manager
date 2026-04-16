@@ -4,6 +4,7 @@ Revision ID: 0002
 Revises: 0001
 Create Date: 2026-04-14
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -34,8 +35,18 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(3), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("reporting_tags", sa.ARRAY(sa.Text()), nullable=False, server_default="{}"),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("created_by", sa.UUID(), nullable=True),
         sa.Column("updated_by", sa.UUID(), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
@@ -43,8 +54,12 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["parent_id"], ["accounts.id"], ondelete="RESTRICT"),
         sa.UniqueConstraint("tenant_id", "code", name="uq_accounts_tenant_code"),
-        sa.CheckConstraint("type IN ('asset','liability','equity','revenue','expense')", name="ck_accounts_type"),
-        sa.CheckConstraint("normal_balance IN ('debit','credit')", name="ck_accounts_normal_balance"),
+        sa.CheckConstraint(
+            "type IN ('asset','liability','equity','revenue','expense')", name="ck_accounts_type"
+        ),
+        sa.CheckConstraint(
+            "normal_balance IN ('debit','credit')", name="ck_accounts_normal_balance"
+        ),
     )
     op.create_index("ix_accounts_tenant_id", "accounts", ["tenant_id"])
     op.create_index("ix_accounts_parent_id", "accounts", ["parent_id"])
@@ -71,13 +86,25 @@ def upgrade() -> None:
         sa.Column("reopened_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("reopened_by", sa.UUID(), nullable=True),
         sa.Column("reopened_reason", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenants.id"], ondelete="RESTRICT"),
         sa.UniqueConstraint("tenant_id", "name", name="uq_periods_tenant_name"),
-        sa.CheckConstraint("status IN ('open','soft_closed','hard_closed','audited')", name="ck_periods_status"),
+        sa.CheckConstraint(
+            "status IN ('open','soft_closed','hard_closed','audited')", name="ck_periods_status"
+        ),
         sa.CheckConstraint("start_date <= end_date", name="ck_periods_dates"),
     )
     op.create_index("ix_periods_tenant_id", "periods", ["tenant_id"])
@@ -98,12 +125,21 @@ def upgrade() -> None:
         sa.Column("rate_date", sa.Date(), nullable=False),
         sa.Column("rate", sa.Numeric(19, 8), nullable=False),
         sa.Column("source", sa.String(64), nullable=False, server_default="manual"),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("from_currency", "to_currency", "rate_date", name="uq_fx_rates_pair_date"),
+        sa.UniqueConstraint(
+            "from_currency", "to_currency", "rate_date", name="uq_fx_rates_pair_date"
+        ),
         sa.CheckConstraint("rate > 0", name="ck_fx_rates_positive"),
     )
-    op.create_index("ix_fx_rates_pair_date", "fx_rates", ["from_currency", "to_currency", "rate_date"])
+    op.create_index(
+        "ix_fx_rates_pair_date", "fx_rates", ["from_currency", "to_currency", "rate_date"]
+    )
 
 
 def downgrade() -> None:

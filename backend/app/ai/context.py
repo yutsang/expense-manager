@@ -2,6 +2,7 @@
 
 Cached per tenant for 5 minutes so repeated chats don't re-query.
 """
+
 from __future__ import annotations
 
 import time
@@ -67,7 +68,9 @@ async def _build(db: AsyncSession, tenant_id: str) -> str:
     accts = accts_row.fetchall()
 
     if accts:
-        header = "## Your Chart of Accounts (top 20 most-used)\n| Code | Name | Type | Normal Balance |"
+        header = (
+            "## Your Chart of Accounts (top 20 most-used)\n| Code | Name | Type | Normal Balance |"
+        )
         separator = "|------|------|------|----------------|"
         rows = [f"| {r.code} | {r.name} | {r.type} | {r.normal_balance} |" for r in accts]
         sections.append("\n".join([header, separator] + rows))

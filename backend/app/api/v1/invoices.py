@@ -1,4 +1,5 @@
 """Invoices API."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -61,7 +62,9 @@ async def _invoice_response(db, inv) -> InvoiceResponse:
 async def create(body: InvoiceCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
     lines = await _resolve_line_tax(db, tenant_id, body.lines)
     inv = await create_invoice(
-        db, tenant_id, actor_id,
+        db,
+        tenant_id,
+        actor_id,
         contact_id=body.contact_id,
         issue_date=str(body.issue_date),
         due_date=str(body.due_date) if body.due_date else None,
@@ -86,7 +89,9 @@ async def list_all(
     limit: int = Query(default=50, le=200),
     cursor: str | None = Query(default=None),
 ):
-    items = await list_invoices(db, tenant_id, status=inv_status, contact_id=contact_id, limit=limit + 1, cursor=cursor)
+    items = await list_invoices(
+        db, tenant_id, status=inv_status, contact_id=contact_id, limit=limit + 1, cursor=cursor
+    )
     next_cursor = None
     if len(items) > limit:
         next_cursor = items[limit].id
@@ -305,6 +310,7 @@ async def send_reminder(invoice_id: str, db: DbSession, tenant_id: TenantId):
         )
 
     from datetime import date as _date  # noqa: PLC0415
+
     due_date_str = str(inv.due_date) if inv.due_date else "N/A"
     if inv.due_date:
         days_overdue = (_date.today() - _date.fromisoformat(str(inv.due_date))).days

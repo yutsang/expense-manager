@@ -4,6 +4,7 @@ Revision ID: 0011
 Revises: 0010
 Create Date: 2026-04-16
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -24,7 +25,12 @@ def upgrade() -> None:
         "sanctions_list_snapshots",
         sa.Column("id", sa.UUID(), nullable=False, server_default=sa.text("gen_random_uuid()")),
         sa.Column("source", sa.String(50), nullable=False),
-        sa.Column("fetched_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "fetched_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("entry_count", sa.Integer(), nullable=False),
         sa.Column("sha256_hash", sa.String(64), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="false"),
@@ -69,7 +75,12 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False, server_default=sa.text("gen_random_uuid()")),
         sa.Column("tenant_id", sa.UUID(), nullable=False),
         sa.Column("contact_id", sa.UUID(), nullable=False),
-        sa.Column("screened_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "screened_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("snapshot_id", sa.UUID(), nullable=True),
         sa.Column("match_status", sa.String(20), nullable=False, server_default=sa.text("'clear'")),
         sa.Column("match_score", sa.Integer(), nullable=False, server_default="0"),
@@ -92,16 +103,16 @@ def upgrade() -> None:
     # RLS on contact_sanctions_results only (snapshots/entries are global reference data)
     op.execute("ALTER TABLE contact_sanctions_results ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE contact_sanctions_results FORCE ROW LEVEL SECURITY")
-    op.execute(
-        """
+    op.execute("""
         CREATE POLICY contact_sanctions_results_tenant ON contact_sanctions_results
         USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
-        """
-    )
+        """)
 
 
 def downgrade() -> None:
-    op.execute("DROP POLICY IF EXISTS contact_sanctions_results_tenant ON contact_sanctions_results")
+    op.execute(
+        "DROP POLICY IF EXISTS contact_sanctions_results_tenant ON contact_sanctions_results"
+    )
     op.execute("ALTER TABLE contact_sanctions_results NO FORCE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE contact_sanctions_results DISABLE ROW LEVEL SECURITY")
     op.drop_table("contact_sanctions_results")

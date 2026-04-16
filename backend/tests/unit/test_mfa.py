@@ -1,4 +1,5 @@
 """Unit tests for MFA — TOTP enrollment, verification, recovery codes (T0.9 DoD)."""
+
 from __future__ import annotations
 
 import pyotp
@@ -64,6 +65,7 @@ class TestTOTPEncryption:
         encrypted = encrypt_totp_secret(secret, _TEST_KEY)
         wrong_key = b"wrongkey_32bytes_long_enough_xxx"
         from cryptography.exceptions import InvalidTag
+
         with pytest.raises(InvalidTag):
             decrypt_totp_secret(encrypted, wrong_key)
 

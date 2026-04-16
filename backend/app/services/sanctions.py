@@ -5,6 +5,7 @@ for OFAC name matching (O(contacts × entries), ~13k entries in OFAC). This is
 acceptable for MVP with a small-to-medium contact list screened in a daily batch
 job. For production scale, add pg_trgm indexes and pre-computed name vectors.
 """
+
 from __future__ import annotations
 
 import csv
@@ -103,24 +104,22 @@ def _parse_ofac_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
             if a_name:
                 aliases.append({"type": aka.findtext("type") or "a.k.a.", "name": a_name})
 
-        countries = list({
-            c.text.strip()
-            for c in sdn.findall(".//address/country")
-            if c.text
-        })
+        countries = list({c.text.strip() for c in sdn.findall(".//address/country") if c.text})
         programs = [p.text for p in sdn.findall(".//program") if p.text]
         remarks = sdn.findtext("remarksField")
 
-        entries.append({
-            "ref_id": uid,
-            "entity_type": sdn_type,
-            "primary_name": primary_name,
-            "aliases": aliases,
-            "countries": countries,
-            "programs": programs,
-            "remarks": remarks,
-            "source": "ofac_consolidated",
-        })
+        entries.append(
+            {
+                "ref_id": uid,
+                "entity_type": sdn_type,
+                "primary_name": primary_name,
+                "aliases": aliases,
+                "countries": countries,
+                "programs": programs,
+                "remarks": remarks,
+                "source": "ofac_consolidated",
+            }
+        )
     return entries
 
 
@@ -138,9 +137,7 @@ def _compute_name_score(contact_name: str, entry: SanctionsListEntry) -> tuple[i
     return best_score, best_name
 
 
-async def _get_previous_snapshot(
-    db: AsyncSession, source: str
-) -> SanctionsListSnapshot | None:
+async def _get_previous_snapshot(db: AsyncSession, source: str) -> SanctionsListSnapshot | None:
     return await db.scalar(
         select(SanctionsListSnapshot).where(
             SanctionsListSnapshot.source == source,
@@ -180,17 +177,19 @@ async def _store_snapshot(
     # Bulk insert entries in batches of 500
     batch: list[SanctionsListEntry] = []
     for e in entries:
-        batch.append(SanctionsListEntry(
-            snapshot_id=snapshot.id,
-            ref_id=e["ref_id"],
-            entity_type=e["entity_type"],
-            primary_name=e["primary_name"],
-            aliases=e.get("aliases", []),
-            countries=e.get("countries", []),
-            programs=e.get("programs", []),
-            remarks=e.get("remarks"),
-            source=e["source"],
-        ))
+        batch.append(
+            SanctionsListEntry(
+                snapshot_id=snapshot.id,
+                ref_id=e["ref_id"],
+                entity_type=e["entity_type"],
+                primary_name=e["primary_name"],
+                aliases=e.get("aliases", []),
+                countries=e.get("countries", []),
+                programs=e.get("programs", []),
+                remarks=e.get("remarks"),
+                source=e["source"],
+            )
+        )
         if len(batch) >= 500:
             db.add_all(batch)
             await db.flush()
@@ -307,16 +306,18 @@ def _parse_un_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
         programs = [f"{list_type} {listed_on}".strip()] if (list_type or listed_on) else []
         remarks = _text(individual, "COMMENTS1") or None
 
-        entries.append({
-            "ref_id": ref_id,
-            "entity_type": "individual",
-            "primary_name": primary_name,
-            "aliases": aliases,
-            "countries": countries,
-            "programs": programs,
-            "remarks": remarks,
-            "source": "un_consolidated",
-        })
+        entries.append(
+            {
+                "ref_id": ref_id,
+                "entity_type": "individual",
+                "primary_name": primary_name,
+                "aliases": aliases,
+                "countries": countries,
+                "programs": programs,
+                "remarks": remarks,
+                "source": "un_consolidated",
+            }
+        )
 
     for entity in _find_all_stripped(root, "ENTITY"):
         ref_id = _text(entity, "DATAID")
@@ -341,16 +342,18 @@ def _parse_un_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
         programs = [list_type] if list_type else []
         remarks = _text(entity, "COMMENTS1") or None
 
-        entries.append({
-            "ref_id": ref_id,
-            "entity_type": "entity",
-            "primary_name": primary_name,
-            "aliases": aliases,
-            "countries": countries,
-            "programs": programs,
-            "remarks": remarks,
-            "source": "un_consolidated",
-        })
+        entries.append(
+            {
+                "ref_id": ref_id,
+                "entity_type": "entity",
+                "primary_name": primary_name,
+                "aliases": aliases,
+                "countries": countries,
+                "programs": programs,
+                "remarks": remarks,
+                "source": "un_consolidated",
+            }
+        )
 
     return entries
 
@@ -384,10 +387,7 @@ def _parse_uk_ofsi_csv(raw_bytes: bytes) -> list[dict[str, Any]]:
         if not group_id:
             continue
 
-        name_parts = [
-            (row.get(f"Name {i}") or "").strip()
-            for i in range(1, 7)
-        ]
+        name_parts = [(row.get(f"Name {i}") or "").strip() for i in range(1, 7)]
         full_name = " ".join(p for p in name_parts if p).strip()
         country = (row.get("Country") or "").strip()
         group_type = (row.get("GroupTypeDescription") or "").strip()
@@ -412,16 +412,18 @@ def _parse_uk_ofsi_csv(raw_bytes: bytes) -> list[dict[str, Any]]:
         all_names: set[str] = g["all_names"]
         primary = g["primary_name"]
         aliases = [{"type": "a.k.a.", "name": n} for n in sorted(all_names) if n != primary]
-        entries.append({
-            "ref_id": g["ref_id"],
-            "entity_type": g["entity_type"],
-            "primary_name": primary,
-            "aliases": aliases,
-            "countries": sorted(g["countries"]),
-            "programs": g["programs"],
-            "remarks": None,
-            "source": "uk_ofsi",
-        })
+        entries.append(
+            {
+                "ref_id": g["ref_id"],
+                "entity_type": g["entity_type"],
+                "primary_name": primary,
+                "aliases": aliases,
+                "countries": sorted(g["countries"]),
+                "programs": g["programs"],
+                "remarks": None,
+                "source": "uk_ofsi",
+            }
+        )
 
     return entries
 
@@ -501,16 +503,20 @@ def _parse_eu_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
                 ln = (first_na.get("lastName") or "").strip()
                 whole_name = f"{fn} {ln}".strip()
             primary_name = whole_name
-            remaining_aliases = [(na, (na.get("wholeName") or f"{na.get('firstName','')} {na.get('lastName','')}").strip()) for na in name_aliases[1:]]
+            remaining_aliases = [
+                (
+                    na,
+                    (
+                        na.get("wholeName") or f"{na.get('firstName','')} {na.get('lastName','')}"
+                    ).strip(),
+                )
+                for na in name_aliases[1:]
+            ]
 
         if not primary_name:
             primary_name = ref_id
 
-        aliases = [
-            {"type": "a.k.a.", "name": name}
-            for _, name in remaining_aliases
-            if name
-        ]
+        aliases = [{"type": "a.k.a.", "name": name} for _, name in remaining_aliases if name]
 
         # countries from citizenship and address
         countries: list[str] = []
@@ -546,16 +552,18 @@ def _parse_eu_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
             remarks = (rem.text or "").strip() or None
             break
 
-        entries.append({
-            "ref_id": ref_id,
-            "entity_type": entity_type,
-            "primary_name": primary_name,
-            "aliases": aliases,
-            "countries": countries,
-            "programs": programs,
-            "remarks": remarks,
-            "source": "eu_consolidated",
-        })
+        entries.append(
+            {
+                "ref_id": ref_id,
+                "entity_type": entity_type,
+                "primary_name": primary_name,
+                "aliases": aliases,
+                "countries": countries,
+                "programs": programs,
+                "remarks": remarks,
+                "source": "eu_consolidated",
+            }
+        )
 
     return entries
 
@@ -578,7 +586,9 @@ async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
             entries, raw_hash = await fetch_fn()
             snap, changed = await _store_snapshot(db, source_name, entries, raw_hash)
             results.append((source_name, changed))
-            log.info("sanctions.list_refreshed", source=source_name, changed=changed, count=len(entries))
+            log.info(
+                "sanctions.list_refreshed", source=source_name, changed=changed, count=len(entries)
+            )
         except Exception as exc:
             log.error("sanctions.list_refresh_failed", source=source_name, error=str(exc))
             results.append((source_name, False))

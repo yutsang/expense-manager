@@ -1,4 +1,5 @@
 """Mobile Sync service — device registration, pull, push operations."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -282,9 +283,7 @@ async def push_operations(
         new_state: dict = op.get("new_state", {})
 
         # Idempotency: check if already processed
-        existing = await db.scalar(
-            select(SyncOp).where(SyncOp.client_op_id == client_op_id)
-        )
+        existing = await db.scalar(select(SyncOp).where(SyncOp.client_op_id == client_op_id))
         if existing:
             result: dict = {"client_op_id": client_op_id, "status": existing.status}
             if existing.applied_version is not None:
@@ -309,11 +308,13 @@ async def push_operations(
             )
             db.add(sync_op)
             await db.flush()
-            results.append({
-                "client_op_id": client_op_id,
-                "status": "error",
-                "error": sync_op.error,
-            })
+            results.append(
+                {
+                    "client_op_id": client_op_id,
+                    "status": "error",
+                    "error": sync_op.error,
+                }
+            )
             continue
 
         # Dispatch by entity type
@@ -340,11 +341,13 @@ async def push_operations(
             )
             db.add(sync_op)
             await db.flush()
-            results.append({
-                "client_op_id": client_op_id,
-                "status": "conflict",
-                "server_state": exc.server_state,
-            })
+            results.append(
+                {
+                    "client_op_id": client_op_id,
+                    "status": "conflict",
+                    "server_state": exc.server_state,
+                }
+            )
             continue
         except Exception as exc:
             sync_op = SyncOp(
@@ -360,11 +363,13 @@ async def push_operations(
             )
             db.add(sync_op)
             await db.flush()
-            results.append({
-                "client_op_id": client_op_id,
-                "status": "error",
-                "error": str(exc),
-            })
+            results.append(
+                {
+                    "client_op_id": client_op_id,
+                    "status": "error",
+                    "error": str(exc),
+                }
+            )
             continue
 
         # Success
@@ -382,12 +387,14 @@ async def push_operations(
         )
         db.add(sync_op)
         await db.flush()
-        results.append({
-            "client_op_id": client_op_id,
-            "status": "applied",
-            "applied_version": applied_version,
-            "server_state": server_state,
-        })
+        results.append(
+            {
+                "client_op_id": client_op_id,
+                "status": "applied",
+                "applied_version": applied_version,
+                "server_state": server_state,
+            }
+        )
 
     return results
 
@@ -444,7 +451,9 @@ async def _apply_expense_claim_op(
         from sqlalchemy import func
 
         count_result = await db.execute(
-            select(func.count()).select_from(ExpenseClaim).where(ExpenseClaim.tenant_id == tenant_id)
+            select(func.count())
+            .select_from(ExpenseClaim)
+            .where(ExpenseClaim.tenant_id == tenant_id)
         )
         seq = (count_result.scalar() or 0) + 1
         claim = ExpenseClaim(

@@ -1,4 +1,5 @@
 """FX Rates API — upsert and lookup."""
+
 from __future__ import annotations
 
 from datetime import date

@@ -5,6 +5,7 @@ Detects:
 2. Round numbers: total_debit is an exact multiple of 1000
 3. Statistical outliers: total_debit > mean + 3 * stddev
 """
+
 from __future__ import annotations
 
 import math
@@ -82,6 +83,7 @@ async def scan_anomalies(db: AsyncSession, tenant_id: str) -> list[dict]:
             # Check date proximity
             def _to_date(v: object) -> datetime:
                 from datetime import date as _date
+
                 if isinstance(v, datetime):
                     return v
                 if isinstance(v, _date):
@@ -94,52 +96,58 @@ async def scan_anomalies(db: AsyncSession, tenant_id: str) -> list[dict]:
             if delta_days <= 3:
                 seen_duplicates.add(entry.id)
                 seen_duplicates.add(other.id)
-                anomalies.append({
-                    "type": "duplicate",
-                    "severity": "high",
-                    "journal_id": entry.id,
-                    "journal_number": entry.number,
-                    "description": entry.description or "",
-                    "amount": str(Decimal(str(entry.total_debit))),
-                    "detected_at": now,
-                    "detail": (
-                        f"Possible duplicate of journal {other.number} "
-                        f"({delta_days} day(s) apart, same description and amount)"
-                    ),
-                })
+                anomalies.append(
+                    {
+                        "type": "duplicate",
+                        "severity": "high",
+                        "journal_id": entry.id,
+                        "journal_number": entry.number,
+                        "description": entry.description or "",
+                        "amount": str(Decimal(str(entry.total_debit))),
+                        "detected_at": now,
+                        "detail": (
+                            f"Possible duplicate of journal {other.number} "
+                            f"({delta_days} day(s) apart, same description and amount)"
+                        ),
+                    }
+                )
 
     # --- Check 2: Round numbers (exact multiple of 1000) ---
     for entry in entries:
         amount = Decimal(str(entry.total_debit))
         if amount > Decimal("0") and amount % Decimal("1000") == Decimal("0"):
-            anomalies.append({
-                "type": "round_number",
-                "severity": "low",
-                "journal_id": entry.id,
-                "journal_number": entry.number,
-                "description": entry.description or "",
-                "amount": str(amount),
-                "detected_at": now,
-                "detail": f"Total debit {amount} is an exact multiple of 1000",
-            })
+            anomalies.append(
+                {
+                    "type": "round_number",
+                    "severity": "low",
+                    "journal_id": entry.id,
+                    "journal_number": entry.number,
+                    "description": entry.description or "",
+                    "amount": str(amount),
+                    "detected_at": now,
+                    "detail": f"Total debit {amount} is an exact multiple of 1000",
+                }
+            )
 
     # --- Check 3: Statistical outliers (> mean + 3*stddev) ---
     if outlier_threshold is not None:
         for entry in entries:
             amount = Decimal(str(entry.total_debit))
             if amount > outlier_threshold:
-                anomalies.append({
-                    "type": "statistical_outlier",
-                    "severity": "medium",
-                    "journal_id": entry.id,
-                    "journal_number": entry.number,
-                    "description": entry.description or "",
-                    "amount": str(amount),
-                    "detected_at": now,
-                    "detail": (
-                        f"Total debit {amount} exceeds mean + 3σ "
-                        f"(mean={mean:.2f}, σ={stddev:.2f}, threshold={outlier_threshold:.2f})"
-                    ),
-                })
+                anomalies.append(
+                    {
+                        "type": "statistical_outlier",
+                        "severity": "medium",
+                        "journal_id": entry.id,
+                        "journal_number": entry.number,
+                        "description": entry.description or "",
+                        "amount": str(amount),
+                        "detected_at": now,
+                        "detail": (
+                            f"Total debit {amount} exceeds mean + 3σ "
+                            f"(mean={mean:.2f}, σ={stddev:.2f}, threshold={outlier_threshold:.2f})"
+                        ),
+                    }
+                )
 
     return anomalies

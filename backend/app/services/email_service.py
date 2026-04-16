@@ -1,4 +1,5 @@
 """Simple email sender using Resend API (falls back to log-only if not configured)."""
+
 from __future__ import annotations
 
 import httpx

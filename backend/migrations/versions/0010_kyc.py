@@ -4,6 +4,7 @@ Revision ID: 0010
 Revises: 0009
 Create Date: 2026-04-16
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -36,8 +37,18 @@ def upgrade() -> None:
         sa.Column("last_review_date", sa.Date(), nullable=True),
         sa.Column("next_review_date", sa.Date(), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("created_by", sa.String(36), nullable=True),
         sa.Column("updated_by", sa.String(36), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
@@ -67,12 +78,10 @@ def upgrade() -> None:
     # RLS
     op.execute("ALTER TABLE contact_kyc ENABLE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE contact_kyc FORCE ROW LEVEL SECURITY")
-    op.execute(
-        """
+    op.execute("""
         CREATE POLICY contact_kyc_tenant ON contact_kyc
         USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
-        """
-    )
+        """)
 
 
 def downgrade() -> None:

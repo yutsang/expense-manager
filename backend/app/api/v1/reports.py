@@ -1,4 +1,5 @@
 """Reports API — trial balance, general ledger, dashboard, P&L, cash flow, anomalies."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -116,42 +117,36 @@ async def dashboard_endpoint(
     tenant_id: TenantId,
 ) -> DashboardResponse:
     # Cash balance: sum(debit - credit) on bank subtype accounts
-    cash_row = await db.execute(
-        text("""
+    cash_row = await db.execute(text("""
             SELECT COALESCE(SUM(jl.debit - jl.credit), 0) AS cash_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.subtype = 'bank'
               AND je.status = 'posted'
-        """)
-    )
+        """))
     cash_balance = Decimal(str(cash_row.scalar() or 0))
 
     # AR: balance on account code 1100
-    ar_row = await db.execute(
-        text("""
+    ar_row = await db.execute(text("""
             SELECT COALESCE(SUM(jl.debit - jl.credit), 0) AS ar_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.code = '1100'
               AND je.status = 'posted'
-        """)
-    )
+        """))
     accounts_receivable = Decimal(str(ar_row.scalar() or 0))
 
     # AP: balance on account code 2000 (credit normal, so credit - debit)
-    ap_row = await db.execute(
-        text("""
+    ap_row = await db.execute(text("""
             SELECT COALESCE(SUM(jl.credit - jl.debit), 0) AS ap_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.code = '2000'
               AND je.status = 'posted'
-        """)
-    )
+        """))
     accounts_payable = Decimal(str(ap_row.scalar() or 0))
 
     # Revenue MTD: total credit on revenue accounts for current month
@@ -202,13 +197,11 @@ async def dashboard_endpoint(
     invoices_overdue = int(inv_row.scalar() or 0)
 
     # Bills awaiting approval
-    bills_row = await db.execute(
-        text("""
+    bills_row = await db.execute(text("""
             SELECT COUNT(*) AS awaiting_count
             FROM bills
             WHERE status = 'awaiting_approval'
-        """)
-    )
+        """))
     bills_awaiting_approval = int(bills_row.scalar() or 0)
 
     def fmt(d: Decimal) -> str:
@@ -467,6 +460,7 @@ async def _build_aging_response(
                 return v
             # asyncpg may return datetime or str
             from datetime import datetime as _dt
+
             if isinstance(v, _dt):
                 return v.date()
             return date.fromisoformat(str(v))
@@ -516,9 +510,7 @@ async def ar_aging_endpoint(
     tenant_id: TenantId,
     as_of: date = Query(..., description="AR aging as of this date"),
 ) -> AgingResponse:
-    return await _build_aging_response(
-        db, as_of, "invoices", ("authorised", "sent", "partial")
-    )
+    return await _build_aging_response(db, as_of, "invoices", ("authorised", "sent", "partial"))
 
 
 @router.get("/ap-aging", response_model=AgingResponse)
@@ -527,9 +519,7 @@ async def ap_aging_endpoint(
     tenant_id: TenantId,
     as_of: date = Query(..., description="AP aging as of this date"),
 ) -> AgingResponse:
-    return await _build_aging_response(
-        db, as_of, "bills", ("approved", "partial")
-    )
+    return await _build_aging_response(db, as_of, "bills", ("approved", "partial"))
 
 
 async def _account_balance_at(db: DbSession, account_type: str, as_of: date) -> Decimal:
@@ -673,7 +663,11 @@ async def cash_flow_endpoint(
         CashFlowLineResponse(label="Net profit", amount=f"{net_profit:.2f}"),
         CashFlowLineResponse(label="Change in accounts receivable", amount=f"{ar_change:.2f}"),
         CashFlowLineResponse(label="Change in accounts payable", amount=f"{ap_change:.2f}"),
-        CashFlowLineResponse(label="Net cash from operating activities", amount=f"{net_operating:.2f}", is_subtotal=True),
+        CashFlowLineResponse(
+            label="Net cash from operating activities",
+            amount=f"{net_operating:.2f}",
+            is_subtotal=True,
+        ),
     ]
 
     # --- Investing: change in fixed assets (1900-range codes) ---
@@ -709,7 +703,11 @@ async def cash_flow_endpoint(
 
     investing_activities = [
         CashFlowLineResponse(label="Change in fixed assets", amount=f"{net_investing:.2f}"),
-        CashFlowLineResponse(label="Net cash from investing activities", amount=f"{net_investing:.2f}", is_subtotal=True),
+        CashFlowLineResponse(
+            label="Net cash from investing activities",
+            amount=f"{net_investing:.2f}",
+            is_subtotal=True,
+        ),
     ]
 
     # --- Financing: change in loans (2500-range) + owner equity contributions (3000-range) ---
@@ -775,8 +773,14 @@ async def cash_flow_endpoint(
 
     financing_activities = [
         CashFlowLineResponse(label="Change in loans payable", amount=f"{loans_change:.2f}"),
-        CashFlowLineResponse(label="Owner equity contributions", amount=f"{equity_contributions:.2f}"),
-        CashFlowLineResponse(label="Net cash from financing activities", amount=f"{net_financing:.2f}", is_subtotal=True),
+        CashFlowLineResponse(
+            label="Owner equity contributions", amount=f"{equity_contributions:.2f}"
+        ),
+        CashFlowLineResponse(
+            label="Net cash from financing activities",
+            amount=f"{net_financing:.2f}",
+            is_subtotal=True,
+        ),
     ]
 
     net_change = net_operating + net_investing + net_financing

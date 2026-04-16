@@ -1,4 +1,5 @@
 """Period service — lifecycle management and pre-generation."""
+
 from __future__ import annotations
 
 import uuid
@@ -39,9 +40,7 @@ async def get_period(db: AsyncSession, *, period_id: str, tenant_id: str) -> Per
     return p
 
 
-async def get_period_for_date(
-    db: AsyncSession, *, tenant_id: str, on_date: date
-) -> Period:
+async def get_period_for_date(db: AsyncSession, *, tenant_id: str, on_date: date) -> Period:
     """Return the period that covers `on_date`. Raises if none found."""
     from sqlalchemy import func
 
@@ -76,9 +75,7 @@ async def assert_can_post(
     period = await get_period(db, period_id=period_id, tenant_id=tenant_id)
     status = PeriodStatus(period.status)
     if not can_post(status, admin_override=admin_override):
-        raise PeriodPostingError(
-            f"Period '{period.name}' is {period.status} — cannot post"
-        )
+        raise PeriodPostingError(f"Period '{period.name}' is {period.status} — cannot post")
     return period
 
 
@@ -158,9 +155,7 @@ async def provision_periods(
     for pd in period_dicts:
         # Skip if already exists
         existing = await db.execute(
-            select(Period).where(
-                Period.tenant_id == tenant_id, Period.name == pd["name"]
-            )
+            select(Period).where(Period.tenant_id == tenant_id, Period.name == pd["name"])
         )
         if existing.scalar_one_or_none():
             continue

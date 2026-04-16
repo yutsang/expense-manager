@@ -1,4 +1,5 @@
 """AI assistant API — SSE streaming chat endpoint."""
+
 from __future__ import annotations
 
 import uuid

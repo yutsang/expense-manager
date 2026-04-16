@@ -1,4 +1,5 @@
 """Contacts API — CRUD."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -26,9 +27,7 @@ router = APIRouter(prefix="/contacts", tags=["contacts"])
 @router.post("", response_model=ContactResponse, status_code=status.HTTP_201_CREATED)
 async def create(body: ContactCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
     try:
-        contact = await create_contact(
-            db, tenant_id, actor_id, **body.model_dump()
-        )
+        contact = await create_contact(db, tenant_id, actor_id, **body.model_dump())
         await db.commit()
         return contact
     except ContactCodeConflictError as exc:
@@ -45,7 +44,8 @@ async def list_all(
     cursor: str | None = Query(default=None),
 ):
     items = await list_contacts(
-        db, tenant_id,
+        db,
+        tenant_id,
         contact_type=contact_type,
         include_archived=include_archived,
         limit=limit + 1,
@@ -67,10 +67,15 @@ async def get_one(contact_id: str, db: DbSession, tenant_id: TenantId):
 
 
 @router.patch("/{contact_id}", response_model=ContactResponse)
-async def update(contact_id: str, body: ContactUpdate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def update(
+    contact_id: str, body: ContactUpdate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+):
     try:
         contact = await update_contact(
-            db, tenant_id, contact_id, actor_id,
+            db,
+            tenant_id,
+            contact_id,
+            actor_id,
             {k: v for k, v in body.model_dump().items() if v is not None},
         )
         await db.commit()

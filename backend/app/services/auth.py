@@ -2,6 +2,7 @@
 
 Does NOT import from sibling services. Uses app.core.security and app.infra.models.
 """
+
 from __future__ import annotations
 
 import hashlib

@@ -64,7 +64,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'not-a-real-secret-just-for-ci' }} # gitleaks:allow
+      SECRET_KEY: ${{ secrets.CI_SECRET_KEY || 'not-a-real-secret-only-used-in-ci' }} # gitleaks:allow
       DATABASE_URL: postgresql+asyncpg://aegis:aegis_test_pw@localhost:5432/aegis_test
       REDIS_URL: redis://localhost:6379/0
       ENVIRONMENT: testing
@@ -110,7 +110,7 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      SECRET_KEY: not-a-real-secret-just-for-ci # gitleaks:allow
+      SECRET_KEY: not-a-real-secret-only-used-in-ci # gitleaks:allow
       DATABASE_URL: postgresql+asyncpg://aegis:aegis_test_pw@localhost:5432/aegis_test
       ENVIRONMENT: testing
     steps:
@@ -138,6 +138,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

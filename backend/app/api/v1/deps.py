@@ -1,4 +1,5 @@
 """FastAPI shared dependencies for v1 API."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
@@ -48,10 +49,12 @@ async def get_db_with_rls(
 DbSession = Annotated[AsyncSession, Depends(get_db_with_rls)]
 TenantId = Annotated[str, Depends(get_tenant_id)]
 
+
 # Actor — Phase 0 auth not yet wired; use X-Actor-ID header as stub
 async def get_actor_id(
     x_actor_id: Annotated[str | None, Header(alias="X-Actor-ID")] = None,
 ) -> str | None:
     return x_actor_id
+
 
 ActorId = Annotated[str | None, Depends(get_actor_id)]

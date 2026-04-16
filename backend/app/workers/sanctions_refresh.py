@@ -1,4 +1,5 @@
 """ARQ worker: daily sanctions list refresh + contact re-screening."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -61,9 +62,7 @@ async def refresh_sanctions_lists(ctx: dict[str, Any]) -> dict[str, Any]:
 
     # Screen all tenants — discover tenant_ids from contacts table
     async with AsyncSessionLocal() as db:
-        tenant_rows = await db.execute(
-            select(distinct(Contact.tenant_id))
-        )
+        tenant_rows = await db.execute(select(distinct(Contact.tenant_id)))
         tenant_ids = [row[0] for row in tenant_rows.all()]
 
     for tid in tenant_ids:

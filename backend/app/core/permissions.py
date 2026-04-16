@@ -8,6 +8,7 @@ Usage in FastAPI routes:
         _: None = Depends(require(Permission.JOURNAL_POST)),
     ) -> ...:
 """
+
 from __future__ import annotations
 
 from enum import StrEnum
@@ -80,74 +81,87 @@ class Permission(StrEnum):
 
 # Role → granted permissions. Higher roles include lower roles' permissions.
 _ROLE_PERMISSIONS: dict[Role, frozenset[Permission]] = {
-    Role.VIEWER: frozenset({
-        Permission.JOURNAL_READ,
-        Permission.REPORT_READ,
-        Permission.ACCOUNT_READ,
-        Permission.PERIOD_READ,
-        Permission.AI_CHAT,
-    }),
-    Role.APPROVER: frozenset({
-        Permission.JOURNAL_READ,
-        Permission.REPORT_READ,
-        Permission.ACCOUNT_READ,
-        Permission.PERIOD_READ,
-        Permission.BILL_APPROVE,
-        Permission.AI_CHAT,
-    }),
-    Role.AUDITOR: frozenset({
-        Permission.JOURNAL_READ,
-        Permission.REPORT_READ,
-        Permission.ACCOUNT_READ,
-        Permission.PERIOD_READ,
-        Permission.AUDIT_READ,
-        Permission.AUDIT_EXPORT,
-        Permission.AUDIT_VERIFY,
-        Permission.AI_CHAT,
-        Permission.PERIOD_REOPEN,
-    }),
-    Role.BOOKKEEPER: frozenset({
-        Permission.JOURNAL_READ,
-        Permission.REPORT_READ,
-        Permission.ACCOUNT_READ,
-        Permission.PERIOD_READ,
-        Permission.JOURNAL_DRAFT,
-        Permission.INVOICE_WRITE,
-        Permission.BILL_WRITE,
-        Permission.CONTACT_WRITE,
-        Permission.ITEM_WRITE,
-        Permission.PAYMENT_WRITE,
-        Permission.AI_CHAT,
-        Permission.AI_MUTATE_CONFIRM,
-    }),
-    Role.ACCOUNTANT: frozenset({
-        Permission.JOURNAL_READ,
-        Permission.REPORT_READ,
-        Permission.ACCOUNT_READ,
-        Permission.PERIOD_READ,
-        Permission.AUDIT_READ,
-        Permission.JOURNAL_DRAFT,
-        Permission.JOURNAL_POST,
-        Permission.JOURNAL_VOID,
-        Permission.PERIOD_CLOSE,
-        Permission.INVOICE_WRITE,
-        Permission.INVOICE_AUTHORIZE,
-        Permission.BILL_WRITE,
-        Permission.BILL_APPROVE,
-        Permission.PAYMENT_WRITE,
-        Permission.BANK_MANAGE,
-        Permission.RECONCILIATION_WRITE,
-        Permission.CONTACT_WRITE,
-        Permission.ITEM_WRITE,
-        Permission.TAX_WRITE,
-        Permission.ACCOUNT_WRITE,
-        Permission.AI_CHAT,
-        Permission.AI_MUTATE_CONFIRM,
-    }),
-    Role.ADMIN: frozenset({p for p in Permission} - {
-        Permission.BILLING_MANAGE,
-        Permission.TENANT_DELETE,
-    }),
+    Role.VIEWER: frozenset(
+        {
+            Permission.JOURNAL_READ,
+            Permission.REPORT_READ,
+            Permission.ACCOUNT_READ,
+            Permission.PERIOD_READ,
+            Permission.AI_CHAT,
+        }
+    ),
+    Role.APPROVER: frozenset(
+        {
+            Permission.JOURNAL_READ,
+            Permission.REPORT_READ,
+            Permission.ACCOUNT_READ,
+            Permission.PERIOD_READ,
+            Permission.BILL_APPROVE,
+            Permission.AI_CHAT,
+        }
+    ),
+    Role.AUDITOR: frozenset(
+        {
+            Permission.JOURNAL_READ,
+            Permission.REPORT_READ,
+            Permission.ACCOUNT_READ,
+            Permission.PERIOD_READ,
+            Permission.AUDIT_READ,
+            Permission.AUDIT_EXPORT,
+            Permission.AUDIT_VERIFY,
+            Permission.AI_CHAT,
+            Permission.PERIOD_REOPEN,
+        }
+    ),
+    Role.BOOKKEEPER: frozenset(
+        {
+            Permission.JOURNAL_READ,
+            Permission.REPORT_READ,
+            Permission.ACCOUNT_READ,
+            Permission.PERIOD_READ,
+            Permission.JOURNAL_DRAFT,
+            Permission.INVOICE_WRITE,
+            Permission.BILL_WRITE,
+            Permission.CONTACT_WRITE,
+            Permission.ITEM_WRITE,
+            Permission.PAYMENT_WRITE,
+            Permission.AI_CHAT,
+            Permission.AI_MUTATE_CONFIRM,
+        }
+    ),
+    Role.ACCOUNTANT: frozenset(
+        {
+            Permission.JOURNAL_READ,
+            Permission.REPORT_READ,
+            Permission.ACCOUNT_READ,
+            Permission.PERIOD_READ,
+            Permission.AUDIT_READ,
+            Permission.JOURNAL_DRAFT,
+            Permission.JOURNAL_POST,
+            Permission.JOURNAL_VOID,
+            Permission.PERIOD_CLOSE,
+            Permission.INVOICE_WRITE,
+            Permission.INVOICE_AUTHORIZE,
+            Permission.BILL_WRITE,
+            Permission.BILL_APPROVE,
+            Permission.PAYMENT_WRITE,
+            Permission.BANK_MANAGE,
+            Permission.RECONCILIATION_WRITE,
+            Permission.CONTACT_WRITE,
+            Permission.ITEM_WRITE,
+            Permission.TAX_WRITE,
+            Permission.ACCOUNT_WRITE,
+            Permission.AI_CHAT,
+            Permission.AI_MUTATE_CONFIRM,
+        }
+    ),
+    Role.ADMIN: frozenset(
+        {p for p in Permission}
+        - {
+            Permission.BILLING_MANAGE,
+            Permission.TENANT_DELETE,
+        }
+    ),
     Role.OWNER: frozenset({p for p in Permission}),
 }
 

@@ -1,4 +1,5 @@
 """Expense claims API."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -52,7 +53,9 @@ async def list_all(
 async def create(body: ExpenseClaimCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
     data = body.model_dump()
     # Convert date to string for service layer consistency
-    data["claim_date"] = str(body.claim_date) if isinstance(body.claim_date, date) else body.claim_date
+    data["claim_date"] = (
+        str(body.claim_date) if isinstance(body.claim_date, date) else body.claim_date
+    )
     claim = await create_expense_claim(db, tenant_id, actor_id, data)
     await db.commit()
     await db.refresh(claim)

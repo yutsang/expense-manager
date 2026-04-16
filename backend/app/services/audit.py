@@ -1,4 +1,5 @@
 """Audit service — chain verification, event listing, sampling, JE testing."""
+
 from __future__ import annotations
 
 import hashlib
@@ -52,7 +53,11 @@ async def verify_chain(db: AsyncSession, tenant_id: str) -> dict[str, Any]:
         event_data: dict[str, Any] = {
             "id": event.id,
             "tenant_id": event.tenant_id,
-            "occurred_at": event.occurred_at.isoformat() if isinstance(event.occurred_at, datetime) else str(event.occurred_at),
+            "occurred_at": (
+                event.occurred_at.isoformat()
+                if isinstance(event.occurred_at, datetime)
+                else str(event.occurred_at)
+            ),
             "actor_type": event.actor_type,
             "actor_id": str(event.actor_id) if event.actor_id else None,
             "action": event.action,
@@ -165,8 +170,7 @@ async def list_audit_events(
 
 async def get_audit_event(db: AsyncSession, event_id: str, tenant_id: str) -> AuditEvent | None:
     result = await db.execute(
-        select(AuditEvent)
-        .where(AuditEvent.id == event_id, AuditEvent.tenant_id == tenant_id)
+        select(AuditEvent).where(AuditEvent.id == event_id, AuditEvent.tenant_id == tenant_id)
     )
     return result.scalar_one_or_none()
 
@@ -190,14 +194,19 @@ async def sample_journal_entries(
 
     method: 'random' | 'monetary_unit' | 'stratified'
     """
-    q = (
-        select(JournalEntry)
-        .where(JournalEntry.tenant_id == tenant_id, JournalEntry.status == "posted")
+    q = select(JournalEntry).where(
+        JournalEntry.tenant_id == tenant_id, JournalEntry.status == "posted"
     )
     if from_date is not None:
-        q = q.where(JournalEntry.date >= datetime(from_date.year, from_date.month, from_date.day, tzinfo=UTC))
+        q = q.where(
+            JournalEntry.date
+            >= datetime(from_date.year, from_date.month, from_date.day, tzinfo=UTC)
+        )
     if to_date is not None:
-        q = q.where(JournalEntry.date <= datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=UTC))
+        q = q.where(
+            JournalEntry.date
+            <= datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=UTC)
+        )
 
     result = await db.execute(q.order_by(JournalEntry.date.asc(), JournalEntry.id.asc()))
     all_entries = list(result.scalars().all())
@@ -236,7 +245,9 @@ async def sample_journal_entries(
             + rng.sample(large, min(n_large, len(large)))
         )
     else:
-        raise ValueError(f"Unknown sampling method: {method!r}. Use 'random', 'monetary_unit', or 'stratified'.")
+        raise ValueError(
+            f"Unknown sampling method: {method!r}. Use 'random', 'monetary_unit', or 'stratified'."
+        )
 
     return [
         {
@@ -269,14 +280,11 @@ async def get_je_testing_report(
     from_dt = datetime(from_date.year, from_date.month, from_date.day, tzinfo=UTC)
     to_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=UTC)
 
-    q_base = (
-        select(JournalEntry)
-        .where(
-            JournalEntry.tenant_id == tenant_id,
-            JournalEntry.status == "posted",
-            JournalEntry.date >= from_dt,
-            JournalEntry.date <= to_dt,
-        )
+    q_base = select(JournalEntry).where(
+        JournalEntry.tenant_id == tenant_id,
+        JournalEntry.status == "posted",
+        JournalEntry.date >= from_dt,
+        JournalEntry.date <= to_dt,
     )
 
     result = await db.execute(q_base.order_by(JournalEntry.date.asc()))
@@ -293,14 +301,17 @@ async def get_je_testing_report(
 
     # Weekend/holiday posts: Saturday (5) or Sunday (6)
     weekend_entries = [
-        e for e in entries
-        if (e.date if isinstance(e.date, datetime) else datetime.fromisoformat(str(e.date))).weekday() >= 5
+        e
+        for e in entries
+        if (
+            e.date if isinstance(e.date, datetime) else datetime.fromisoformat(str(e.date))
+        ).weekday()
+        >= 5
     ]
 
     # Round number entries: total_debit is exact multiple of 100
     round_entries = [
-        e for e in entries
-        if float(e.total_debit or 0) > 0 and float(e.total_debit or 0) % 100 == 0
+        e for e in entries if float(e.total_debit or 0) > 0 and float(e.total_debit or 0) % 100 == 0
     ]
 
     # Top 20 by total
@@ -314,8 +325,16 @@ async def get_je_testing_report(
     for void_e in void_entries:
         original = entry_map.get(void_e.void_of or "")
         if original:
-            void_date = void_e.date if isinstance(void_e.date, datetime) else datetime.fromisoformat(str(void_e.date))
-            orig_date = original.date if isinstance(original.date, datetime) else datetime.fromisoformat(str(original.date))
+            void_date = (
+                void_e.date
+                if isinstance(void_e.date, datetime)
+                else datetime.fromisoformat(str(void_e.date))
+            )
+            orig_date = (
+                original.date
+                if isinstance(original.date, datetime)
+                else datetime.fromisoformat(str(original.date))
+            )
             if void_date.date() == orig_date.date():
                 reversed_same_day.append(void_e)
 
@@ -402,7 +421,8 @@ async def get_report_snapshot(
     db: AsyncSession, snapshot_id: str, tenant_id: str
 ) -> ReportSnapshot | None:
     result = await db.execute(
-        select(ReportSnapshot)
-        .where(ReportSnapshot.id == snapshot_id, ReportSnapshot.tenant_id == tenant_id)
+        select(ReportSnapshot).where(
+            ReportSnapshot.id == snapshot_id, ReportSnapshot.tenant_id == tenant_id
+        )
     )
     return result.scalar_one_or_none()

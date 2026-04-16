@@ -1,4 +1,5 @@
 """Items and Tax Codes API."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -42,7 +43,9 @@ tax_router = APIRouter(prefix="/tax-codes")
 
 
 @items_router.post("", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
-async def create_item_endpoint(body: ItemCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def create_item_endpoint(
+    body: ItemCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+):
     try:
         data = body.model_dump()
         # Convert string prices to Decimal for service layer
@@ -65,7 +68,14 @@ async def list_items_endpoint(
     limit: int = Query(default=50, le=200),
     cursor: str | None = Query(default=None),
 ):
-    items = await list_items(db, tenant_id, item_type=item_type, include_archived=include_archived, limit=limit + 1, cursor=cursor)
+    items = await list_items(
+        db,
+        tenant_id,
+        item_type=item_type,
+        include_archived=include_archived,
+        limit=limit + 1,
+        cursor=cursor,
+    )
     next_cursor = None
     if len(items) > limit:
         next_cursor = items[limit].id
@@ -82,7 +92,9 @@ async def get_item_endpoint(item_id: str, db: DbSession, tenant_id: TenantId):
 
 
 @items_router.patch("/{item_id}", response_model=ItemResponse)
-async def update_item_endpoint(item_id: str, body: ItemUpdate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def update_item_endpoint(
+    item_id: str, body: ItemUpdate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+):
     try:
         updates = {k: v for k, v in body.model_dump().items() if v is not None}
         for price_field in ("sales_unit_price", "purchase_unit_price"):
@@ -96,7 +108,9 @@ async def update_item_endpoint(item_id: str, body: ItemUpdate, db: DbSession, te
 
 
 @items_router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def archive_item_endpoint(item_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId) -> None:
+async def archive_item_endpoint(
+    item_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+) -> None:
     try:
         await archive_item(db, tenant_id, item_id, actor_id)
         await db.commit()
@@ -106,11 +120,16 @@ async def archive_item_endpoint(item_id: str, db: DbSession, tenant_id: TenantId
 
 # ── Tax Codes ─────────────────────────────────────────────────────────────────
 
+
 @tax_router.post("", response_model=TaxCodeResponse, status_code=status.HTTP_201_CREATED)
-async def create_tax_code_endpoint(body: TaxCodeCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def create_tax_code_endpoint(
+    body: TaxCodeCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+):
     try:
         tc = await create_tax_code(
-            db, tenant_id, actor_id,
+            db,
+            tenant_id,
+            actor_id,
             code=body.code,
             name=body.name,
             rate=Decimal(body.rate),
@@ -133,7 +152,9 @@ async def list_tax_codes_endpoint(
     active_only: bool = Query(default=True),
     limit: int = Query(default=100, le=200),
 ):
-    items = await list_tax_codes(db, tenant_id, country=country, active_only=active_only, limit=limit)
+    items = await list_tax_codes(
+        db, tenant_id, country=country, active_only=active_only, limit=limit
+    )
     return TaxCodeListResponse(items=items)
 
 
@@ -146,7 +167,9 @@ async def get_tax_code_endpoint(tax_code_id: str, db: DbSession, tenant_id: Tena
 
 
 @tax_router.patch("/{tax_code_id}", response_model=TaxCodeResponse)
-async def update_tax_code_endpoint(tax_code_id: str, body: TaxCodeUpdate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def update_tax_code_endpoint(
+    tax_code_id: str, body: TaxCodeUpdate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+):
     try:
         updates = {k: v for k, v in body.model_dump().items() if v is not None}
         if "rate" in updates:

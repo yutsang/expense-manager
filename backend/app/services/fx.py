@@ -1,4 +1,5 @@
 """FX rate service — lookup, upsert, and daily-sync stub."""
+
 from __future__ import annotations
 
 import uuid
@@ -83,7 +84,8 @@ async def upsert_rate(
         select(FxRate).where(
             FxRate.from_currency == from_currency.upper(),
             FxRate.to_currency == to_currency.upper(),
-            FxRate.rate_date == datetime.combine(rate_date, datetime.min.time()).replace(tzinfo=UTC),
+            FxRate.rate_date
+            == datetime.combine(rate_date, datetime.min.time()).replace(tzinfo=UTC),
         )
     )
     return result.scalar_one()

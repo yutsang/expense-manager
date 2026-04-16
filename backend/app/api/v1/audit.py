@@ -1,4 +1,5 @@
 """Audit API — event timeline, chain verification, sampling, JE testing, evidence packages."""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -203,7 +204,11 @@ async def get_chain_verification(
     )
 
 
-@router.post("/chain-verification", response_model=ChainVerificationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/chain-verification",
+    response_model=ChainVerificationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def trigger_chain_verification(
     db: DbSession,
     tenant_id: TenantId,
@@ -259,7 +264,9 @@ async def je_testing(
     from_date: date = Query(...),
     to_date: date = Query(...),
 ) -> JeTestingResponse:
-    report = await audit_svc.get_je_testing_report(db, tenant_id, from_date=from_date, to_date=to_date)
+    report = await audit_svc.get_je_testing_report(
+        db, tenant_id, from_date=from_date, to_date=to_date
+    )
     return JeTestingResponse(**report)
 
 
@@ -307,14 +314,18 @@ async def list_snapshots(
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = Query(default=None),
 ) -> ReportSnapshotListResponse:
-    snapshots, next_cursor = await audit_svc.list_report_snapshots(db, tenant_id, limit=limit, cursor=cursor)
+    snapshots, next_cursor = await audit_svc.list_report_snapshots(
+        db, tenant_id, limit=limit, cursor=cursor
+    )
     return ReportSnapshotListResponse(
         items=[ReportSnapshotResponse.model_validate(s) for s in snapshots],
         next_cursor=next_cursor,
     )
 
 
-@router.post("/report-snapshots", response_model=ReportSnapshotResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/report-snapshots", response_model=ReportSnapshotResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_snapshot(
     body: ReportSnapshotCreate,
     db: DbSession,
@@ -343,5 +354,7 @@ async def get_snapshot(
 ) -> ReportSnapshotResponse:
     snapshot = await audit_svc.get_report_snapshot(db, snapshot_id, tenant_id)
     if snapshot is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report snapshot not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Report snapshot not found"
+        )
     return ReportSnapshotResponse.model_validate(snapshot)

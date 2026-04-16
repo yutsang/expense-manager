@@ -12,6 +12,7 @@ Flow:
    - If mutation tool → check confirmed flag first
 5. After model finishes → persist messages, yield "done"
 """
+
 from __future__ import annotations
 
 import json
@@ -42,6 +43,7 @@ def _get_client() -> Any:
     if not settings.deepseek_api_key:
         return None
     from openai import AsyncOpenAI  # lazy import
+
     return AsyncOpenAI(api_key=settings.deepseek_api_key, base_url=DEEPSEEK_BASE_URL)
 
 
@@ -76,9 +78,7 @@ async def get_or_create_conversation(
     return conv
 
 
-async def load_history(
-    db: AsyncSession, conversation_id: str
-) -> list[dict[str, Any]]:
+async def load_history(db: AsyncSession, conversation_id: str) -> list[dict[str, Any]]:
     result = await db.execute(
         select(AiMessage)
         .where(AiMessage.conversation_id == conversation_id)
@@ -93,15 +93,23 @@ async def load_history(
             history.append({"role": "user", "content": msg.content or ""})
         elif msg.role == "assistant":
             if msg.tool_calls:
-                history.append({"role": "assistant", "content": msg.content or "", "tool_calls": msg.tool_calls})
+                history.append(
+                    {
+                        "role": "assistant",
+                        "content": msg.content or "",
+                        "tool_calls": msg.tool_calls,
+                    }
+                )
             else:
                 history.append({"role": "assistant", "content": msg.content or ""})
         elif msg.role == "tool_result" and msg.tool_use_id:
-            history.append({
-                "role": "tool",
-                "tool_call_id": msg.tool_use_id,
-                "content": msg.content or "",
-            })
+            history.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": msg.tool_use_id,
+                    "content": msg.content or "",
+                }
+            )
     return history
 
 
@@ -256,14 +264,16 @@ async def run_chat(
                     except json.JSONDecodeError:
                         tool_input = {}
 
-                    openai_tool_calls.append({
-                        "id": tool_use_id,
-                        "type": "function",
-                        "function": {
-                            "name": tool_name,
-                            "arguments": json.dumps(tool_input),
-                        },
-                    })
+                    openai_tool_calls.append(
+                        {
+                            "id": tool_use_id,
+                            "type": "function",
+                            "function": {
+                                "name": tool_name,
+                                "arguments": json.dumps(tool_input),
+                            },
+                        }
+                    )
 
                     # Execute tool
                     if tool_name in MUTATION_TOOL_NAMES:
@@ -279,33 +289,44 @@ async def run_chat(
                             result = {"error": f"Unknown mutation tool: {tool_name}"}
                     elif tool_name in DRAFT_HANDLERS:
                         result = await DRAFT_HANDLERS[tool_name](db, tenant_id, tool_input)
-                        if result.get("confirmation_required") and tool_name == "draft_journal_entry":
+                        if (
+                            result.get("confirmation_required")
+                            and tool_name == "draft_journal_entry"
+                        ):
                             yield f"data: {json.dumps({'type': 'confirmation_required', 'draft_id': result['draft_id'], 'proposed_entry': result['proposed_entry']})}\n\n"
                     else:
                         result = await read_dispatch(db, tenant_id, tool_name, tool_input)
 
                     yield f"data: {json.dumps({'type': 'tool_call', 'name': tool_name, 'result': result})}\n\n"
 
-                    tool_results_messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_use_id,
-                        "content": json.dumps(result),
-                    })
+                    tool_results_messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_use_id,
+                            "content": json.dumps(result),
+                        }
+                    )
 
-                    persisted_tool_calls.append({
-                        "id": tool_use_id,
-                        "type": "function",
-                        "function": {"name": tool_name, "arguments": json.dumps(tool_input)},
-                    })
+                    persisted_tool_calls.append(
+                        {
+                            "id": tool_use_id,
+                            "type": "function",
+                            "function": {"name": tool_name, "arguments": json.dumps(tool_input)},
+                        }
+                    )
 
                 # Append assistant message with tool calls + tool results, then loop
-                current_messages = current_messages + [
-                    {
-                        "role": "assistant",
-                        "content": accumulated_text or None,
-                        "tool_calls": openai_tool_calls,
-                    },
-                ] + tool_results_messages
+                current_messages = (
+                    current_messages
+                    + [
+                        {
+                            "role": "assistant",
+                            "content": accumulated_text or None,
+                            "tool_calls": openai_tool_calls,
+                        },
+                    ]
+                    + tool_results_messages
+                )
 
                 accumulated_text = ""
             else:

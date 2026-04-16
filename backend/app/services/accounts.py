@@ -1,4 +1,5 @@
 """Account service — CRUD, archive, tree validation."""
+
 from __future__ import annotations
 
 import uuid

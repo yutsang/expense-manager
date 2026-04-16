@@ -1,4 +1,5 @@
 """Bank accounts, transactions, and reconciliation API."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, status
@@ -43,8 +44,12 @@ async def list_accounts(db: DbSession, tenant_id: TenantId):
     return [BankAccountResponse.model_validate(a) for a in accounts]
 
 
-@router.post("/bank-accounts", response_model=BankAccountResponse, status_code=status.HTTP_201_CREATED)
-async def create_account(body: BankAccountCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+@router.post(
+    "/bank-accounts", response_model=BankAccountResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_account(
+    body: BankAccountCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+):
     account = await create_bank_account(db, tenant_id, actor_id, body.model_dump())
     await db.commit()
     await db.refresh(account)
@@ -65,7 +70,9 @@ async def get_account(account_id: str, db: DbSession, tenant_id: TenantId):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/bank-accounts/{account_id}/transactions", response_model=list[BankTransactionResponse])
+@router.get(
+    "/bank-accounts/{account_id}/transactions", response_model=list[BankTransactionResponse]
+)
 async def list_transactions(
     account_id: str,
     db: DbSession,

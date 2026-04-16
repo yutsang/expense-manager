@@ -1,4 +1,5 @@
 """Period domain rules — pure logic, no I/O."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -27,9 +28,7 @@ class PeriodTransitionError(ValueError):
 
 def assert_transition_allowed(current: PeriodStatus, target: PeriodStatus) -> None:
     if target not in _TRANSITIONS.get(current, set()):
-        raise PeriodTransitionError(
-            f"Cannot transition period from '{current}' to '{target}'"
-        )
+        raise PeriodTransitionError(f"Cannot transition period from '{current}' to '{target}'")
 
 
 def can_post(status: PeriodStatus, *, admin_override: bool = False) -> bool:
@@ -61,13 +60,15 @@ def generate_periods(
         last_day = calendar.monthrange(year, month)[1]
         start = date(year, month, 1)
         end = date(year, month, last_day)
-        periods.append({
-            "tenant_id": tenant_id,
-            "name": generate_period_name(year, month),
-            "start_date": start,
-            "end_date": end,
-            "status": PeriodStatus.OPEN,
-        })
+        periods.append(
+            {
+                "tenant_id": tenant_id,
+                "name": generate_period_name(year, month),
+                "start_date": start,
+                "end_date": end,
+                "status": PeriodStatus.OPEN,
+            }
+        )
         month += 1
         if month > 12:
             month = 1

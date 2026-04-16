@@ -4,6 +4,7 @@ Revision ID: 0003
 Revises: 0002
 Create Date: 2026-04-14
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -37,8 +38,18 @@ def upgrade() -> None:
         sa.Column("currency", sa.String(3), nullable=False, server_default="USD"),
         sa.Column("posted_at", sa.TIMESTAMP(timezone=True), nullable=True),
         sa.Column("posted_by", sa.UUID(), nullable=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("created_by", sa.UUID(), nullable=True),
         sa.Column("updated_by", sa.UUID(), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
@@ -47,9 +58,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["period_id"], ["periods.id"], ondelete="RESTRICT"),
         sa.ForeignKeyConstraint(["void_of"], ["journal_entries.id"], ondelete="RESTRICT"),
         sa.UniqueConstraint("tenant_id", "number", name="uq_je_tenant_number"),
-        sa.CheckConstraint(
-            "status IN ('draft','posted','void')", name="ck_je_status"
-        ),
+        sa.CheckConstraint("status IN ('draft','posted','void')", name="ck_je_status"),
         sa.CheckConstraint(
             "source_type IN ('manual','invoice','bill','payment','bank','fx_reval','period_close','ai_draft')",
             name="ck_je_source_type",
@@ -84,9 +93,7 @@ def upgrade() -> None:
         sa.Column("functional_credit", sa.Numeric(19, 4), nullable=False, server_default="0"),
         sa.Column("tracking", sa.JSON(), nullable=False, server_default="{}"),
         sa.PrimaryKeyConstraint("id"),
-        sa.ForeignKeyConstraint(
-            ["journal_entry_id"], ["journal_entries.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["journal_entry_id"], ["journal_entries.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["account_id"], ["accounts.id"], ondelete="RESTRICT"),
         sa.UniqueConstraint("journal_entry_id", "line_no", name="uq_jl_entry_line"),
         sa.CheckConstraint("debit >= 0 AND credit >= 0", name="ck_jl_non_negative"),

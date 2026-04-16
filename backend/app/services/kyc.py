@@ -1,4 +1,5 @@
 """KYC / Sanctions service — get_or_create, update, list, dashboard alerts."""
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -57,10 +58,20 @@ async def update_kyc(
     """Update KYC fields and bump version."""
     kyc = await get_or_create_kyc(db, contact_id=contact_id, tenant_id=tenant_id)
     allowed = {
-        "id_type", "id_number", "id_expiry_date", "poa_type", "poa_date",
-        "sanctions_status", "sanctions_checked_at", "kyc_status",
-        "kyc_approved_at", "kyc_approved_by", "last_review_date",
-        "next_review_date", "notes", "updated_by",
+        "id_type",
+        "id_number",
+        "id_expiry_date",
+        "poa_type",
+        "poa_date",
+        "sanctions_status",
+        "sanctions_checked_at",
+        "kyc_status",
+        "kyc_approved_at",
+        "kyc_approved_by",
+        "last_review_date",
+        "next_review_date",
+        "notes",
+        "updated_by",
     }
     for key, val in fields.items():
         if key in allowed:
@@ -81,7 +92,9 @@ async def list_kyc_summary(
     """Return all contacts with their KYC record (left join)."""
     q = (
         select(Contact, ContactKyc)
-        .outerjoin(ContactKyc, (ContactKyc.contact_id == Contact.id) & (ContactKyc.tenant_id == tenant_id))
+        .outerjoin(
+            ContactKyc, (ContactKyc.contact_id == Contact.id) & (ContactKyc.tenant_id == tenant_id)
+        )
         .where(Contact.tenant_id == tenant_id, Contact.is_archived.is_(False))
         .order_by(Contact.name)
     )
@@ -127,9 +140,7 @@ async def get_dashboard_alerts(
     expiry_soon_cutoff = date.fromordinal(today.toordinal() + _EXPIRY_SOON_DAYS)
     poa_stale_cutoff = date.fromordinal(today.toordinal() - _STALE_POA_DAYS)
 
-    kyc_rows_result = await db.execute(
-        select(ContactKyc).where(ContactKyc.tenant_id == tenant_id)
-    )
+    kyc_rows_result = await db.execute(select(ContactKyc).where(ContactKyc.tenant_id == tenant_id))
     kyc_rows = list(kyc_rows_result.scalars())
 
     id_expired = 0
@@ -141,7 +152,9 @@ async def get_dashboard_alerts(
     for kyc in kyc_rows:
         # ID expiry
         if kyc.id_expiry_date is not None:
-            expiry = kyc.id_expiry_date if isinstance(kyc.id_expiry_date, date) else kyc.id_expiry_date
+            expiry = (
+                kyc.id_expiry_date if isinstance(kyc.id_expiry_date, date) else kyc.id_expiry_date
+            )
             if expiry < expiry_cutoff:
                 id_expired += 1
             elif expiry <= expiry_soon_cutoff:

@@ -4,6 +4,7 @@ State machine:
   pending → applied (when fully allocated)
   any non-voided → voided
 """
+
 from __future__ import annotations
 
 from decimal import ROUND_HALF_EVEN, Decimal
@@ -243,17 +244,13 @@ async def void_payment(
     for alloc in allocs:
         alloc_amount = Decimal(str(alloc.amount))
         if alloc.invoice_id:
-            inv = await db.scalar(
-                select(Invoice).where(Invoice.id == alloc.invoice_id)
-            )
+            inv = await db.scalar(select(Invoice).where(Invoice.id == alloc.invoice_id))
             if inv is not None:
                 inv.amount_due = (Decimal(str(inv.amount_due)) + alloc_amount).quantize(
                     _QUANTIZE_4, ROUND_HALF_EVEN
                 )  # type: ignore[assignment]
         elif alloc.bill_id:
-            bill = await db.scalar(
-                select(Bill).where(Bill.id == alloc.bill_id)
-            )
+            bill = await db.scalar(select(Bill).where(Bill.id == alloc.bill_id))
             if bill is not None:
                 bill.amount_due = (Decimal(str(bill.amount_due)) + alloc_amount).quantize(
                     _QUANTIZE_4, ROUND_HALF_EVEN

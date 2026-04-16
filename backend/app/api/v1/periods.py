@@ -1,4 +1,5 @@
 """Periods API — list, get, create, transition."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -35,6 +36,7 @@ async def provision_periods_endpoint(
     from sqlalchemy import select as sa_select
 
     from app.infra.models import Tenant as TenantModel
+
     result = await db.execute(sa_select(TenantModel).where(TenantModel.id == tenant_id))
     tenant = result.scalar_one_or_none()
     currency = tenant.functional_currency if tenant else "USD"
@@ -48,8 +50,12 @@ async def provision_periods_endpoint(
         y -= 1
     from_date = date(y, m, 1)
     await provision_periods(
-        db, tenant_id=tenant_id, functional_currency=currency,
-        fiscal_year_start_month=fiscal_start, from_date=from_date, months=body.months,
+        db,
+        tenant_id=tenant_id,
+        functional_currency=currency,
+        fiscal_year_start_month=fiscal_start,
+        from_date=from_date,
+        months=body.months,
     )
     await db.commit()
     all_periods = await list_periods(db, tenant_id=tenant_id)
@@ -102,5 +108,7 @@ async def transition_period_endpoint(
     except PeriodNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (PeriodTransitionError, PeriodPostingError) as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     return PeriodResponse.model_validate(period)

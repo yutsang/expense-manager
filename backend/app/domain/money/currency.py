@@ -1,4 +1,5 @@
 """ISO 4217 currency codes. Extend as needed — keep alphabetically sorted."""
+
 from __future__ import annotations
 
 from enum import StrEnum

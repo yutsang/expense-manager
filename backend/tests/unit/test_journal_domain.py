@@ -1,4 +1,5 @@
 """Unit tests for journal domain — JournalLineInput, validate_balance."""
+
 from __future__ import annotations
 
 from decimal import Decimal

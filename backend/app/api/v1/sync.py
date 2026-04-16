@@ -1,4 +1,5 @@
 """Mobile Sync API — device registration, pull, push."""
+
 from __future__ import annotations
 
 from datetime import UTC
@@ -132,7 +133,9 @@ async def update_push_token_endpoint(
     if not actor_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Actor-ID required")
     try:
-        device = await update_push_token(db, tenant_id=tenant_id, device_fingerprint=fingerprint, push_token=body.push_token)
+        device = await update_push_token(
+            db, tenant_id=tenant_id, device_fingerprint=fingerprint, push_token=body.push_token
+        )
         await db.commit()
     except SyncDeviceNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

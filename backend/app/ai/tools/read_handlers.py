@@ -6,6 +6,7 @@ and returns a JSON-serialisable dict.
 
 All handlers are idempotent and safe to call at any time.
 """
+
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
@@ -132,8 +133,12 @@ async def handle_get_period_status(
     return {
         "name": period.name,
         "status": period.status,
-        "start_date": str(period.start_date.date() if hasattr(period.start_date, "date") else period.start_date),
-        "end_date": str(period.end_date.date() if hasattr(period.end_date, "date") else period.end_date),
+        "start_date": str(
+            period.start_date.date() if hasattr(period.start_date, "date") else period.start_date
+        ),
+        "end_date": str(
+            period.end_date.date() if hasattr(period.end_date, "date") else period.end_date
+        ),
         "can_post": period.status == "open",
         "can_post_with_override": period.status in ("open", "soft_closed"),
     }

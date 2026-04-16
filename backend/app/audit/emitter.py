@@ -6,6 +6,7 @@ Rules (from CLAUDE.md §10):
 - Hash chain: prev_hash = hash of tenant's last event; hash = sha256(prev_hash || canonical_json)
 - Never write audit events from the API layer — go through service methods.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -109,5 +110,7 @@ async def emit(
             hash=event_hash,
         )
     )
-    log.debug("audit_event_emitted", action=action, entity_type=entity_type, entity_id=str(entity_id))
+    log.debug(
+        "audit_event_emitted", action=action, entity_type=entity_type, entity_id=str(entity_id)
+    )
     return event_id

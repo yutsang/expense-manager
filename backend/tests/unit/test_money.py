@@ -8,6 +8,7 @@ Covers the rules in CLAUDE.md §8:
 - Multiplication by Decimal/int OK; by float or Money raises
 - Equality: same currency AND exact amount
 """
+
 from __future__ import annotations
 
 from decimal import Decimal

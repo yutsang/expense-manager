@@ -11,6 +11,7 @@ Rules:
   - id: UUID (server default gen_random_uuid()).
   - Always include: created_at, updated_at, version (optimistic lock).
 """
+
 from __future__ import annotations
 
 import uuid
@@ -56,12 +57,18 @@ class Tenant(Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     region: Mapped[str] = mapped_column(String(16), nullable=False, default="us")
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="trial")
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
-        CheckConstraint("status IN ('trial','active','suspended','closed')", name="ck_tenants_status"),
+        CheckConstraint(
+            "status IN ('trial','active','suspended','closed')", name="ck_tenants_status"
+        ),
     )
 
 
@@ -73,12 +80,18 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     locale: Mapped[str] = mapped_column(String(10), nullable=False, default="en")
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
-    email_verified_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     mfa_totp_secret_enc: Mapped[str | None] = mapped_column(Text, nullable=True)
     login_failure_count: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
     last_login_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
@@ -86,20 +99,34 @@ class Membership(Base):
     __tablename__ = "memberships"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="invited")
     invited_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     invited_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     joined_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "user_id", name="uq_memberships_tenant_user"),
-        CheckConstraint("role IN ('owner','admin','accountant','bookkeeper','approver','viewer','auditor','api_client')", name="ck_memberships_role"),
+        CheckConstraint(
+            "role IN ('owner','admin','accountant','bookkeeper','approver','viewer','auditor','api_client')",
+            name="ck_memberships_role",
+        ),
         CheckConstraint("status IN ('invited','active','suspended')", name="ck_memberships_status"),
     )
 
@@ -108,19 +135,28 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     refresh_token_hash: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
     ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
     expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
 
 class Invite(Base):
     __tablename__ = "invites"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     email: Mapped[str] = mapped_column(String(254), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
@@ -128,7 +164,9 @@ class Invite(Base):
     expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     accepted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
 
 class FeatureFlag(Base):
@@ -137,8 +175,12 @@ class FeatureFlag(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     flag: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     enabled_global: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
 
 class FeatureFlagOverride(Base):
@@ -146,13 +188,15 @@ class FeatureFlagOverride(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     flag: Mapped[str] = mapped_column(String(64), nullable=False)
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-
-    __table_args__ = (
-        UniqueConstraint("flag", "tenant_id", name="uq_flag_overrides_flag_tenant"),
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+
+    __table_args__ = (UniqueConstraint("flag", "tenant_id", name="uq_flag_overrides_flag_tenant"),)
 
 
 class AuditEvent(Base):
@@ -160,7 +204,9 @@ class AuditEvent(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True, index=True)
-    occurred_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, index=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, index=True
+    )
     actor_type: Mapped[str] = mapped_column(String(16), nullable=False)
     actor_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True, index=True)
     session_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
@@ -176,36 +222,55 @@ class AuditEvent(Base):
     hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
 
     __table_args__ = (
-        CheckConstraint("actor_type IN ('user','system','ai','integration')", name="ck_audit_actor_type"),
+        CheckConstraint(
+            "actor_type IN ('user','system','ai','integration')", name="ck_audit_actor_type"
+        ),
     )
 
 
 # ── Phase 1: Core Ledger ──────────────────────────────────────────────────────
 
+
 class Account(Base):
     __tablename__ = "accounts"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     code: Mapped[str] = mapped_column(String(20), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     type: Mapped[str] = mapped_column(String(16), nullable=False)
     subtype: Mapped[str] = mapped_column(String(32), nullable=False)
     normal_balance: Mapped[str] = mapped_column(String(6), nullable=False)
-    parent_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=True, index=True)
+    parent_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "code", name="uq_accounts_tenant_code"),
-        CheckConstraint("type IN ('asset','liability','equity','revenue','expense')", name="ck_accounts_type"),
+        CheckConstraint(
+            "type IN ('asset','liability','equity','revenue','expense')", name="ck_accounts_type"
+        ),
         CheckConstraint("normal_balance IN ('debit','credit')", name="ck_accounts_normal_balance"),
     )
 
@@ -214,7 +279,12 @@ class Period(Base):
     __tablename__ = "periods"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(20), nullable=False)
     start_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     end_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
@@ -225,13 +295,19 @@ class Period(Base):
     reopened_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     reopened_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     reopened_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "name", name="uq_periods_tenant_name"),
-        CheckConstraint("status IN ('open','soft_closed','hard_closed','audited')", name="ck_periods_status"),
+        CheckConstraint(
+            "status IN ('open','soft_closed','hard_closed','audited')", name="ck_periods_status"
+        ),
     )
 
 
@@ -244,7 +320,9 @@ class FxRate(Base):
     rate_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="manual")
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
     __table_args__ = (
         UniqueConstraint("from_currency", "to_currency", "rate_date", name="uq_fx_rates_pair_date"),
@@ -255,23 +333,39 @@ class JournalEntry(Base):
     __tablename__ = "journal_entries"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
-    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("tenants.id", ondelete="RESTRICT"), nullable=False, index=True)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     number: Mapped[str] = mapped_column(String(32), nullable=False)
     date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
-    period_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("periods.id", ondelete="RESTRICT"), nullable=False, index=True)
+    period_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("periods.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     source_type: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
     source_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
-    void_of: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="RESTRICT"), nullable=True)
+    void_of: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="RESTRICT"), nullable=True
+    )
     fx_rate_date: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     total_debit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     total_credit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
     posted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     posted_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -287,9 +381,19 @@ class JournalLine(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
-    journal_entry_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="CASCADE"), nullable=False, index=True)
+    journal_entry_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("journal_entries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     line_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     contact_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     debit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
@@ -317,7 +421,9 @@ class Contact(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
-    contact_type: Mapped[str] = mapped_column(String(16), nullable=False)  # customer|supplier|both|employee
+    contact_type: Mapped[str] = mapped_column(
+        String(16), nullable=False
+    )  # customer|supplier|both|employee
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     email: Mapped[str | None] = mapped_column(String(254), nullable=True)
@@ -332,8 +438,12 @@ class Contact(Base):
     postal_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     country: Mapped[str | None] = mapped_column(String(10), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -354,22 +464,35 @@ class ContactKyc(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
-    contact_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="CASCADE"), nullable=False, index=True)
+    contact_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     id_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     id_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     id_expiry_date: Mapped[object | None] = mapped_column(Date, nullable=True)
     poa_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     poa_date: Mapped[object | None] = mapped_column(Date, nullable=True)
     sanctions_status: Mapped[str] = mapped_column(String(20), nullable=False, default="not_checked")
-    sanctions_checked_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    sanctions_checked_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     kyc_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
-    kyc_approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    kyc_approved_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     kyc_approved_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     last_review_date: Mapped[object | None] = mapped_column(Date, nullable=True)
     next_review_date: Mapped[object | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -412,13 +535,23 @@ class Item(Base):
     purchase_unit_price: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
     # Default GL accounts
-    sales_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
-    cogs_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
-    purchase_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    sales_account_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+    cogs_account_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+    purchase_account_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
     is_tracked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -442,11 +575,19 @@ class TaxCode(Base):
     tax_type: Mapped[str] = mapped_column(String(16), nullable=False)  # output|input|exempt|zero
     country: Mapped[str] = mapped_column(String(10), nullable=False)
     # GL accounts for tax collected / tax paid
-    tax_collected_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
-    tax_paid_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    tax_collected_account_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
+    tax_paid_account_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -471,8 +612,13 @@ class Invoice(Base):
     number: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     # draft | authorised | sent | partial | paid | void | credit_note
-    contact_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="RESTRICT"), nullable=False, index=True)
-    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)   # ISO date string
+    contact_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)  # ISO date string
     due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
     period_name: Mapped[str | None] = mapped_column(String(7), nullable=True)
     reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -484,15 +630,23 @@ class Invoice(Base):
     amount_due: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     functional_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     # GL journal posted when authorised
-    journal_entry_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)
+    journal_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     voided_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    last_reminder_sent_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    last_reminder_sent_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     reminder_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -513,15 +667,28 @@ class InvoiceLine(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
-    invoice_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    invoice_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("invoices.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     line_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    item_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True)
-    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    tax_code_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("tax_codes.id", ondelete="SET NULL"), nullable=True)
+    item_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True
+    )
+    account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
+    )
+    tax_code_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tax_codes.id", ondelete="SET NULL"), nullable=True
+    )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     quantity: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=1)
     unit_price: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
-    discount_pct: Mapped[object] = mapped_column(Numeric(5, 4), nullable=False, default=0)  # 0.1 = 10%
+    discount_pct: Mapped[object] = mapped_column(
+        Numeric(5, 4), nullable=False, default=0
+    )  # 0.1 = 10%
     line_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     tax_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
 
@@ -543,7 +710,12 @@ class Bill(Base):
     supplier_reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     # draft | awaiting_approval | approved | partial | paid | void
-    contact_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="RESTRICT"), nullable=False, index=True)
+    contact_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
     issue_date: Mapped[str] = mapped_column(String(10), nullable=False)
     due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
     period_name: Mapped[str | None] = mapped_column(String(7), nullable=True)
@@ -554,12 +726,18 @@ class Bill(Base):
     total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     amount_due: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     functional_total: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
-    journal_entry_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)
+    journal_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True
+    )
     approved_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -580,11 +758,19 @@ class BillLine(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
-    bill_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("bills.id", ondelete="CASCADE"), nullable=False, index=True)
+    bill_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("bills.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     line_no: Mapped[int] = mapped_column(SmallInteger, nullable=False)
-    item_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True)
-    account_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False)
-    tax_code_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("tax_codes.id", ondelete="SET NULL"), nullable=True)
+    item_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("items.id", ondelete="SET NULL"), nullable=True
+    )
+    account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
+    )
+    tax_code_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("tax_codes.id", ondelete="SET NULL"), nullable=True
+    )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     quantity: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=1)
     unit_price: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
@@ -608,19 +794,34 @@ class Payment(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     number: Mapped[str] = mapped_column(String(64), nullable=False)
     payment_type: Mapped[str] = mapped_column(String(16), nullable=False)  # received|made
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")  # pending|applied|voided
-    contact_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending"
+    )  # pending|applied|voided
+    contact_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     payment_date: Mapped[str] = mapped_column(String(10), nullable=False)
     amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     fx_rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False, default=1)
     functional_amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
     # Bank account from which payment was made / received
-    bank_account_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
+    bank_account_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True
+    )
     reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    journal_entry_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    journal_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -640,13 +841,27 @@ class PaymentAllocation(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
-    payment_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("payments.id", ondelete="CASCADE"), nullable=False, index=True)
+    payment_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("payments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     # Exactly one of invoice_id or bill_id is set
-    invoice_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("invoices.id", ondelete="RESTRICT"), nullable=True, index=True)
-    bill_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("bills.id", ondelete="RESTRICT"), nullable=True, index=True)
+    invoice_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("invoices.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    bill_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("bills.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
 
     __table_args__ = (
@@ -679,10 +894,16 @@ class BankAccount(Base):
         UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    last_reconciled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    last_reconciled_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     last_reconciled_balance: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -696,20 +917,29 @@ class BankTransaction(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     bank_account_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("bank_accounts.id", ondelete="RESTRICT"), nullable=False, index=True
+        UUID(as_uuid=False),
+        ForeignKey("bank_accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     transaction_date: Mapped[datetime] = mapped_column(Date, nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
     reference: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)  # positive = in, negative = out
+    amount: Mapped[object] = mapped_column(
+        Numeric(19, 4), nullable=False
+    )  # positive = in, negative = out
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     is_reconciled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     reconciled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     journal_line_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("journal_lines.id", ondelete="RESTRICT"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -723,7 +953,10 @@ class BankReconciliation(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     bank_account_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("bank_accounts.id", ondelete="RESTRICT"), nullable=False, index=True
+        UUID(as_uuid=False),
+        ForeignKey("bank_accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     period_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("periods.id", ondelete="RESTRICT"), nullable=True
@@ -731,11 +964,17 @@ class BankReconciliation(Base):
     statement_closing_balance: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
     book_balance: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
     difference: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)  # statement - book
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="in_progress")  # in_progress|completed
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="in_progress"
+    )  # in_progress|completed
     reconciled_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     reconciled_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -754,7 +993,10 @@ class ExpenseClaim(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     number: Mapped[str] = mapped_column(String(20), nullable=False)  # EXP-000001
     contact_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("contacts.id", ondelete="RESTRICT"), nullable=False, index=True
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
     # draft | submitted | approved | rejected | paid
@@ -771,8 +1013,12 @@ class ExpenseClaim(Base):
     approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     paid_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -794,7 +1040,10 @@ class ExpenseClaimLine(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     claim_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("expense_claims.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=False),
+        ForeignKey("expense_claims.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     account_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False), ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
@@ -822,8 +1071,12 @@ class AiConversation(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -837,7 +1090,10 @@ class AiMessage(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     conversation_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("ai_conversations.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=False),
+        ForeignKey("ai_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -850,7 +1106,9 @@ class AiMessage(Base):
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cache_creation_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cache_read_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -875,13 +1133,17 @@ class AuditChainVerification(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
-    verified_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    verified_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     chain_length: Mapped[int] = mapped_column(Integer, nullable=False)
     last_event_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
     break_at_event_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
 
 class ReportSnapshot(Base):
@@ -893,11 +1155,15 @@ class ReportSnapshot(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     report_type: Mapped[str] = mapped_column(String(50), nullable=False)
     params: Mapped[dict] = mapped_column(sa.JSON, nullable=False, default=dict)
-    generated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    generated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     data: Mapped[dict] = mapped_column(sa.JSON, nullable=False, default=dict)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     created_by: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -918,8 +1184,12 @@ class SyncDevice(Base):
     app_version: Mapped[str | None] = mapped_column(String(20), nullable=True)
     push_token: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "device_fingerprint", name="uq_sync_devices_tenant_fp"),
@@ -936,7 +1206,10 @@ class SyncOp(Base):
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     client_op_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     device_id: Mapped[str | None] = mapped_column(
-        UUID(as_uuid=False), ForeignKey("sync_devices.id", ondelete="SET NULL"), nullable=True, index=True
+        UUID(as_uuid=False),
+        ForeignKey("sync_devices.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     entity_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     entity_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
@@ -945,7 +1218,9 @@ class SyncOp(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     applied_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
 
     __table_args__ = (
         CheckConstraint("status IN ('applied','conflict','error')", name="ck_sync_ops_status"),
@@ -964,7 +1239,9 @@ class SanctionsListSnapshot(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     source: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    fetched_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    fetched_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     entry_count: Mapped[int] = mapped_column(Integer, nullable=False)
     sha256_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -1006,7 +1283,9 @@ class ContactSanctionsResult(Base):
         nullable=False,
         index=True,
     )
-    screened_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    screened_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     snapshot_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("sanctions_list_snapshots.id", ondelete="SET NULL"),
@@ -1054,8 +1333,12 @@ class Receipt(Base):
     linked_bill_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("bills.id", ondelete="SET NULL"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
-    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
     created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 

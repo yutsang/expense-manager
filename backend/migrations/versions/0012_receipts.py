@@ -4,6 +4,7 @@ Revision ID: 0012
 Revises: 0011
 Create Date: 2026-04-16
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -34,8 +35,18 @@ def upgrade() -> None:
         sa.Column("ocr_total", sa.Numeric(19, 4), nullable=True),
         sa.Column("ocr_raw", JSONB(), nullable=False, server_default="'{}'"),
         sa.Column("linked_bill_id", sa.UUID(), nullable=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.Column("created_by", sa.String(36), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.PrimaryKeyConstraint("id"),
@@ -53,12 +64,10 @@ def upgrade() -> None:
 
     # Row-Level Security
     op.execute("ALTER TABLE receipts ENABLE ROW LEVEL SECURITY")
-    op.execute(
-        """
+    op.execute("""
         CREATE POLICY receipts_tenant_isolation ON receipts
         USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
-        """
-    )
+        """)
 
 
 def downgrade() -> None:

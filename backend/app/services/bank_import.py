@@ -1,4 +1,5 @@
 """Bank statement CSV import — auto-detects format, creates BankTransaction rows."""
+
 from __future__ import annotations
 
 import contextlib
@@ -102,7 +103,11 @@ async def import_csv(
             debit_col = normalised.index("debit")
             credit_col = normalised.index("credit")
         except ValueError:
-            return {"imported": 0, "skipped_duplicates": 0, "errors": ["CSV missing 'debit' or 'credit' column"]}
+            return {
+                "imported": 0,
+                "skipped_duplicates": 0,
+                "errors": ["CSV missing 'debit' or 'credit' column"],
+            }
         amount_col = None
     else:
         amount_col_name = None
@@ -111,7 +116,11 @@ async def import_csv(
                 amount_col_name = candidate
                 break
         if amount_col_name is None:
-            return {"imported": 0, "skipped_duplicates": 0, "errors": ["CSV missing 'amount' column"]}
+            return {
+                "imported": 0,
+                "skipped_duplicates": 0,
+                "errors": ["CSV missing 'amount' column"],
+            }
         amount_col = normalised.index(amount_col_name)
         debit_col = None
         credit_col = None

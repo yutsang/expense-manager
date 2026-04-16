@@ -1,4 +1,5 @@
 """Unit tests for API v1 Pydantic schemas."""
+
 from __future__ import annotations
 
 import pytest
@@ -85,6 +86,7 @@ class TestJournalLineCreate:
 class TestJournalCreate:
     def test_requires_at_least_two_lines(self) -> None:
         from datetime import date
+
         with pytest.raises(Exception):
             JournalCreate(
                 date=date(2025, 1, 1),
@@ -95,6 +97,7 @@ class TestJournalCreate:
 
     def test_valid_two_line_entry(self) -> None:
         from datetime import date
+
         j = JournalCreate(
             date=date(2025, 1, 1),
             period_id="p1",
@@ -111,6 +114,7 @@ class TestJournalCreate:
 class TestFxRateUpsert:
     def test_valid(self) -> None:
         from datetime import date
+
         r = FxRateUpsert(
             from_currency="USD",
             to_currency="EUR",
@@ -121,6 +125,7 @@ class TestFxRateUpsert:
 
     def test_zero_rate_raises(self) -> None:
         from datetime import date
+
         with pytest.raises(Exception):
             FxRateUpsert(
                 from_currency="USD",
@@ -131,6 +136,7 @@ class TestFxRateUpsert:
 
     def test_negative_rate_raises(self) -> None:
         from datetime import date
+
         with pytest.raises(Exception):
             FxRateUpsert(
                 from_currency="USD",

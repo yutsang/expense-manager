@@ -1,4 +1,5 @@
 """Tax code CRUD service with country preset loader."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -50,7 +51,12 @@ _PRESETS: dict[str, list[dict]] = {
     ],
     "US": [
         # US sales tax varies by state — seeded as stubs only
-        {"code": "USSTD", "name": "US Sales Tax (override rate per state)", "rate": "0.000000", "tax_type": "output"},
+        {
+            "code": "USSTD",
+            "name": "US Sales Tax (override rate per state)",
+            "rate": "0.000000",
+            "tax_type": "output",
+        },
         {"code": "EXEMPT", "name": "Exempt", "rate": "0.000000", "tax_type": "exempt"},
     ],
 }
@@ -70,9 +76,7 @@ async def seed_country_presets(
     for p in presets:
         # Upsert-style: skip if code already exists for tenant
         existing = await db.scalar(
-            select(TaxCode.id).where(
-                TaxCode.tenant_id == tenant_id, TaxCode.code == p["code"]
-            )
+            select(TaxCode.id).where(TaxCode.tenant_id == tenant_id, TaxCode.code == p["code"])
         )
         if existing:
             continue
@@ -107,9 +111,7 @@ async def create_tax_code(
     tax_paid_account_id: str | None = None,
 ) -> TaxCode:
     exists = await db.scalar(
-        select(TaxCode.id).where(
-            TaxCode.tenant_id == tenant_id, TaxCode.code == code
-        )
+        select(TaxCode.id).where(TaxCode.tenant_id == tenant_id, TaxCode.code == code)
     )
     if exists:
         raise TaxCodeConflictError(f"Tax code '{code}' already exists")
@@ -153,9 +155,7 @@ async def list_tax_codes(
 
 async def get_tax_code(db: AsyncSession, tenant_id: str, tax_code_id: str) -> TaxCode:
     tc = await db.scalar(
-        select(TaxCode).where(
-            TaxCode.id == tax_code_id, TaxCode.tenant_id == tenant_id
-        )
+        select(TaxCode).where(TaxCode.id == tax_code_id, TaxCode.tenant_id == tenant_id)
     )
     if not tc:
         raise TaxCodeNotFoundError(tax_code_id)
@@ -166,7 +166,14 @@ async def update_tax_code(
     db: AsyncSession, tenant_id: str, tax_code_id: str, actor_id: str | None, updates: dict
 ) -> TaxCode:
     tc = await get_tax_code(db, tenant_id, tax_code_id)
-    allowed = {"name", "rate", "tax_type", "is_active", "tax_collected_account_id", "tax_paid_account_id"}
+    allowed = {
+        "name",
+        "rate",
+        "tax_type",
+        "is_active",
+        "tax_collected_account_id",
+        "tax_paid_account_id",
+    }
     for key, val in updates.items():
         if key in allowed:
             setattr(tc, key, val)

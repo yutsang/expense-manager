@@ -1,4 +1,5 @@
 """Unit tests for the period domain — state machine and period generation."""
+
 from __future__ import annotations
 
 from datetime import date
@@ -117,6 +118,7 @@ class TestGeneratePeriods:
         for i in range(len(periods) - 1):
             # end of month i + 1 day == start of month i+1
             from datetime import timedelta
+
             assert periods[i]["end_date"] + timedelta(days=1) == periods[i + 1]["start_date"]
 
     def test_period_names(self) -> None:

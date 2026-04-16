@@ -4,6 +4,7 @@ Revision ID: 0009
 Revises: 0008
 Create Date: 2026-04-16
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -34,8 +35,18 @@ def upgrade() -> None:
         sa.Column("app_version", sa.String(20), nullable=True),
         sa.Column("push_token", sa.Text(), nullable=True),
         sa.Column("last_seen", sa.TIMESTAMP(timezone=True), nullable=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "device_fingerprint", name="uq_sync_devices_tenant_fp"),
         sa.CheckConstraint(
@@ -60,12 +71,15 @@ def upgrade() -> None:
         sa.Column("status", sa.String(20), nullable=False),
         sa.Column("error", sa.Text(), nullable=True),
         sa.Column("applied_at", sa.TIMESTAMP(timezone=True), nullable=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("client_op_id", name="uq_sync_ops_client_op_id"),
-        sa.ForeignKeyConstraint(
-            ["device_id"], ["sync_devices.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["device_id"], ["sync_devices.id"], ondelete="SET NULL"),
         sa.CheckConstraint(
             "status IN ('applied','conflict','error')",
             name="ck_sync_ops_status",
@@ -79,12 +93,10 @@ def upgrade() -> None:
     for table in _NEW_TABLES:
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
-        op.execute(
-            f"""
+        op.execute(f"""
             CREATE POLICY tenant_isolation ON {table}
             USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
-            """
-        )
+            """)
 
 
 def downgrade() -> None:

@@ -4,6 +4,7 @@ State machine:
   draft → authorised → sent → partial|paid → (terminal)
   any non-void → void
 """
+
 from __future__ import annotations
 
 import uuid
@@ -162,9 +163,7 @@ async def list_invoices(
 
 async def get_invoice(db: AsyncSession, tenant_id: str, invoice_id: str) -> Invoice:
     inv = await db.scalar(
-        select(Invoice).where(
-            Invoice.id == invoice_id, Invoice.tenant_id == tenant_id
-        )
+        select(Invoice).where(Invoice.id == invoice_id, Invoice.tenant_id == tenant_id)
     )
     if not inv:
         raise InvoiceNotFoundError(invoice_id)
@@ -202,7 +201,9 @@ async def authorise_invoice(
 
     # Generate sequential invoice number
     count_result = await db.execute(
-        select(func.count()).select_from(Invoice).where(
+        select(func.count())
+        .select_from(Invoice)
+        .where(
             Invoice.tenant_id == tenant_id,
             Invoice.status != "draft",
         )
@@ -222,38 +223,42 @@ async def authorise_invoice(
     ar_id = ar_account.id if ar_account else None
 
     if ar_id:
-        je_lines.append(JournalLine(
-            tenant_id=tenant_id,
-            line_no=line_no,
-            account_id=ar_id,
-            contact_id=inv.contact_id,
-            description=f"Invoice {inv.number}",
-            debit=total,
-            credit=Decimal("0"),
-            currency=inv.currency,
-            fx_rate=fx,
-            functional_debit=func_total,
-            functional_credit=Decimal("0"),
-        ))
+        je_lines.append(
+            JournalLine(
+                tenant_id=tenant_id,
+                line_no=line_no,
+                account_id=ar_id,
+                contact_id=inv.contact_id,
+                description=f"Invoice {inv.number}",
+                debit=total,
+                credit=Decimal("0"),
+                currency=inv.currency,
+                fx_rate=fx,
+                functional_debit=func_total,
+                functional_credit=Decimal("0"),
+            )
+        )
         line_no += 1
 
     # Credit: Revenue per invoice line
     for il in lines:
         la = Decimal(str(il.line_amount))
         func_la = (la * fx).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
-        je_lines.append(JournalLine(
-            tenant_id=tenant_id,
-            line_no=line_no,
-            account_id=il.account_id,
-            contact_id=inv.contact_id,
-            description=il.description or f"Invoice {inv.number} line {il.line_no}",
-            debit=Decimal("0"),
-            credit=la,
-            currency=inv.currency,
-            fx_rate=fx,
-            functional_debit=Decimal("0"),
-            functional_credit=func_la,
-        ))
+        je_lines.append(
+            JournalLine(
+                tenant_id=tenant_id,
+                line_no=line_no,
+                account_id=il.account_id,
+                contact_id=inv.contact_id,
+                description=il.description or f"Invoice {inv.number} line {il.line_no}",
+                debit=Decimal("0"),
+                credit=la,
+                currency=inv.currency,
+                fx_rate=fx,
+                functional_debit=Decimal("0"),
+                functional_credit=func_la,
+            )
+        )
         line_no += 1
 
     # Create and post the JE only if we have AR + at least one revenue line

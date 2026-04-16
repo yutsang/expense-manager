@@ -1,4 +1,5 @@
 """Accounts API — CRUD and archive."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -26,31 +27,175 @@ router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 # Default Chart of Accounts template (US business)
 _DEFAULT_COA = [
-    {"code": "1000", "name": "Cash",                       "type": "asset",     "subtype": "bank",         "normal_balance": "debit"},
-    {"code": "1100", "name": "Accounts Receivable",         "type": "asset",     "subtype": "receivable",   "normal_balance": "debit"},
-    {"code": "1200", "name": "Inventory",                   "type": "asset",     "subtype": "inventory",    "normal_balance": "debit"},
-    {"code": "1500", "name": "Prepaid Expenses",            "type": "asset",     "subtype": "prepaid",      "normal_balance": "debit"},
-    {"code": "1900", "name": "Fixed Assets",                "type": "asset",     "subtype": "fixed_asset",  "normal_balance": "debit"},
-    {"code": "2000", "name": "Accounts Payable",            "type": "liability", "subtype": "payable",      "normal_balance": "credit"},
-    {"code": "2100", "name": "Sales Tax Payable",           "type": "liability", "subtype": "tax",          "normal_balance": "credit"},
-    {"code": "2200", "name": "Payroll Liabilities",         "type": "liability", "subtype": "payroll",      "normal_balance": "credit"},
-    {"code": "2500", "name": "Loans Payable",               "type": "liability", "subtype": "loan",         "normal_balance": "credit"},
-    {"code": "3000", "name": "Common Stock",                "type": "equity",    "subtype": "equity",       "normal_balance": "credit"},
-    {"code": "3100", "name": "Retained Earnings",           "type": "equity",    "subtype": "retained",     "normal_balance": "credit"},
-    {"code": "4000", "name": "Sales Revenue",               "type": "revenue",   "subtype": "sales",        "normal_balance": "credit"},
-    {"code": "4100", "name": "Service Revenue",             "type": "revenue",   "subtype": "service",      "normal_balance": "credit"},
-    {"code": "4200", "name": "Other Income",                "type": "revenue",   "subtype": "other",        "normal_balance": "credit"},
-    {"code": "5000", "name": "Cost of Goods Sold",          "type": "expense",   "subtype": "cogs",         "normal_balance": "debit"},
-    {"code": "6000", "name": "Salaries & Wages",            "type": "expense",   "subtype": "payroll",      "normal_balance": "debit"},
-    {"code": "6100", "name": "Rent Expense",                "type": "expense",   "subtype": "facilities",   "normal_balance": "debit"},
-    {"code": "6200", "name": "Utilities Expense",           "type": "expense",   "subtype": "utilities",    "normal_balance": "debit"},
-    {"code": "6300", "name": "Office Supplies",             "type": "expense",   "subtype": "supplies",     "normal_balance": "debit"},
-    {"code": "6400", "name": "Marketing & Advertising",     "type": "expense",   "subtype": "marketing",    "normal_balance": "debit"},
-    {"code": "6500", "name": "Travel & Entertainment",      "type": "expense",   "subtype": "travel",       "normal_balance": "debit"},
-    {"code": "6600", "name": "Depreciation Expense",        "type": "expense",   "subtype": "depreciation", "normal_balance": "debit"},
-    {"code": "6700", "name": "Interest Expense",            "type": "expense",   "subtype": "interest",     "normal_balance": "debit"},
-    {"code": "6800", "name": "Bank Fees",                   "type": "expense",   "subtype": "bank_charges", "normal_balance": "debit"},
-    {"code": "6900", "name": "Other Expenses",              "type": "expense",   "subtype": "other",        "normal_balance": "debit"},
+    {"code": "1000", "name": "Cash", "type": "asset", "subtype": "bank", "normal_balance": "debit"},
+    {
+        "code": "1100",
+        "name": "Accounts Receivable",
+        "type": "asset",
+        "subtype": "receivable",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1200",
+        "name": "Inventory",
+        "type": "asset",
+        "subtype": "inventory",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1500",
+        "name": "Prepaid Expenses",
+        "type": "asset",
+        "subtype": "prepaid",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1900",
+        "name": "Fixed Assets",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "2000",
+        "name": "Accounts Payable",
+        "type": "liability",
+        "subtype": "payable",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2100",
+        "name": "Sales Tax Payable",
+        "type": "liability",
+        "subtype": "tax",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2200",
+        "name": "Payroll Liabilities",
+        "type": "liability",
+        "subtype": "payroll",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2500",
+        "name": "Loans Payable",
+        "type": "liability",
+        "subtype": "loan",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "3000",
+        "name": "Common Stock",
+        "type": "equity",
+        "subtype": "equity",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "3100",
+        "name": "Retained Earnings",
+        "type": "equity",
+        "subtype": "retained",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4000",
+        "name": "Sales Revenue",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4100",
+        "name": "Service Revenue",
+        "type": "revenue",
+        "subtype": "service",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4200",
+        "name": "Other Income",
+        "type": "revenue",
+        "subtype": "other",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "5000",
+        "name": "Cost of Goods Sold",
+        "type": "expense",
+        "subtype": "cogs",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6000",
+        "name": "Salaries & Wages",
+        "type": "expense",
+        "subtype": "payroll",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6100",
+        "name": "Rent Expense",
+        "type": "expense",
+        "subtype": "facilities",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6200",
+        "name": "Utilities Expense",
+        "type": "expense",
+        "subtype": "utilities",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6300",
+        "name": "Office Supplies",
+        "type": "expense",
+        "subtype": "supplies",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6400",
+        "name": "Marketing & Advertising",
+        "type": "expense",
+        "subtype": "marketing",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6500",
+        "name": "Travel & Entertainment",
+        "type": "expense",
+        "subtype": "travel",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6600",
+        "name": "Depreciation Expense",
+        "type": "expense",
+        "subtype": "depreciation",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6700",
+        "name": "Interest Expense",
+        "type": "expense",
+        "subtype": "interest",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6800",
+        "name": "Bank Fees",
+        "type": "expense",
+        "subtype": "bank_charges",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6900",
+        "name": "Other Expenses",
+        "type": "expense",
+        "subtype": "other",
+        "normal_balance": "debit",
+    },
 ]
 
 
@@ -135,7 +280,9 @@ async def update_account_endpoint(
     except AccountNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     return AccountResponse.model_validate(account)
 
 
@@ -154,7 +301,9 @@ async def archive_account_endpoint(
     except AccountInUseError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
 
 
 @router.post("/seed-demo", status_code=status.HTTP_201_CREATED)
@@ -189,11 +338,11 @@ async def seed_demo_endpoint(
 
     # ── Contacts ──────────────────────────────────────────────────────────────
     _CONTACTS = [
-        {"contact_type": "customer", "name": "Acme Corporation",    "currency": "USD"},
-        {"contact_type": "customer", "name": "TechStart Ltd",       "currency": "USD"},
-        {"contact_type": "customer", "name": "Global Traders HK",   "currency": "HKD"},
-        {"contact_type": "supplier", "name": "Office Depot",        "currency": "USD"},
-        {"contact_type": "supplier", "name": "AWS Cloud Services",  "currency": "USD"},
+        {"contact_type": "customer", "name": "Acme Corporation", "currency": "USD"},
+        {"contact_type": "customer", "name": "TechStart Ltd", "currency": "USD"},
+        {"contact_type": "customer", "name": "Global Traders HK", "currency": "HKD"},
+        {"contact_type": "supplier", "name": "Office Depot", "currency": "USD"},
+        {"contact_type": "supplier", "name": "AWS Cloud Services", "currency": "USD"},
     ]
     contacts_created: list[Contact] = []
     for spec in _CONTACTS:
@@ -215,63 +364,63 @@ async def seed_demo_endpoint(
     # ── KYC records ───────────────────────────────────────────────────────────
     _KYC_SEED = [
         {
-            "name":             "Acme Corporation",
-            "kyc_status":       "approved",
+            "name": "Acme Corporation",
+            "kyc_status": "approved",
             "sanctions_status": "clear",
-            "id_type":          "passport",
-            "id_number":        "P12345678",
-            "id_expiry_date":   _date(2026, 8, 15),
-            "poa_type":         "bank_statement",
-            "poa_date":         _date(2024, 3, 10),
+            "id_type": "passport",
+            "id_number": "P12345678",
+            "id_expiry_date": _date(2026, 8, 15),
+            "poa_type": "bank_statement",
+            "poa_date": _date(2024, 3, 10),
             "last_review_date": _date(2024, 3, 10),
             "next_review_date": _date(2027, 3, 10),
         },
         {
-            "name":             "TechStart Ltd",
-            "kyc_status":       "pending",
+            "name": "TechStart Ltd",
+            "kyc_status": "pending",
             "sanctions_status": "not_checked",
-            "id_type":          "national_id",
-            "id_number":        "NI9876543",
-            "id_expiry_date":   _date(2025, 5, 20),   # expired!
-            "poa_type":         "utility_bill",
-            "poa_date":         _date(2022, 11, 1),   # stale (> 3 years)
+            "id_type": "national_id",
+            "id_number": "NI9876543",
+            "id_expiry_date": _date(2025, 5, 20),  # expired!
+            "poa_type": "utility_bill",
+            "poa_date": _date(2022, 11, 1),  # stale (> 3 years)
             "last_review_date": _date(2022, 11, 1),
             "next_review_date": _date(2023, 11, 1),
         },
         {
-            "name":             "Global Traders HK",
-            "kyc_status":       "approved",
+            "name": "Global Traders HK",
+            "kyc_status": "approved",
             "sanctions_status": "flagged",
-            "id_type":          "passport",
-            "id_number":        "HK8881234",
-            "id_expiry_date":   _date(2027, 2, 28),
-            "poa_type":         "tax_document",
-            "poa_date":         _date(2024, 1, 15),
+            "id_type": "passport",
+            "id_number": "HK8881234",
+            "id_expiry_date": _date(2027, 2, 28),
+            "poa_type": "tax_document",
+            "poa_date": _date(2024, 1, 15),
             "last_review_date": _date(2024, 1, 15),
             "next_review_date": _date(2025, 1, 15),
-            "notes":            "Flagged by OFAC screening 2024-01-20. Under investigation.",
+            "notes": "Flagged by OFAC screening 2024-01-20. Under investigation.",
         },
         {
-            "name":             "Office Depot",
-            "kyc_status":       "approved",
+            "name": "Office Depot",
+            "kyc_status": "approved",
             "sanctions_status": "clear",
-            "id_type":          "drivers_license",
-            "id_number":        "DL-OD-4321",
-            "id_expiry_date":   _date(2028, 6, 30),
-            "poa_type":         "bank_statement",
-            "poa_date":         _date(2024, 6, 1),
+            "id_type": "drivers_license",
+            "id_number": "DL-OD-4321",
+            "id_expiry_date": _date(2028, 6, 30),
+            "poa_type": "bank_statement",
+            "poa_date": _date(2024, 6, 1),
             "last_review_date": _date(2024, 6, 1),
             "next_review_date": _date(2027, 6, 1),
         },
         {
-            "name":             "AWS Cloud Services",
-            "kyc_status":       "approved",
+            "name": "AWS Cloud Services",
+            "kyc_status": "approved",
             "sanctions_status": "clear",
-            "id_type":          "other",
-            "id_number":        "AWS-CORP-001",
-            "id_expiry_date":   _date(2029, 12, 31),
-            "poa_type":         "tax_document",
-            "poa_date":         _date(2024, 4, 1),
+            "id_type": "other",
+            "id_number": "AWS-CORP-001",
+            "id_expiry_date": _date(2029, 12, 31),
+            "poa_type": "tax_document",
+            "poa_date": _date(2024, 4, 1),
             "last_review_date": _date(2024, 4, 1),
             "next_review_date": _date(2027, 4, 1),
         },
@@ -303,9 +452,27 @@ async def seed_demo_endpoint(
 
     # ── Tax codes ─────────────────────────────────────────────────────────────
     _TAX_CODES = [
-        {"code": "DEMO_GST",   "name": "GST 10% (AU)",      "rate": Decimal("0.100000"), "tax_type": "output", "country": "AU"},
-        {"code": "DEMO_VAT",   "name": "VAT 20% (GB)",       "rate": Decimal("0.200000"), "tax_type": "output", "country": "GB"},
-        {"code": "DEMO_USTAX", "name": "Sales Tax 8% (US)", "rate": Decimal("0.080000"), "tax_type": "output", "country": "US"},
+        {
+            "code": "DEMO_GST",
+            "name": "GST 10% (AU)",
+            "rate": Decimal("0.100000"),
+            "tax_type": "output",
+            "country": "AU",
+        },
+        {
+            "code": "DEMO_VAT",
+            "name": "VAT 20% (GB)",
+            "rate": Decimal("0.200000"),
+            "tax_type": "output",
+            "country": "GB",
+        },
+        {
+            "code": "DEMO_USTAX",
+            "name": "Sales Tax 8% (US)",
+            "rate": Decimal("0.080000"),
+            "tax_type": "output",
+            "country": "US",
+        },
     ]
     for tc_spec in _TAX_CODES:
         exists = await db.scalar(
@@ -331,10 +498,13 @@ async def seed_demo_endpoint(
 
     # ── Journal entries (only if periods exist) ───────────────────────────────
     period_result = await db.execute(
-        sa_select(Period).where(
+        sa_select(Period)
+        .where(
             Period.tenant_id == tenant_id,
             Period.status == "open",
-        ).order_by(Period.start_date).limit(1)
+        )
+        .order_by(Period.start_date)
+        .limit(1)
     )
     period = period_result.scalar_one_or_none()
 
@@ -352,25 +522,18 @@ async def seed_demo_endpoint(
             # ── Opening balance JE ────────────────────────────────────────────
             # Get account IDs
             from app.infra.models import Account
+
             cash_acct = await db.scalar(
-                sa_select(Account).where(
-                    Account.tenant_id == tenant_id, Account.code == "1000"
-                )
+                sa_select(Account).where(Account.tenant_id == tenant_id, Account.code == "1000")
             )
             equity_acct = await db.scalar(
-                sa_select(Account).where(
-                    Account.tenant_id == tenant_id, Account.code == "3000"
-                )
+                sa_select(Account).where(Account.tenant_id == tenant_id, Account.code == "3000")
             )
             revenue_acct = await db.scalar(
-                sa_select(Account).where(
-                    Account.tenant_id == tenant_id, Account.code == "4000"
-                )
+                sa_select(Account).where(Account.tenant_id == tenant_id, Account.code == "4000")
             )
             expense_acct = await db.scalar(
-                sa_select(Account).where(
-                    Account.tenant_id == tenant_id, Account.code == "6000"
-                )
+                sa_select(Account).where(Account.tenant_id == tenant_id, Account.code == "6000")
             )
 
             if cash_acct and equity_acct and revenue_acct and expense_acct:
@@ -393,32 +556,36 @@ async def seed_demo_endpoint(
                 )
                 db.add(je1)
                 await db.flush()
-                db.add(JournalLine(
-                    tenant_id=tenant_id,
-                    journal_entry_id=je1.id,
-                    line_no=1,
-                    account_id=cash_acct.id,
-                    description="Cash deposit",
-                    debit=Decimal("50000.0000"),
-                    credit=Decimal("0"),
-                    currency="USD",
-                    fx_rate=Decimal("1"),
-                    functional_debit=Decimal("50000.0000"),
-                    functional_credit=Decimal("0"),
-                ))
-                db.add(JournalLine(
-                    tenant_id=tenant_id,
-                    journal_entry_id=je1.id,
-                    line_no=2,
-                    account_id=equity_acct.id,
-                    description="Common stock issued",
-                    debit=Decimal("0"),
-                    credit=Decimal("50000.0000"),
-                    currency="USD",
-                    fx_rate=Decimal("1"),
-                    functional_debit=Decimal("0"),
-                    functional_credit=Decimal("50000.0000"),
-                ))
+                db.add(
+                    JournalLine(
+                        tenant_id=tenant_id,
+                        journal_entry_id=je1.id,
+                        line_no=1,
+                        account_id=cash_acct.id,
+                        description="Cash deposit",
+                        debit=Decimal("50000.0000"),
+                        credit=Decimal("0"),
+                        currency="USD",
+                        fx_rate=Decimal("1"),
+                        functional_debit=Decimal("50000.0000"),
+                        functional_credit=Decimal("0"),
+                    )
+                )
+                db.add(
+                    JournalLine(
+                        tenant_id=tenant_id,
+                        journal_entry_id=je1.id,
+                        line_no=2,
+                        account_id=equity_acct.id,
+                        description="Common stock issued",
+                        debit=Decimal("0"),
+                        credit=Decimal("50000.0000"),
+                        currency="USD",
+                        fx_rate=Decimal("1"),
+                        functional_debit=Decimal("0"),
+                        functional_credit=Decimal("50000.0000"),
+                    )
+                )
 
                 # JE-2: Revenue
                 je2 = JournalEntry(
@@ -440,37 +607,39 @@ async def seed_demo_endpoint(
                 db.add(je2)
                 await db.flush()
                 ar_acct = await db.scalar(
-                    sa_select(Account).where(
-                        Account.tenant_id == tenant_id, Account.code == "1100"
-                    )
+                    sa_select(Account).where(Account.tenant_id == tenant_id, Account.code == "1100")
                 )
                 if ar_acct:
-                    db.add(JournalLine(
-                        tenant_id=tenant_id,
-                        journal_entry_id=je2.id,
-                        line_no=1,
-                        account_id=ar_acct.id,
-                        description="AR - Acme Corp invoice",
-                        debit=Decimal("12500.0000"),
-                        credit=Decimal("0"),
-                        currency="USD",
-                        fx_rate=Decimal("1"),
-                        functional_debit=Decimal("12500.0000"),
-                        functional_credit=Decimal("0"),
-                    ))
-                    db.add(JournalLine(
-                        tenant_id=tenant_id,
-                        journal_entry_id=je2.id,
-                        line_no=2,
-                        account_id=revenue_acct.id,
-                        description="Sales revenue",
-                        debit=Decimal("0"),
-                        credit=Decimal("12500.0000"),
-                        currency="USD",
-                        fx_rate=Decimal("1"),
-                        functional_debit=Decimal("0"),
-                        functional_credit=Decimal("12500.0000"),
-                    ))
+                    db.add(
+                        JournalLine(
+                            tenant_id=tenant_id,
+                            journal_entry_id=je2.id,
+                            line_no=1,
+                            account_id=ar_acct.id,
+                            description="AR - Acme Corp invoice",
+                            debit=Decimal("12500.0000"),
+                            credit=Decimal("0"),
+                            currency="USD",
+                            fx_rate=Decimal("1"),
+                            functional_debit=Decimal("12500.0000"),
+                            functional_credit=Decimal("0"),
+                        )
+                    )
+                    db.add(
+                        JournalLine(
+                            tenant_id=tenant_id,
+                            journal_entry_id=je2.id,
+                            line_no=2,
+                            account_id=revenue_acct.id,
+                            description="Sales revenue",
+                            debit=Decimal("0"),
+                            credit=Decimal("12500.0000"),
+                            currency="USD",
+                            fx_rate=Decimal("1"),
+                            functional_debit=Decimal("0"),
+                            functional_credit=Decimal("12500.0000"),
+                        )
+                    )
 
                 # JE-3: Expense
                 je3 = JournalEntry(
@@ -492,37 +661,39 @@ async def seed_demo_endpoint(
                 db.add(je3)
                 await db.flush()
                 ap_acct = await db.scalar(
-                    sa_select(Account).where(
-                        Account.tenant_id == tenant_id, Account.code == "2000"
-                    )
+                    sa_select(Account).where(Account.tenant_id == tenant_id, Account.code == "2000")
                 )
                 if ap_acct:
-                    db.add(JournalLine(
-                        tenant_id=tenant_id,
-                        journal_entry_id=je3.id,
-                        line_no=1,
-                        account_id=expense_acct.id,
-                        description="Office supplies",
-                        debit=Decimal("3200.0000"),
-                        credit=Decimal("0"),
-                        currency="USD",
-                        fx_rate=Decimal("1"),
-                        functional_debit=Decimal("3200.0000"),
-                        functional_credit=Decimal("0"),
-                    ))
-                    db.add(JournalLine(
-                        tenant_id=tenant_id,
-                        journal_entry_id=je3.id,
-                        line_no=2,
-                        account_id=ap_acct.id,
-                        description="AP - Office Depot",
-                        debit=Decimal("0"),
-                        credit=Decimal("3200.0000"),
-                        currency="USD",
-                        fx_rate=Decimal("1"),
-                        functional_debit=Decimal("0"),
-                        functional_credit=Decimal("3200.0000"),
-                    ))
+                    db.add(
+                        JournalLine(
+                            tenant_id=tenant_id,
+                            journal_entry_id=je3.id,
+                            line_no=1,
+                            account_id=expense_acct.id,
+                            description="Office supplies",
+                            debit=Decimal("3200.0000"),
+                            credit=Decimal("0"),
+                            currency="USD",
+                            fx_rate=Decimal("1"),
+                            functional_debit=Decimal("3200.0000"),
+                            functional_credit=Decimal("0"),
+                        )
+                    )
+                    db.add(
+                        JournalLine(
+                            tenant_id=tenant_id,
+                            journal_entry_id=je3.id,
+                            line_no=2,
+                            account_id=ap_acct.id,
+                            description="AP - Office Depot",
+                            debit=Decimal("0"),
+                            credit=Decimal("3200.0000"),
+                            currency="USD",
+                            fx_rate=Decimal("1"),
+                            functional_debit=Decimal("0"),
+                            functional_credit=Decimal("3200.0000"),
+                        )
+                    )
 
     await db.commit()
     return {
@@ -533,7 +704,9 @@ async def seed_demo_endpoint(
     }
 
 
-@router.post("/seed-default", response_model=AccountListResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/seed-default", response_model=AccountListResponse, status_code=status.HTTP_201_CREATED
+)
 async def seed_default_coa_endpoint(
     db: DbSession,
     tenant_id: TenantId,
@@ -542,7 +715,9 @@ async def seed_default_coa_endpoint(
     """Seed a default Chart of Accounts for a new tenant. No-op (returns existing) if already populated."""
     existing = await list_accounts(db, tenant_id=tenant_id, include_inactive=True)
     if existing:
-        return AccountListResponse(items=[AccountResponse.model_validate(a) for a in existing], total=len(existing))
+        return AccountListResponse(
+            items=[AccountResponse.model_validate(a) for a in existing], total=len(existing)
+        )
 
     created = []
     for spec in _DEFAULT_COA:
@@ -568,6 +743,7 @@ async def seed_default_coa_endpoint(
 
         from app.infra.models import Tenant as TenantModel
         from app.services.periods import provision_periods
+
         result = await db.execute(sa_select(TenantModel).where(TenantModel.id == tenant_id))
         tenant_row = result.scalar_one_or_none()
         currency = tenant_row.functional_currency if tenant_row else "USD"
@@ -579,10 +755,18 @@ async def seed_default_coa_endpoint(
             m += 12
             y -= 1
         from_date = date(y, m, 1)
-        await provision_periods(db, tenant_id=tenant_id, functional_currency=currency,
-                                fiscal_year_start_month=fiscal_start, from_date=from_date, months=24)
+        await provision_periods(
+            db,
+            tenant_id=tenant_id,
+            functional_currency=currency,
+            fiscal_year_start_month=fiscal_start,
+            from_date=from_date,
+            months=24,
+        )
         await db.commit()
     except Exception:  # noqa: BLE001, S110 — periods are optional; don't fail CoA creation
         pass
 
-    return AccountListResponse(items=[AccountResponse.model_validate(a) for a in created], total=len(created))
+    return AccountListResponse(
+        items=[AccountResponse.model_validate(a) for a in created], total=len(created)
+    )

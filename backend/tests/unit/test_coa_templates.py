@@ -1,10 +1,11 @@
 """Tests for CoA templates — T0.13 DoD: US tenant yields 80+ accounts, correct types."""
+
 from __future__ import annotations
 
 from app.infra.templates import get_coa_template, get_tax_codes_template
 
 REQUIRED_SYSTEM_ACCOUNTS = {
-    "asset": {"1100"},   # AR
+    "asset": {"1100"},  # AR
     "liability": {"2000"},  # AP
     "equity": {"3300"},  # Retained Earnings
     "revenue": {"4920"},  # FX Gain
@@ -52,9 +53,9 @@ class TestUSTemplate:
         codes = {a["code"] for a in self.accounts}
         for acct in self.accounts:
             if "parent_code" in acct:
-                assert acct["parent_code"] in codes, (
-                    f"{acct['code']} references unknown parent {acct['parent_code']}"
-                )
+                assert (
+                    acct["parent_code"] in codes
+                ), f"{acct['code']} references unknown parent {acct['parent_code']}"
 
     def test_retained_earnings_is_equity(self) -> None:
         by_code = {a["code"]: a for a in self.accounts}

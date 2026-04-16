@@ -2,6 +2,7 @@
 
 All rules from CLAUDE.md §8 must hold for all valid inputs.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal

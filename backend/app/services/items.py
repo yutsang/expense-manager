@@ -1,4 +1,5 @@
 """Item (product/service) CRUD service."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -94,9 +95,7 @@ async def list_items(
 
 
 async def get_item(db: AsyncSession, tenant_id: str, item_id: str) -> Item:
-    item = await db.scalar(
-        select(Item).where(Item.id == item_id, Item.tenant_id == tenant_id)
-    )
+    item = await db.scalar(select(Item).where(Item.id == item_id, Item.tenant_id == tenant_id))
     if not item:
         raise ItemNotFoundError(item_id)
     return item
@@ -107,9 +106,16 @@ async def update_item(
 ) -> Item:
     item = await get_item(db, tenant_id, item_id)
     allowed = {
-        "name", "description", "unit_of_measure", "sales_unit_price",
-        "purchase_unit_price", "currency", "sales_account_id", "cogs_account_id",
-        "purchase_account_id", "is_tracked",
+        "name",
+        "description",
+        "unit_of_measure",
+        "sales_unit_price",
+        "purchase_unit_price",
+        "currency",
+        "sales_account_id",
+        "cogs_account_id",
+        "purchase_account_id",
+        "is_tracked",
     }
     for key, val in updates.items():
         if key in allowed:

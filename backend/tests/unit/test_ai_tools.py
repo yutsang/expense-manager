@@ -1,4 +1,5 @@
 """Unit tests for AI tool registry and schema shapes."""
+
 from __future__ import annotations
 
 import pytest

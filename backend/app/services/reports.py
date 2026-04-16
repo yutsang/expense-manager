@@ -3,6 +3,7 @@
 All queries read from posted journal lines only (status='posted').
 Report rows use Decimal for all amounts — never float.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -105,9 +106,7 @@ async def trial_balance(
 
     # Fetch account metadata
     account_ids = [r.account_id for r in rows_raw]
-    accts_result = await db.execute(
-        select(Account).where(Account.id.in_(account_ids))
-    )
+    accts_result = await db.execute(select(Account).where(Account.id.in_(account_ids)))
     accts = {a.id: a for a in accts_result.scalars().all()}
 
     rows = [
@@ -197,15 +196,17 @@ async def general_ledger(
             running += debit - credit
         else:
             running += credit - debit
-        gl_lines.append(GLLine(
-            date=je.date.date() if hasattr(je.date, "date") else je.date,  # type: ignore[union-attr]
-            journal_number=je.number,
-            journal_id=je.id,
-            description=jl.description or je.description,
-            debit=debit,
-            credit=credit,
-            running_balance=running,
-        ))
+        gl_lines.append(
+            GLLine(
+                date=je.date.date() if hasattr(je.date, "date") else je.date,  # type: ignore[union-attr]
+                journal_number=je.number,
+                journal_id=je.id,
+                description=jl.description or je.description,
+                debit=debit,
+                credit=credit,
+                running_balance=running,
+            )
+        )
 
     return GLReport(
         account_id=account_id,

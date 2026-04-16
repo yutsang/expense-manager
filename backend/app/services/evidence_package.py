@@ -1,4 +1,5 @@
 """Evidence package builder — produces an in-memory ZIP for auditor download."""
+
 from __future__ import annotations
 
 import csv
@@ -92,12 +93,29 @@ async def build_evidence_package(
         return buf.getvalue().encode("utf-8")
 
     journals_csv = _csv_bytes(
-        ["id", "number", "date", "description", "total_debit", "total_credit", "currency", "status", "posted_at", "posted_by"],
+        [
+            "id",
+            "number",
+            "date",
+            "description",
+            "total_debit",
+            "total_credit",
+            "currency",
+            "status",
+            "posted_at",
+            "posted_by",
+        ],
         [
             [
-                je.id, je.number, _isodate(je.date), je.description,
-                str(je.total_debit), str(je.total_credit), je.currency,
-                je.status, _isodate(je.posted_at) if je.posted_at else "",
+                je.id,
+                je.number,
+                _isodate(je.date),
+                je.description,
+                str(je.total_debit),
+                str(je.total_credit),
+                je.currency,
+                je.status,
+                _isodate(je.posted_at) if je.posted_at else "",
                 je.posted_by or "",
             ]
             for je in journals
@@ -105,11 +123,26 @@ async def build_evidence_package(
     )
 
     journal_lines_csv = _csv_bytes(
-        ["id", "journal_entry_id", "line_no", "account_id", "description", "debit", "credit", "currency"],
+        [
+            "id",
+            "journal_entry_id",
+            "line_no",
+            "account_id",
+            "description",
+            "debit",
+            "credit",
+            "currency",
+        ],
         [
             [
-                ln.id, ln.journal_entry_id, ln.line_no, ln.account_id,
-                ln.description or "", str(ln.debit), str(ln.credit), ln.currency,
+                ln.id,
+                ln.journal_entry_id,
+                ln.line_no,
+                ln.account_id,
+                ln.description or "",
+                str(ln.debit),
+                str(ln.credit),
+                ln.currency,
             ]
             for ln in lines
         ],
@@ -119,8 +152,13 @@ async def build_evidence_package(
         ["id", "occurred_at", "actor_type", "actor_id", "action", "entity_type", "entity_id"],
         [
             [
-                ae.id, _isodate(ae.occurred_at), ae.actor_type,
-                ae.actor_id or "", ae.action, ae.entity_type, ae.entity_id or "",
+                ae.id,
+                _isodate(ae.occurred_at),
+                ae.actor_type,
+                ae.actor_id or "",
+                ae.action,
+                ae.entity_type,
+                ae.entity_id or "",
             ]
             for ae in audit_events
         ],

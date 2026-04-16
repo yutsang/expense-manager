@@ -6,6 +6,7 @@ after JWT validation. Never accepted from the request body/query string.
 The set_tenant_id() helper also writes the value to the Postgres session so
 that Row-Level Security policies (`SET LOCAL app.tenant_id = ...`) can apply.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -25,8 +26,7 @@ def get_tenant_id() -> str:
     tid = _tenant_id_var.get()
     if tid is None:
         raise RuntimeError(
-            "tenant_id is not set in the current context. "
-            "This endpoint requires authentication."
+            "tenant_id is not set in the current context. " "This endpoint requires authentication."
         )
     return tid
 
@@ -53,6 +53,7 @@ async def set_rls_tenant(session: AsyncSession, tenant_id: str) -> None:
     value directly. The UUID validation above guarantees it is safe.
     """
     from sqlalchemy import text
+
     # tenant_id is UUID-validated by set_tenant_id() — safe to embed directly
     # Use SET (session-level) instead of SET LOCAL (transaction-level) so the
     # value persists across commit boundaries within the same request.

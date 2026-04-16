@@ -1,4 +1,5 @@
 """Smoke tests — confirm the app starts and /healthz responds."""
+
 from __future__ import annotations
 
 import pytest
@@ -20,9 +21,7 @@ async def test_healthz(monkeypatch: pytest.MonkeyPatch) -> None:
     # Import after patching env so Settings picks them up
     from app.main import app
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/healthz")
 
     assert response.status_code == 200

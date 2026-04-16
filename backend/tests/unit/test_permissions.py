@@ -1,4 +1,5 @@
 """Unit tests for RBAC — matrix test every (role, permission) cell (T0.10 DoD)."""
+
 from __future__ import annotations
 
 import pytest

@@ -1,4 +1,5 @@
 """Receipts API — upload, OCR via Claude Vision, list, get, delete."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, UploadFile, status

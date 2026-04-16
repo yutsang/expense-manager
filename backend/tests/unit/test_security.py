@@ -1,4 +1,5 @@
 """Unit tests for security primitives (T0.8 DoD)."""
+
 from __future__ import annotations
 
 import pytest

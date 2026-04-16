@@ -1,4 +1,5 @@
 """Receipt service — upload to S3, run Claude Vision OCR."""
+
 from __future__ import annotations
 
 import base64
@@ -169,7 +170,12 @@ async def run_ocr(
         receipt.status = "done"
         receipt.updated_at = datetime.now(tz=UTC)
 
-        log.info("receipt.ocr_done", receipt_id=receipt_id, vendor=receipt.ocr_vendor, total=str(ocr_total_val))
+        log.info(
+            "receipt.ocr_done",
+            receipt_id=receipt_id,
+            vendor=receipt.ocr_vendor,
+            total=str(ocr_total_val),
+        )
 
     except Exception as exc:
         log.error("receipt.ocr_error", receipt_id=receipt_id, error=str(exc))

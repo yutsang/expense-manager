@@ -4,6 +4,7 @@ Revision ID: 0006
 Revises: 0005
 Create Date: 2026-04-15
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -98,7 +99,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["period_id"], ["periods.id"], ondelete="RESTRICT"),
     )
     op.create_index("ix_bank_reconciliations_tenant_id", "bank_reconciliations", ["tenant_id"])
-    op.create_index("ix_bank_reconciliations_account_id", "bank_reconciliations", ["bank_account_id"])
+    op.create_index(
+        "ix_bank_reconciliations_account_id", "bank_reconciliations", ["bank_account_id"]
+    )
 
     # --- expense_claims ---------------------------------------------------------
     op.create_table(

@@ -2,6 +2,7 @@
 
 Add new country modules here; they must export COA_TEMPLATE and DEFAULT_TAX_CODES.
 """
+
 from __future__ import annotations
 
 from app.infra.templates import coa_au, coa_us

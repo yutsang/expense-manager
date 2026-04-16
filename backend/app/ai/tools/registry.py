@@ -9,6 +9,7 @@ Phase 1 (T1.15): Read tools only. No chat endpoint yet — these schemas
 are pre-registered so Phase 3 can wire them into the assistant without
 changing the interface contract.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -32,7 +33,7 @@ GET_ACCOUNT_BALANCE: ToolSchema = {
             "account_code": {
                 "type": "string",
                 "description": "The account code (e.g. '1000' for Cash). "
-                               "Use list_accounts to discover available codes.",
+                "Use list_accounts to discover available codes.",
             },
             "as_of_date": {
                 "type": "string",

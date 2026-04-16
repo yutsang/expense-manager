@@ -4,6 +4,7 @@ Revision ID: 0008
 Revises: 0007
 Create Date: 2026-04-16
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -29,10 +30,17 @@ def upgrade() -> None:
         sa.Column("is_valid", sa.Boolean(), nullable=False),
         sa.Column("break_at_event_id", sa.UUID(), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_audit_chain_verif_tenant", "audit_chain_verifications", ["tenant_id", "verified_at"])
+    op.create_index(
+        "ix_audit_chain_verif_tenant", "audit_chain_verifications", ["tenant_id", "verified_at"]
+    )
 
     # --- report_snapshots --------------------------------------------------------
     op.create_table(
@@ -45,7 +53,12 @@ def upgrade() -> None:
         sa.Column("data", sa.JSON(), nullable=False, server_default="{}"),
         sa.Column("sha256", sa.String(64), nullable=False),
         sa.Column("created_by", sa.UUID(), nullable=False),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            nullable=False,
+            server_default=sa.text("now()"),
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_report_snapshots_tenant", "report_snapshots", ["tenant_id", "generated_at"])

@@ -4,6 +4,7 @@ State machine:
   draft → awaiting_approval → approved → partial|paid → (terminal)
   any non-void → void
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -65,19 +66,21 @@ async def create_bill(
         subtotal += net
         tax_total += tax
 
-        line_models.append(BillLine(
-            tenant_id=tenant_id,
-            line_no=i,
-            item_id=line.get("item_id"),
-            account_id=line["account_id"],
-            tax_code_id=line.get("tax_code_id"),
-            description=line.get("description"),
-            quantity=qty,
-            unit_price=price,
-            discount_pct=disc,
-            line_amount=net,
-            tax_amount=tax,
-        ))
+        line_models.append(
+            BillLine(
+                tenant_id=tenant_id,
+                line_no=i,
+                item_id=line.get("item_id"),
+                account_id=line["account_id"],
+                tax_code_id=line.get("tax_code_id"),
+                description=line.get("description"),
+                quantity=qty,
+                unit_price=price,
+                discount_pct=disc,
+                line_amount=net,
+                tax_amount=tax,
+            )
+        )
 
     total = subtotal + tax_total
     functional_total = (total * fx_rate).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
@@ -143,9 +146,7 @@ async def list_bills(
 
 
 async def get_bill(db: AsyncSession, tenant_id: str, bill_id: str) -> Bill:
-    bill = await db.scalar(
-        select(Bill).where(Bill.id == bill_id, Bill.tenant_id == tenant_id)
-    )
+    bill = await db.scalar(select(Bill).where(Bill.id == bill_id, Bill.tenant_id == tenant_id))
     if not bill:
         raise BillNotFoundError(bill_id)
     return bill
@@ -200,38 +201,42 @@ async def approve_bill(
 
     # Credit: Accounts Payable for total incl. tax
     if ap_account:
-        je_lines.append(JournalLine(
-            tenant_id=tenant_id,
-            line_no=line_no,
-            account_id=ap_account.id,
-            contact_id=bill.contact_id,
-            description=f"Bill {bill.number}",
-            debit=Decimal("0"),
-            credit=total,
-            currency=bill.currency,
-            fx_rate=fx,
-            functional_debit=Decimal("0"),
-            functional_credit=func_total,
-        ))
+        je_lines.append(
+            JournalLine(
+                tenant_id=tenant_id,
+                line_no=line_no,
+                account_id=ap_account.id,
+                contact_id=bill.contact_id,
+                description=f"Bill {bill.number}",
+                debit=Decimal("0"),
+                credit=total,
+                currency=bill.currency,
+                fx_rate=fx,
+                functional_debit=Decimal("0"),
+                functional_credit=func_total,
+            )
+        )
         line_no += 1
 
     # Debit: Expense per bill line
     for bl in lines:
         la = Decimal(str(bl.line_amount))
         func_la = (la * fx).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
-        je_lines.append(JournalLine(
-            tenant_id=tenant_id,
-            line_no=line_no,
-            account_id=bl.account_id,
-            contact_id=bill.contact_id,
-            description=bl.description or f"Bill {bill.number} line {bl.line_no}",
-            debit=la,
-            credit=Decimal("0"),
-            currency=bill.currency,
-            fx_rate=fx,
-            functional_debit=func_la,
-            functional_credit=Decimal("0"),
-        ))
+        je_lines.append(
+            JournalLine(
+                tenant_id=tenant_id,
+                line_no=line_no,
+                account_id=bl.account_id,
+                contact_id=bill.contact_id,
+                description=bl.description or f"Bill {bill.number} line {bl.line_no}",
+                debit=la,
+                credit=Decimal("0"),
+                currency=bill.currency,
+                fx_rate=fx,
+                functional_debit=func_la,
+                functional_credit=Decimal("0"),
+            )
+        )
         line_no += 1
 
     if len(je_lines) >= 2:
@@ -271,9 +276,7 @@ async def approve_bill(
     return bill
 
 
-async def void_bill(
-    db: AsyncSession, tenant_id: str, bill_id: str, actor_id: str | None
-) -> Bill:
+async def void_bill(db: AsyncSession, tenant_id: str, bill_id: str, actor_id: str | None) -> Bill:
     bill = await get_bill(db, tenant_id, bill_id)
     if bill.status == "void":
         raise BillTransitionError("Bill is already void")

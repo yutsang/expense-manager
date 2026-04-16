@@ -4,6 +4,7 @@
 - JWT: HMAC-SHA256 access (15m) + rotating refresh (30d).
 - Tokens: URL-safe random bytes for invites / email verification.
 """
+
 from __future__ import annotations
 
 import hashlib

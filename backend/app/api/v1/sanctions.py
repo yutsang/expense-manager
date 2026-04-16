@@ -1,4 +1,5 @@
 """Sanctions API — manual refresh trigger, snapshot status, entry search, screen contact."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
@@ -87,7 +88,10 @@ async def screen_contact_now(
 async def search_entries(
     db: DbSession,
     q: str | None = Query(default=None, description="Name search (case-insensitive)"),
-    source: str | None = Query(default=None, description="Filter by source: ofac_consolidated | fatf_blacklist | fatf_greylist"),
+    source: str | None = Query(
+        default=None,
+        description="Filter by source: ofac_consolidated | fatf_blacklist | fatf_greylist",
+    ),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> SanctionsEntryListResponse:
@@ -127,7 +131,9 @@ async def search_entries(
         count_base = count_base.where(name_filter)
 
     total = await db.scalar(count_base) or 0
-    rows = await db.execute(base.order_by(SanctionsListEntry.primary_name).offset(offset).limit(limit))
+    rows = await db.execute(
+        base.order_by(SanctionsListEntry.primary_name).offset(offset).limit(limit)
+    )
     entries = list(rows.scalars())
     return SanctionsEntryListResponse(
         items=[SanctionsEntryResponse.model_validate(e) for e in entries],

@@ -1,4 +1,5 @@
 """Journals API — create draft, post, void, list, get."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -31,6 +32,7 @@ router = APIRouter(prefix="/journals", tags=["journals"])
 
 def _to_line_input(line: object) -> JournalLineInput:  # type: ignore[type-arg]
     from app.api.v1.schemas import JournalLineCreate
+
     assert isinstance(line, JournalLineCreate)
     debit = Decimal(line.debit)
     credit = Decimal(line.credit)
@@ -59,6 +61,7 @@ async def _load_lines(db: DbSession, journal_id: str) -> list[JournalLine]:  # t
 
 def _journal_response(je: object, lines: list[JournalLine]) -> JournalResponse:  # type: ignore[type-arg]
     from app.api.v1.schemas import JournalLineResponse
+
     data = JournalResponse.model_validate(je)
     data.lines = [JournalLineResponse.model_validate(ln) for ln in lines]
     return data
@@ -91,7 +94,9 @@ async def create_journal_endpoint(
         )
         await db.commit()
     except JournalBalanceError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     except PeriodNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
@@ -164,7 +169,9 @@ async def post_journal_endpoint(
     except JournalNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except (JournalStatusError, JournalBalanceError) as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     except PeriodPostingError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
@@ -198,7 +205,9 @@ async def void_journal_endpoint(
     except JournalNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except JournalStatusError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     except PeriodPostingError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

@@ -3,6 +3,7 @@
 Checks: per-tenant override first, then global default, then Settings fallback.
 All flag names are defined as constants here — no magic strings elsewhere.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infra.models import FeatureFlag, FeatureFlagOverride
 
 # ── Flag names (add here, never inline strings in call sites) ────────────────
+
 
 class Flag:
     AI_ENABLED = "ai_enabled"
@@ -21,6 +23,7 @@ class Flag:
 
 
 # ── Service ───────────────────────────────────────────────────────────────────
+
 
 async def is_enabled(
     db: AsyncSession,
@@ -44,15 +47,14 @@ async def is_enabled(
             return override.enabled
 
     # 2. Check global flag
-    result = await db.execute(
-        select(FeatureFlag).where(FeatureFlag.flag == flag)
-    )
+    result = await db.execute(select(FeatureFlag).where(FeatureFlag.flag == flag))
     global_flag = result.scalar_one_or_none()
     if global_flag is not None:
         return global_flag.enabled_global
 
     # 3. Settings-level default (for flags set via env var)
     from app.core.config import get_settings
+
     settings = get_settings()
     settings_map = {
         Flag.AI_ENABLED: settings.feature_flag_ai_enabled,
@@ -78,9 +80,7 @@ async def set_tenant_override(
     """Set a per-tenant override (upsert)."""
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-    stmt = pg_insert(FeatureFlagOverride).values(
-        flag=flag, tenant_id=tenant_id, enabled=enabled
-    )
+    stmt = pg_insert(FeatureFlagOverride).values(flag=flag, tenant_id=tenant_id, enabled=enabled)
     stmt = stmt.on_conflict_do_update(
         constraint="uq_flag_overrides_flag_tenant",
         set_={"enabled": enabled},

@@ -3,6 +3,7 @@ Demo seed script — populates a dev tenant with realistic Acme Corp data.
 Run from backend/:
   python scripts/seed_demo.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -68,34 +69,172 @@ def _now() -> datetime:
 
 ACCOUNTS = [
     # Assets
-    {"code": "1000", "name": "Cash",                       "type": "asset",     "subtype": "bank",         "normal_balance": "debit"},
-    {"code": "1100", "name": "Accounts Receivable",         "type": "asset",     "subtype": "receivable",   "normal_balance": "debit"},
-    {"code": "1200", "name": "Inventory",                   "type": "asset",     "subtype": "inventory",    "normal_balance": "debit"},
-    {"code": "1500", "name": "Prepaid Expenses",            "type": "asset",     "subtype": "prepaid",      "normal_balance": "debit"},
-    {"code": "1900", "name": "Fixed Assets",                "type": "asset",     "subtype": "fixed_asset",  "normal_balance": "debit"},
+    {"code": "1000", "name": "Cash", "type": "asset", "subtype": "bank", "normal_balance": "debit"},
+    {
+        "code": "1100",
+        "name": "Accounts Receivable",
+        "type": "asset",
+        "subtype": "receivable",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1200",
+        "name": "Inventory",
+        "type": "asset",
+        "subtype": "inventory",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1500",
+        "name": "Prepaid Expenses",
+        "type": "asset",
+        "subtype": "prepaid",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1900",
+        "name": "Fixed Assets",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "debit",
+    },
     # Liabilities
-    {"code": "2000", "name": "Accounts Payable",            "type": "liability", "subtype": "payable",      "normal_balance": "credit"},
-    {"code": "2100", "name": "Sales Tax Payable",           "type": "liability", "subtype": "tax",          "normal_balance": "credit"},
-    {"code": "2200", "name": "Payroll Liabilities",         "type": "liability", "subtype": "payroll",      "normal_balance": "credit"},
-    {"code": "2500", "name": "Loans Payable",               "type": "liability", "subtype": "loan",         "normal_balance": "credit"},
+    {
+        "code": "2000",
+        "name": "Accounts Payable",
+        "type": "liability",
+        "subtype": "payable",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2100",
+        "name": "Sales Tax Payable",
+        "type": "liability",
+        "subtype": "tax",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2200",
+        "name": "Payroll Liabilities",
+        "type": "liability",
+        "subtype": "payroll",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2500",
+        "name": "Loans Payable",
+        "type": "liability",
+        "subtype": "loan",
+        "normal_balance": "credit",
+    },
     # Equity
-    {"code": "3000", "name": "Common Stock",                "type": "equity",    "subtype": "equity",       "normal_balance": "credit"},
-    {"code": "3100", "name": "Owner's Equity",              "type": "equity",    "subtype": "equity",       "normal_balance": "credit"},
-    {"code": "3200", "name": "Retained Earnings",           "type": "equity",    "subtype": "retained",     "normal_balance": "credit"},
+    {
+        "code": "3000",
+        "name": "Common Stock",
+        "type": "equity",
+        "subtype": "equity",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "3100",
+        "name": "Owner's Equity",
+        "type": "equity",
+        "subtype": "equity",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "3200",
+        "name": "Retained Earnings",
+        "type": "equity",
+        "subtype": "retained",
+        "normal_balance": "credit",
+    },
     # Revenue
-    {"code": "4000", "name": "Sales Revenue",               "type": "revenue",   "subtype": "sales",        "normal_balance": "credit"},
-    {"code": "4100", "name": "Service Revenue",             "type": "revenue",   "subtype": "sales",        "normal_balance": "credit"},
-    {"code": "4900", "name": "Other Income",                "type": "revenue",   "subtype": "other",        "normal_balance": "credit"},
+    {
+        "code": "4000",
+        "name": "Sales Revenue",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4100",
+        "name": "Service Revenue",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4900",
+        "name": "Other Income",
+        "type": "revenue",
+        "subtype": "other",
+        "normal_balance": "credit",
+    },
     # Expenses
-    {"code": "5000", "name": "Cost of Goods Sold",          "type": "expense",   "subtype": "cogs",         "normal_balance": "debit"},
-    {"code": "6000", "name": "Operating Expenses",          "type": "expense",   "subtype": "operating",    "normal_balance": "debit"},
-    {"code": "6100", "name": "Salaries & Wages",            "type": "expense",   "subtype": "payroll",      "normal_balance": "debit"},
-    {"code": "6200", "name": "Rent & Occupancy",            "type": "expense",   "subtype": "facilities",   "normal_balance": "debit"},
-    {"code": "6300", "name": "Software & Subscriptions",    "type": "expense",   "subtype": "software",     "normal_balance": "debit"},
-    {"code": "6400", "name": "Marketing & Advertising",     "type": "expense",   "subtype": "marketing",    "normal_balance": "debit"},
-    {"code": "6500", "name": "Professional Services",       "type": "expense",   "subtype": "professional", "normal_balance": "debit"},
-    {"code": "6600", "name": "Travel & Entertainment",      "type": "expense",   "subtype": "travel",       "normal_balance": "debit"},
-    {"code": "6900", "name": "Other Expenses",              "type": "expense",   "subtype": "other",        "normal_balance": "debit"},
+    {
+        "code": "5000",
+        "name": "Cost of Goods Sold",
+        "type": "expense",
+        "subtype": "cogs",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6000",
+        "name": "Operating Expenses",
+        "type": "expense",
+        "subtype": "operating",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6100",
+        "name": "Salaries & Wages",
+        "type": "expense",
+        "subtype": "payroll",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6200",
+        "name": "Rent & Occupancy",
+        "type": "expense",
+        "subtype": "facilities",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6300",
+        "name": "Software & Subscriptions",
+        "type": "expense",
+        "subtype": "software",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6400",
+        "name": "Marketing & Advertising",
+        "type": "expense",
+        "subtype": "marketing",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6500",
+        "name": "Professional Services",
+        "type": "expense",
+        "subtype": "professional",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6600",
+        "name": "Travel & Entertainment",
+        "type": "expense",
+        "subtype": "travel",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6900",
+        "name": "Other Expenses",
+        "type": "expense",
+        "subtype": "other",
+        "normal_balance": "debit",
+    },
 ]
 
 
@@ -104,13 +243,18 @@ async def seed_accounts(db: AsyncSession) -> dict[str, str]:
     code_to_id: dict[str, str] = {}
     for a in ACCOUNTS:
         acc = Account(
-            id=_uid(), tenant_id=TENANT_ID,
-            code=a["code"], name=a["name"],
-            type=a["type"], subtype=a["subtype"],
+            id=_uid(),
+            tenant_id=TENANT_ID,
+            code=a["code"],
+            name=a["name"],
+            type=a["type"],
+            subtype=a["subtype"],
             normal_balance=a["normal_balance"],
             currency="USD",
-            is_active=True, is_system=False,
-            created_by=ACTOR_ID, updated_by=ACTOR_ID,
+            is_active=True,
+            is_system=False,
+            created_by=ACTOR_ID,
+            updated_by=ACTOR_ID,
         )
         db.add(acc)
         code_to_id[a["code"]] = acc.id
@@ -134,6 +278,7 @@ async def seed_periods(db: AsyncSession) -> dict[str, str]:
         last_year = current_year
 
     import calendar
+
     periods_data = [
         (
             f"{last_year}-{last_month:02d}",
@@ -152,7 +297,8 @@ async def seed_periods(db: AsyncSession) -> dict[str, str]:
     period_ids: dict[str, str] = {}
     for name, start, end, period_status in periods_data:
         p = Period(
-            id=_uid(), tenant_id=TENANT_ID,
+            id=_uid(),
+            tenant_id=TENANT_ID,
             name=name,
             start_date=datetime(start.year, start.month, start.day, tzinfo=UTC),
             end_date=datetime(end.year, end.month, end.day, 23, 59, 59, tzinfo=UTC),
@@ -169,19 +315,24 @@ async def seed_contacts(db: AsyncSession) -> dict[str, str]:
     """Create 3 customer and 2 supplier contacts."""
     data = [
         # (code, name, type, email)
-        ("TECHSOL",  "Tech Solutions Inc",    "customer", "billing@techsolutions.example"),
-        ("GLOBRET",  "Global Retail Co",      "customer", "accounts@globalretail.example"),
-        ("METROSVC", "Metro Services Ltd",    "customer", "finance@metroservices.example"),
-        ("OFFPRO",   "Office Supplies Pro",   "supplier", "invoices@officesuppliespro.example"),
-        ("CLOUDHOST","Cloud Hosting Inc",     "supplier", "billing@cloudhosting.example"),
+        ("TECHSOL", "Tech Solutions Inc", "customer", "billing@techsolutions.example"),
+        ("GLOBRET", "Global Retail Co", "customer", "accounts@globalretail.example"),
+        ("METROSVC", "Metro Services Ltd", "customer", "finance@metroservices.example"),
+        ("OFFPRO", "Office Supplies Pro", "supplier", "invoices@officesuppliespro.example"),
+        ("CLOUDHOST", "Cloud Hosting Inc", "supplier", "billing@cloudhosting.example"),
     ]
     ids: dict[str, str] = {}
     for code, name, ctype, email in data:
         c = Contact(
-            id=_uid(), tenant_id=TENANT_ID,
-            contact_type=ctype, name=name, code=code,
-            email=email, currency="USD",
-            created_by=ACTOR_ID, updated_by=ACTOR_ID,
+            id=_uid(),
+            tenant_id=TENANT_ID,
+            contact_type=ctype,
+            name=name,
+            code=code,
+            email=email,
+            currency="USD",
+            created_by=ACTOR_ID,
+            updated_by=ACTOR_ID,
         )
         db.add(c)
         ids[code] = c.id
@@ -211,13 +362,17 @@ async def seed_tax_codes(db: AsyncSession, accs: dict[str, str]) -> dict[str, st
     ids: dict[str, str] = {}
     for td in tax_data:
         tc = TaxCode(
-            id=_uid(), tenant_id=TENANT_ID,
-            code=td["code"], name=td["name"],
-            rate=td["rate"], tax_type=td["tax_type"],
+            id=_uid(),
+            tenant_id=TENANT_ID,
+            code=td["code"],
+            name=td["name"],
+            rate=td["rate"],
+            tax_type=td["tax_type"],
             country="US",
             tax_collected_account_id=accs[td["collected_code"]] if td["collected_code"] else None,
             is_active=True,
-            created_by=ACTOR_ID, updated_by=ACTOR_ID,
+            created_by=ACTOR_ID,
+            updated_by=ACTOR_ID,
         )
         db.add(tc)
         ids[td["code"]] = tc.id
@@ -236,8 +391,10 @@ def _make_je(
 ) -> tuple[JournalEntry, list[JournalLine]]:
     txn_dt = datetime.fromisoformat(txn_date).replace(tzinfo=UTC)
     je = JournalEntry(
-        id=_uid(), tenant_id=tenant_id,
-        number=number, status="posted",
+        id=_uid(),
+        tenant_id=tenant_id,
+        number=number,
+        status="posted",
         description=desc,
         date=txn_dt,
         period_id=period_id,
@@ -245,21 +402,29 @@ def _make_je(
         source_type="manual",
         total_debit=sum(Decimal(ln["debit"]) for ln in lines),
         total_credit=sum(Decimal(ln["credit"]) for ln in lines),
-        posted_at=_now(), posted_by=ACTOR_ID,
-        created_by=ACTOR_ID, updated_by=ACTOR_ID,
+        posted_at=_now(),
+        posted_by=ACTOR_ID,
+        created_by=ACTOR_ID,
+        updated_by=ACTOR_ID,
     )
     jls = []
     for i, ln in enumerate(lines, 1):
-        jls.append(JournalLine(
-            id=_uid(), tenant_id=tenant_id,
-            journal_entry_id=je.id, line_no=i,
-            account_id=ln["account_id"],
-            description=ln.get("desc"),
-            debit=Decimal(ln["debit"]), credit=Decimal(ln["credit"]),
-            currency="USD", fx_rate=Decimal("1"),
-            functional_debit=Decimal(ln["debit"]),
-            functional_credit=Decimal(ln["credit"]),
-        ))
+        jls.append(
+            JournalLine(
+                id=_uid(),
+                tenant_id=tenant_id,
+                journal_entry_id=je.id,
+                line_no=i,
+                account_id=ln["account_id"],
+                description=ln.get("desc"),
+                debit=Decimal(ln["debit"]),
+                credit=Decimal(ln["credit"]),
+                currency="USD",
+                fx_rate=Decimal("1"),
+                functional_debit=Decimal(ln["debit"]),
+                functional_credit=Decimal(ln["credit"]),
+            )
+        )
     return je, jls
 
 
@@ -283,40 +448,60 @@ async def seed_journals(
 
     entries = [
         (
-            "JE-00001", "Initial capital injection",
-            f"{prev_year}-{prev_month:02d}-01", last_period,
+            "JE-00001",
+            "Initial capital injection",
+            f"{prev_year}-{prev_month:02d}-01",
+            last_period,
             [
-                {"account_id": accs["1000"], "debit": "100000.00", "credit": "0.00", "desc": "Cash"},
-                {"account_id": accs["3100"], "debit": "0.00", "credit": "100000.00", "desc": "Owner's equity"},
+                {
+                    "account_id": accs["1000"],
+                    "debit": "100000.00",
+                    "credit": "0.00",
+                    "desc": "Cash",
+                },
+                {
+                    "account_id": accs["3100"],
+                    "debit": "0.00",
+                    "credit": "100000.00",
+                    "desc": "Owner's equity",
+                },
             ],
         ),
         (
-            "JE-00002", "Office rent payment",
-            f"{prev_year}-{prev_month:02d}-05", last_period,
+            "JE-00002",
+            "Office rent payment",
+            f"{prev_year}-{prev_month:02d}-05",
+            last_period,
             [
                 {"account_id": accs["6200"], "debit": "3500.00", "credit": "0.00"},
                 {"account_id": accs["1000"], "debit": "0.00", "credit": "3500.00"},
             ],
         ),
         (
-            "JE-00003", "Software subscriptions",
-            f"{prev_year}-{prev_month:02d}-15", last_period,
+            "JE-00003",
+            "Software subscriptions",
+            f"{prev_year}-{prev_month:02d}-15",
+            last_period,
             [
                 {"account_id": accs["6300"], "debit": "850.00", "credit": "0.00"},
                 {"account_id": accs["1000"], "debit": "0.00", "credit": "850.00"},
             ],
         ),
         (
-            "JE-00004", "Consulting revenue received",
-            f"{cur_year}-{cur_month:02d}-03", current_period,
+            "JE-00004",
+            "Consulting revenue received",
+            f"{cur_year}-{cur_month:02d}-03",
+            current_period,
             [
                 {"account_id": accs["1000"], "debit": "15000.00", "credit": "0.00"},
                 {"account_id": accs["4100"], "debit": "0.00", "credit": "15000.00"},
             ],
         ),
         (
-            "JE-00005", "Salaries and wages",
-            f"{cur_year}-{cur_month:02d}-10", current_period,
+            "JE-00005",
+            "Salaries and wages",
+            f"{cur_year}-{cur_month:02d}-10",
+            current_period,
             [
                 {"account_id": accs["6100"], "debit": "12000.00", "credit": "0.00"},
                 {"account_id": accs["1000"], "debit": "0.00", "credit": "12000.00"},
@@ -353,22 +538,37 @@ async def seed_invoices(
     data = [
         # (number, contact_code, issue_date, due_date, period, rev_acct, description, amount, inv_status)
         (
-            "INV-00001", "TECHSOL",
+            "INV-00001",
+            "TECHSOL",
             f"{today.year}-{today.month:02d}-01",
             f"{today.year}-{today.month:02d}-31",
-            cur_month, "4100", "Consulting services Jan", "8500.00", "paid",
+            cur_month,
+            "4100",
+            "Consulting services Jan",
+            "8500.00",
+            "paid",
         ),
         (
-            "INV-00002", "GLOBRET",
+            "INV-00002",
+            "GLOBRET",
             f"{today.year}-{today.month:02d}-05",
             f"{today.year}-{today.month + 1 if today.month < 12 else 1:02d}-05",
-            cur_month, "4000", "Product sales batch", "12000.00", "authorised",
+            cur_month,
+            "4000",
+            "Product sales batch",
+            "12000.00",
+            "authorised",
         ),
         (
-            "INV-00003", "METROSVC",
+            "INV-00003",
+            "METROSVC",
             f"{today.year}-{today.month:02d}-10",
             None,
-            cur_month, "4100", "Service retainer", "5000.00", "draft",
+            cur_month,
+            "4100",
+            "Service retainer",
+            "5000.00",
+            "draft",
         ),
     ]
 
@@ -377,26 +577,37 @@ async def seed_invoices(
         amt = Decimal(amount)
         inv_id = _uid()
         inv = Invoice(
-            id=inv_id, tenant_id=TENANT_ID,
-            number=number, status=inv_status,
+            id=inv_id,
+            tenant_id=TENANT_ID,
+            number=number,
+            status=inv_status,
             contact_id=contacts[contact_code],
-            issue_date=issue, due_date=due, period_name=period,
-            currency="USD", fx_rate=Decimal("1"),
-            subtotal=amt, tax_total=Decimal("0"),
+            issue_date=issue,
+            due_date=due,
+            period_name=period,
+            currency="USD",
+            fx_rate=Decimal("1"),
+            subtotal=amt,
+            tax_total=Decimal("0"),
             total=amt,
             amount_due=Decimal("0") if inv_status == "paid" else amt,
             functional_total=amt,
-            created_by=ACTOR_ID, updated_by=ACTOR_ID,
+            created_by=ACTOR_ID,
+            updated_by=ACTOR_ID,
         )
         db.add(inv)
         il = InvoiceLine(
-            id=_uid(), tenant_id=TENANT_ID,
-            invoice_id=inv_id, line_no=1,
+            id=_uid(),
+            tenant_id=TENANT_ID,
+            invoice_id=inv_id,
+            line_no=1,
             account_id=accs[rev_code],
             description=desc,
-            quantity=Decimal("1"), unit_price=amt,
+            quantity=Decimal("1"),
+            unit_price=amt,
             discount_pct=Decimal("0"),
-            line_amount=amt, tax_amount=Decimal("0"),
+            line_amount=amt,
+            tax_amount=Decimal("0"),
         )
         db.add(il)
         inv_ids[number] = inv_id
@@ -418,16 +629,26 @@ async def seed_bills(
     data = [
         # (number, contact_code, issue_date, due_date, period, exp_acct, description, amount, bill_status)
         (
-            "BILL-00001", "OFFPRO",
+            "BILL-00001",
+            "OFFPRO",
             f"{today.year}-{today.month:02d}-02",
             f"{today.year}-{today.month:02d}-20",
-            cur_month, "6000", "Office supplies Q1", "420.00", "approved",
+            cur_month,
+            "6000",
+            "Office supplies Q1",
+            "420.00",
+            "approved",
         ),
         (
-            "BILL-00002", "CLOUDHOST",
+            "BILL-00002",
+            "CLOUDHOST",
             f"{today.year}-{today.month:02d}-01",
             f"{today.year}-{today.month:02d}-28",
-            cur_month, "6300", "Cloud hosting monthly", "980.00", "awaiting_approval",
+            cur_month,
+            "6300",
+            "Cloud hosting monthly",
+            "980.00",
+            "awaiting_approval",
         ),
     ]
 
@@ -436,27 +657,39 @@ async def seed_bills(
         amt = Decimal(amount)
         bill_id = _uid()
         bill = Bill(
-            id=bill_id, tenant_id=TENANT_ID,
-            number=number, status=bill_status,
+            id=bill_id,
+            tenant_id=TENANT_ID,
+            number=number,
+            status=bill_status,
             contact_id=contacts[contact_code],
-            issue_date=issue, due_date=due, period_name=period,
-            currency="USD", fx_rate=Decimal("1"),
-            subtotal=amt, tax_total=Decimal("0"),
-            total=amt, amount_due=amt,
+            issue_date=issue,
+            due_date=due,
+            period_name=period,
+            currency="USD",
+            fx_rate=Decimal("1"),
+            subtotal=amt,
+            tax_total=Decimal("0"),
+            total=amt,
+            amount_due=amt,
             functional_total=amt,
             approved_by=ACTOR_ID if bill_status == "approved" else None,
             approved_at=_now() if bill_status == "approved" else None,
-            created_by=ACTOR_ID, updated_by=ACTOR_ID,
+            created_by=ACTOR_ID,
+            updated_by=ACTOR_ID,
         )
         db.add(bill)
         bl = BillLine(
-            id=_uid(), tenant_id=TENANT_ID,
-            bill_id=bill_id, line_no=1,
+            id=_uid(),
+            tenant_id=TENANT_ID,
+            bill_id=bill_id,
+            line_no=1,
             account_id=accs[exp_code],
             description=desc,
-            quantity=Decimal("1"), unit_price=amt,
+            quantity=Decimal("1"),
+            unit_price=amt,
             discount_pct=Decimal("0"),
-            line_amount=amt, tax_amount=Decimal("0"),
+            line_amount=amt,
+            tax_amount=Decimal("0"),
         )
         db.add(bl)
         bill_ids[number] = bill_id
@@ -478,22 +711,26 @@ async def seed_payment(
     amt = Decimal("8500.00")
 
     payment = Payment(
-        id=payment_id, tenant_id=TENANT_ID,
+        id=payment_id,
+        tenant_id=TENANT_ID,
         number="PAY-00001",
         payment_type="received",
         status="applied",
         contact_id=contacts["TECHSOL"],
         payment_date=f"{today.year}-{today.month:02d}-05",
         amount=amt,
-        currency="USD", fx_rate=Decimal("1"),
+        currency="USD",
+        fx_rate=Decimal("1"),
         functional_amount=amt,
         reference="Bank transfer ref TXN-001",
-        created_by=ACTOR_ID, updated_by=ACTOR_ID,
+        created_by=ACTOR_ID,
+        updated_by=ACTOR_ID,
     )
     db.add(payment)
 
     alloc = PaymentAllocation(
-        id=_uid(), tenant_id=TENANT_ID,
+        id=_uid(),
+        tenant_id=TENANT_ID,
         payment_id=payment_id,
         invoice_id=inv_ids["INV-00001"],
         bill_id=None,
@@ -512,14 +749,16 @@ async def seed_bank_account(
 ) -> str:
     """Create 1 bank account linked to Cash CoA account. Returns bank_account_id."""
     ba = BankAccount(
-        id=_uid(), tenant_id=TENANT_ID,
+        id=_uid(),
+        tenant_id=TENANT_ID,
         name="Acme Corp Main Checking",
         bank_name="First National Bank",
         account_number="****4321",
         currency="USD",
         coa_account_id=accs["1000"],
         is_active=True,
-        created_by=ACTOR_ID, updated_by=ACTOR_ID,
+        created_by=ACTOR_ID,
+        updated_by=ACTOR_ID,
     )
     db.add(ba)
     await db.flush()
@@ -566,7 +805,8 @@ async def seed_bank_transactions(
 
     for i, td in enumerate(transactions, 1):
         txn = BankTransaction(
-            id=_uid(), tenant_id=TENANT_ID,
+            id=_uid(),
+            tenant_id=TENANT_ID,
             bank_account_id=bank_account_id,
             transaction_date=date(cur_year, cur_month, i),
             description=td["description"],
@@ -574,7 +814,8 @@ async def seed_bank_transactions(
             currency="USD",
             is_reconciled=td["is_reconciled"],
             reconciled_at=_now() if td["is_reconciled"] else None,
-            created_by=ACTOR_ID, updated_by=ACTOR_ID,
+            created_by=ACTOR_ID,
+            updated_by=ACTOR_ID,
         )
         db.add(txn)
 
@@ -594,19 +835,30 @@ async def main() -> None:
             select(func.count()).select_from(Account).where(Account.tenant_id == TENANT_ID)
         )
         if count and count > 0:
-            print(f"Already seeded ({count} accounts found for demo tenant). Run with --force to re-seed.")
+            print(
+                f"Already seeded ({count} accounts found for demo tenant). Run with --force to re-seed."
+            )
             if "--force" not in sys.argv:
                 return
             print("  Clearing existing seed data…")
             for tbl in [
-                "bank_transactions", "bank_reconciliations", "bank_accounts",
-                "expense_claim_lines", "expense_claims",
-                "payment_allocations", "payments",
-                "bill_lines", "bills",
-                "invoice_lines", "invoices",
-                "journal_lines", "journal_entries",
-                "tax_codes", "contacts",
-                "accounts", "periods",
+                "bank_transactions",
+                "bank_reconciliations",
+                "bank_accounts",
+                "expense_claim_lines",
+                "expense_claims",
+                "payment_allocations",
+                "payments",
+                "bill_lines",
+                "bills",
+                "invoice_lines",
+                "invoices",
+                "journal_lines",
+                "journal_entries",
+                "tax_codes",
+                "contacts",
+                "accounts",
+                "periods",
             ]:
                 await db.execute(text(f"DELETE FROM {tbl} WHERE tenant_id = '{TENANT_ID}'"))
             await db.execute(text(f"DELETE FROM memberships WHERE tenant_id = '{TENANT_ID}'"))
@@ -617,17 +869,19 @@ async def main() -> None:
             await db.execute(text(f"SET LOCAL app.tenant_id = '{TENANT_ID}'"))
 
         # 1. Create demo tenant
-        db.add(Tenant(
-            id=TENANT_ID,
-            name="Acme Corp Demo",
-            legal_name="Acme Corporation Inc.",
-            country="US",
-            functional_currency="USD",
-            fiscal_year_start_month=1,
-            timezone="America/New_York",
-            region="us",
-            status="active",
-        ))
+        db.add(
+            Tenant(
+                id=TENANT_ID,
+                name="Acme Corp Demo",
+                legal_name="Acme Corporation Inc.",
+                country="US",
+                functional_currency="USD",
+                fiscal_year_start_month=1,
+                timezone="America/New_York",
+                region="us",
+                status="active",
+            )
+        )
         await db.flush()
         print("  ✓ Demo tenant: Acme Corp Demo")
 

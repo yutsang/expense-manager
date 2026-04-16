@@ -1,4 +1,5 @@
 """Bills API."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -55,7 +56,9 @@ async def _bill_response(db, bill) -> BillResponse:
 async def create(body: BillCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
     lines = await _resolve_line_tax(db, tenant_id, body.lines)
     bill = await create_bill(
-        db, tenant_id, actor_id,
+        db,
+        tenant_id,
+        actor_id,
         contact_id=body.contact_id,
         issue_date=str(body.issue_date),
         due_date=str(body.due_date) if body.due_date else None,
@@ -80,7 +83,9 @@ async def list_all(
     limit: int = Query(default=50, le=200),
     cursor: str | None = Query(default=None),
 ):
-    items = await list_bills(db, tenant_id, status=bill_status, contact_id=contact_id, limit=limit + 1, cursor=cursor)
+    items = await list_bills(
+        db, tenant_id, status=bill_status, contact_id=contact_id, limit=limit + 1, cursor=cursor
+    )
     next_cursor = None
     if len(items) > limit:
         next_cursor = items[limit].id

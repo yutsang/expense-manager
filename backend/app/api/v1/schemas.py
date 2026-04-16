@@ -5,6 +5,7 @@ Rules:
 - All IDs are strings (UUID format).
 - Dates are ISO-8601 strings.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -15,8 +16,10 @@ from pydantic import BaseModel, Field, field_validator
 
 # ── Shared ────────────────────────────────────────────────────────────────────
 
+
 class ProblemDetail(BaseModel):
     """RFC 7807 Problem Detail."""
+
     type: str = "about:blank"
     title: str
     status: int
@@ -26,6 +29,7 @@ class ProblemDetail(BaseModel):
 
 class ApiMoney(BaseModel):
     """Money representation: amount as string, never float."""
+
     amount: str
     currency: str
 
@@ -40,6 +44,7 @@ class ApiMoney(BaseModel):
 
 
 # ── Accounts ─────────────────────────────────────────────────────────────────
+
 
 class AccountCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=20)
@@ -82,6 +87,7 @@ class AccountListResponse(BaseModel):
 
 # ── Periods ──────────────────────────────────────────────────────────────────
 
+
 class PeriodResponse(BaseModel):
     id: str
     name: str
@@ -106,6 +112,7 @@ class PeriodListResponse(BaseModel):
 
 
 # ── FX Rates ─────────────────────────────────────────────────────────────────
+
 
 class FxRateUpsert(BaseModel):
     from_currency: str = Field(..., min_length=3, max_length=3)
@@ -141,6 +148,7 @@ class FxRateResponse(BaseModel):
 
 # ── Journal Lines ─────────────────────────────────────────────────────────────
 
+
 class JournalLineCreate(BaseModel):
     account_id: str
     debit: str = Field(default="0", description="Debit amount as decimal string")
@@ -173,13 +181,16 @@ class JournalLineResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("debit", "credit", "fx_rate", "functional_debit", "functional_credit", mode="before")
+    @field_validator(
+        "debit", "credit", "fx_rate", "functional_debit", "functional_credit", mode="before"
+    )
     @classmethod
     def decimal_to_str(cls, v: Any) -> str:
         return str(v)
 
 
 # ── Journal Entries ───────────────────────────────────────────────────────────
+
 
 class JournalCreate(BaseModel):
     date: date
@@ -225,6 +236,7 @@ class JournalListResponse(BaseModel):
 
 # ── Reports ───────────────────────────────────────────────────────────────────
 
+
 class TrialBalanceRowResponse(BaseModel):
     account_id: str
     code: str
@@ -269,6 +281,7 @@ class GLReportResponse(BaseModel):
 
 
 # ── Contacts ──────────────────────────────────────────────────────────────────
+
 
 class ContactCreate(BaseModel):
     contact_type: str = Field(..., pattern="^(customer|supplier|both|employee)$")
@@ -330,6 +343,7 @@ class ContactListResponse(BaseModel):
 
 
 # ── Items ─────────────────────────────────────────────────────────────────────
+
 
 class ItemCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=64)
@@ -399,6 +413,7 @@ class ItemListResponse(BaseModel):
 
 # ── Tax Codes ─────────────────────────────────────────────────────────────────
 
+
 class TaxCodeCreate(BaseModel):
     code: str = Field(..., min_length=1, max_length=32)
     name: str = Field(..., min_length=1, max_length=128)
@@ -453,6 +468,7 @@ class TaxCodeListResponse(BaseModel):
 
 # ── Invoices ──────────────────────────────────────────────────────────────────
 
+
 class InvoiceLineCreate(BaseModel):
     account_id: str
     item_id: str | None = None
@@ -504,7 +520,9 @@ class InvoiceLineResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("quantity", "unit_price", "discount_pct", "line_amount", "tax_amount", mode="before")
+    @field_validator(
+        "quantity", "unit_price", "discount_pct", "line_amount", "tax_amount", mode="before"
+    )
     @classmethod
     def decimal_to_str(cls, v: Any) -> str:
         return str(v)
@@ -536,7 +554,9 @@ class InvoiceResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("fx_rate", "subtotal", "tax_total", "total", "amount_due", "functional_total", mode="before")
+    @field_validator(
+        "fx_rate", "subtotal", "tax_total", "total", "amount_due", "functional_total", mode="before"
+    )
     @classmethod
     def decimal_to_str(cls, v: Any) -> str:
         return str(v)
@@ -548,6 +568,7 @@ class InvoiceListResponse(BaseModel):
 
 
 # ── Bills ─────────────────────────────────────────────────────────────────────
+
 
 class BillLineCreate(BaseModel):
     account_id: str
@@ -593,7 +614,9 @@ class BillLineResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("quantity", "unit_price", "discount_pct", "line_amount", "tax_amount", mode="before")
+    @field_validator(
+        "quantity", "unit_price", "discount_pct", "line_amount", "tax_amount", mode="before"
+    )
     @classmethod
     def decimal_to_str(cls, v: Any) -> str:
         return str(v)
@@ -625,7 +648,9 @@ class BillResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    @field_validator("fx_rate", "subtotal", "tax_total", "total", "amount_due", "functional_total", mode="before")
+    @field_validator(
+        "fx_rate", "subtotal", "tax_total", "total", "amount_due", "functional_total", mode="before"
+    )
     @classmethod
     def decimal_to_str(cls, v: Any) -> str:
         return str(v)
@@ -637,6 +662,7 @@ class BillListResponse(BaseModel):
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
+
 
 class DashboardResponse(BaseModel):
     cash_balance: str
@@ -650,6 +676,7 @@ class DashboardResponse(BaseModel):
 
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
+
 
 class SignupRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
@@ -695,6 +722,7 @@ class LoginResponse(BaseModel):
 
 
 # ── Payments ─────────────────────────────────────────────────────────────────
+
 
 class PaymentCreate(BaseModel):
     payment_type: str = Field(..., pattern="^(received|made)$")
@@ -767,6 +795,7 @@ class PaymentVoidRequest(BaseModel):
 
 # ── P&L Report ────────────────────────────────────────────────────────────────
 
+
 class PLLineResponse(BaseModel):
     account_id: str
     code: str
@@ -788,6 +817,7 @@ class PLResponse(BaseModel):
 
 
 # ── Balance Sheet ─────────────────────────────────────────────────────────────
+
 
 class BalanceSheetLineResponse(BaseModel):
     account_id: str
@@ -813,6 +843,7 @@ class BalanceSheetResponse(BaseModel):
 
 
 # ── AR / AP Aging ─────────────────────────────────────────────────────────────
+
 
 class AgingRowResponse(BaseModel):
     contact_id: str
@@ -840,6 +871,7 @@ class AgingResponse(BaseModel):
 
 # ── Cash Flow ─────────────────────────────────────────────────────────────────
 
+
 class CashFlowLineResponse(BaseModel):
     label: str
     amount: str
@@ -862,6 +894,7 @@ class CashFlowResponse(BaseModel):
 
 
 # ── Bank Accounts ─────────────────────────────────────────────────────────────
+
 
 class BankAccountCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -894,6 +927,7 @@ class BankAccountResponse(BaseModel):
 
 
 # ── Bank Transactions ─────────────────────────────────────────────────────────
+
 
 class BankTransactionCreate(BaseModel):
     transaction_date: date
@@ -945,9 +979,12 @@ class MatchTransactionRequest(BaseModel):
 
 # ── Bank Reconciliations ──────────────────────────────────────────────────────
 
+
 class BankReconciliationCreate(BaseModel):
     period_id: str | None = None
-    statement_closing_balance: str = Field(..., description="Statement closing balance as decimal string")
+    statement_closing_balance: str = Field(
+        ..., description="Statement closing balance as decimal string"
+    )
     book_balance: str = Field(..., description="Book balance as decimal string")
     status: str = Field(default="in_progress", pattern="^(in_progress|completed)$")
 
@@ -983,6 +1020,7 @@ class BankReconciliationResponse(BaseModel):
 
 
 # ── Expense Claims ────────────────────────────────────────────────────────────
+
 
 class ExpenseClaimLineCreate(BaseModel):
     account_id: str
@@ -1065,13 +1103,20 @@ class ExpenseClaimListResponse(BaseModel):
 
 # ── KYC / Sanctions ───────────────────────────────────────────────────────────
 
+
 class ContactKycUpdate(BaseModel):
-    id_type: str | None = Field(default=None, pattern="^(passport|national_id|drivers_license|other)$")
+    id_type: str | None = Field(
+        default=None, pattern="^(passport|national_id|drivers_license|other)$"
+    )
     id_number: str | None = Field(default=None, max_length=100)
     id_expiry_date: date | None = None
-    poa_type: str | None = Field(default=None, pattern="^(utility_bill|bank_statement|tax_document|other)$")
+    poa_type: str | None = Field(
+        default=None, pattern="^(utility_bill|bank_statement|tax_document|other)$"
+    )
     poa_date: date | None = None
-    sanctions_status: str | None = Field(default=None, pattern="^(not_checked|clear|flagged|under_review)$")
+    sanctions_status: str | None = Field(
+        default=None, pattern="^(not_checked|clear|flagged|under_review)$"
+    )
     kyc_status: str | None = Field(default=None, pattern="^(pending|approved|expired|flagged)$")
     kyc_approved_by: str | None = None
     last_review_date: date | None = None
@@ -1135,6 +1180,7 @@ class KycDashboardAlerts(BaseModel):
 
 # ── Sanctions ─────────────────────────────────────────────────────────────────
 
+
 class SanctionsSnapshotResponse(BaseModel):
     id: str
     source: str
@@ -1180,6 +1226,7 @@ class SanctionsEntryListResponse(BaseModel):
 
 # ── Bank Import ───────────────────────────────────────────────────────────────
 
+
 class BankImportResult(BaseModel):
     imported: int
     skipped_duplicates: int
@@ -1187,6 +1234,7 @@ class BankImportResult(BaseModel):
 
 
 # ── Receipts ──────────────────────────────────────────────────────────────────
+
 
 class ReceiptOcrLine(BaseModel):
     description: str | None = None

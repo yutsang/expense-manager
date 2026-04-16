@@ -1,4 +1,5 @@
 """Shared test fixtures and environment setup."""
+
 from __future__ import annotations
 
 import os
