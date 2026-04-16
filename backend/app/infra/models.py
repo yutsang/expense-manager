@@ -1024,3 +1024,43 @@ class ContactSanctionsResult(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "contact_id", name="uq_sanctions_results_tenant_contact"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 — Receipts: OCR via Claude Vision
+# ---------------------------------------------------------------------------
+
+
+class Receipt(Base):
+    """A receipt image uploaded by a user, OCR-processed by Claude Vision."""
+
+    __tablename__ = "receipts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    s3_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    file_size_kb: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    # OCR extracted fields
+    ocr_vendor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ocr_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    ocr_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    ocr_total: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
+    ocr_raw: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Link to a bill created from this receipt
+    linked_bill_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("bills.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending','processing','done','failed','deleted')",
+            name="ck_receipts_status",
+        ),
+    )

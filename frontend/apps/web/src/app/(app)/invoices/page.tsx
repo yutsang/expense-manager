@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type Account, type Contact, type Invoice, accountsApi, contactsApi, invoicesApi } from "@/lib/api";
+import { BASE, type Account, type Contact, type Invoice, accountsApi, contactsApi, invoicesApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 
@@ -131,6 +131,28 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleDownloadPdf = async (invoiceId: string, number: string) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("aegis_token") : null;
+    const tenantId =
+      typeof window !== "undefined"
+        ? (localStorage.getItem("aegis_tenant_id") ?? "00000000-0000-0000-0000-000000000001")
+        : "00000000-0000-0000-0000-000000000001";
+    const headers: Record<string, string> = { "X-Tenant-ID": tenantId };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${BASE}/v1/invoices/${invoiceId}/pdf`, { headers });
+    if (!res.ok) {
+      alert(`PDF generation failed: ${res.statusText}`);
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `invoice-${number}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
 
   const headerActions = (
@@ -218,6 +240,16 @@ export default function InvoicesPage() {
                           Void
                         </button>
                       )}
+                      <button
+                        onClick={() => { void handleDownloadPdf(inv.id, inv.number); }}
+                        title="Download PDF"
+                        className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-indigo-600 transition-colors"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        PDF
+                      </button>
                     </td>
                   </tr>
                 ))}
