@@ -15,6 +15,7 @@ from app.infra.models import Contact, SanctionsListEntry, SanctionsListSnapshot
 from app.services.sanctions import (
     get_latest_snapshots,
     get_screening_result,
+    refresh_additional_lists,
     refresh_fatf,
     refresh_ofac,
     screen_contact,
@@ -46,6 +47,10 @@ async def trigger_refresh(
             await refresh_fatf(db)
         except Exception as exc:  # noqa: BLE001
             pass
+        try:
+            await refresh_additional_lists(db)
+        except Exception as exc:  # noqa: BLE001
+            pass  # errors logged inside service
         await db.commit()
 
     background_tasks.add_task(_do_refresh)
