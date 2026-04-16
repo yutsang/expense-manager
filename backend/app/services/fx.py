@@ -19,6 +19,26 @@ class FxRateNotFoundError(ValueError):
     pass
 
 
+class FxRateSanityError(ValueError):
+    def __init__(
+        self,
+        *,
+        new_rate: Decimal,
+        from_currency: str,
+        to_currency: str,
+        last_rate: Decimal,
+    ) -> None:
+        super().__init__(
+            f"Rate {new_rate} for {from_currency}/{to_currency} deviates >90% from last known rate"
+            f" {last_rate} — use force=true to override"
+        )
+
+
+def _deviation_pct(new_rate: Decimal, last_rate: Decimal) -> Decimal:
+    """Return abs((new_rate - last_rate) / last_rate) * 100."""
+    return abs((new_rate - last_rate) / last_rate) * Decimal("100")
+
+
 async def get_rate(
     db: AsyncSession,
     *,
@@ -60,8 +80,34 @@ async def upsert_rate(
     rate_date: date,
     rate: Decimal,
     source: str = "manual",
+    force: bool = False,
 ) -> FxRate:
-    """Insert or update an FX rate. Idempotent by (from, to, date)."""
+    """Insert or update an FX rate. Idempotent by (from, to, date).
+
+    Raises FxRateSanityError if the new rate deviates >90% from the most recent
+    known rate for the pair, unless force=True.
+    """
+    if not force:
+        last_result = await db.execute(
+            select(FxRate)
+            .where(
+                FxRate.from_currency == from_currency.upper(),
+                FxRate.to_currency == to_currency.upper(),
+            )
+            .order_by(FxRate.rate_date.desc())
+            .limit(1)
+        )
+        last_row = last_result.scalar_one_or_none()
+        if last_row is not None:
+            last_rate = Decimal(str(last_row.rate))
+            if _deviation_pct(rate, last_rate) > Decimal("90"):
+                raise FxRateSanityError(
+                    new_rate=rate,
+                    from_currency=from_currency.upper(),
+                    to_currency=to_currency.upper(),
+                    last_rate=last_rate,
+                )
+
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     stmt = pg_insert(FxRate).values(
@@ -130,6 +176,7 @@ async def sync_daily_rates(db: AsyncSession, *, on_date: date) -> int:
             rate_date=on_date,
             rate=rate,
             source="mock_feed",
+            force=True,
         )
         count += 1
     log.info("fx_rates_synced", date=str(on_date), count=count)

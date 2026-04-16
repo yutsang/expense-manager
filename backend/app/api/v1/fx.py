@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.api.v1.deps import DbSession, TenantId
 from app.api.v1.schemas import FxRateResponse, FxRateUpsert
 from app.infra.models import FxRate
-from app.services.fx import FxRateNotFoundError, get_rate, upsert_rate
+from app.services.fx import FxRateNotFoundError, FxRateSanityError, get_rate, upsert_rate
 
 router = APIRouter(prefix="/fx", tags=["fx"])
 
@@ -36,14 +36,20 @@ async def upsert_fx_rate(
     db: DbSession,
     tenant_id: TenantId,
 ) -> FxRateResponse:
-    rate = await upsert_rate(
-        db,
-        from_currency=body.from_currency,
-        to_currency=body.to_currency,
-        rate_date=body.rate_date,
-        rate=Decimal(body.rate),
-        source=body.source,
-    )
+    try:
+        rate = await upsert_rate(
+            db,
+            from_currency=body.from_currency,
+            to_currency=body.to_currency,
+            rate_date=body.rate_date,
+            rate=Decimal(body.rate),
+            source=body.source,
+            force=body.force,
+        )
+    except FxRateSanityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
     await db.commit()
     return FxRateResponse.model_validate(rate)
 

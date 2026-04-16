@@ -120,6 +120,7 @@ class FxRateUpsert(BaseModel):
     rate_date: date
     rate: str = Field(..., description="Rate as decimal string")
     source: str = Field(default="manual")
+    force: bool = False
 
     @field_validator("rate")
     @classmethod

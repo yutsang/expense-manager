@@ -146,6 +146,31 @@ class TestFxRateUpsert:
             )
 
 
+class TestFxRateUpsertForceField:
+    def test_force_defaults_to_false(self) -> None:
+        from datetime import date
+
+        r = FxRateUpsert(
+            from_currency="USD",
+            to_currency="AUD",
+            rate_date=date(2025, 1, 1),
+            rate="1.53",
+        )
+        assert r.force is False
+
+    def test_force_can_be_set_to_true(self) -> None:
+        from datetime import date
+
+        r = FxRateUpsert(
+            from_currency="USD",
+            to_currency="AUD",
+            rate_date=date(2025, 1, 1),
+            rate="0.005",
+            force=True,
+        )
+        assert r.force is True
+
+
 class TestJournalVoidRequest:
     def test_default_reason_empty(self) -> None:
         v = JournalVoidRequest()
