@@ -711,3 +711,77 @@ export const aiApi = {
   getMessages: (conversationId: string) =>
     request<AiMessage[]>("GET", `/v1/ai/conversations/${conversationId}/messages`),
 };
+
+// ── Audit ─────────────────────────────────────────────────────────────────────
+
+export interface AuditEvent {
+  id: string;
+  tenant_id: string;
+  occurred_at: string;
+  actor_type: "user" | "system" | "ai" | "integration";
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  before_state: Record<string, unknown> | null;
+  after_state: Record<string, unknown> | null;
+  metadata_: Record<string, unknown>;
+}
+
+export interface ChainVerification {
+  id: string;
+  verified_at: string;
+  chain_length: number;
+  is_valid: boolean;
+  break_at_event_id: string | null;
+  error_message: string | null;
+}
+
+export interface AuditSample {
+  id: string;
+  number: string;
+  date: string;
+  description: string;
+  debit_total: string;
+}
+
+export interface JeTestingReport {
+  cutoff_entries: AuditSample[];
+  weekend_holiday_posts: AuditSample[];
+  round_number_entries: AuditSample[];
+  large_entries: AuditSample[];
+  reversed_same_day: AuditSample[];
+}
+
+export const auditApi = {
+  listEvents: (params?: Record<string, string>) =>
+    request<{ items: AuditEvent[]; next_cursor: string | null }>(
+      "GET",
+      `/v1/audit/events${params ? "?" + new URLSearchParams(params) : ""}`
+    ),
+  getChainVerification: () =>
+    request<{ latest: ChainVerification | null; history: ChainVerification[] }>(
+      "GET",
+      "/v1/audit/chain-verification"
+    ),
+  triggerVerification: () =>
+    request<ChainVerification>("POST", "/v1/audit/chain-verification"),
+  sample: (body: {
+    method: string;
+    size: number;
+    seed: number;
+    from_date?: string;
+    to_date?: string;
+  }) => request<AuditSample[]>("POST", "/v1/audit/samples", body),
+  jeTestingReport: (from_date: string, to_date: string) =>
+    request<JeTestingReport>(
+      "GET",
+      `/v1/audit/je-testing?from_date=${from_date}&to_date=${to_date}`
+    ),
+  downloadEvidencePackage: (from_date: string, to_date: string) =>
+    fetch(`${BASE}/v1/audit/evidence-package`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ from_date, to_date }),
+    }),
+};

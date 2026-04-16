@@ -812,3 +812,40 @@ class AiMessage(Base):
             name="ck_ai_messages_role",
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Audit Module: chain verifications and report snapshots
+# ---------------------------------------------------------------------------
+
+
+class AuditChainVerification(Base):
+    """Result of a hash-chain verification run for a tenant."""
+
+    __tablename__ = "audit_chain_verifications"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    verified_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    chain_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    last_event_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    break_at_event_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+
+
+class ReportSnapshot(Base):
+    """Immutable snapshot of a generated report (sha256-verified)."""
+
+    __tablename__ = "report_snapshots"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    report_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    params: Mapped[dict] = mapped_column(sa.JSON, nullable=False, default=dict)
+    generated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)
+    data: Mapped[dict] = mapped_column(sa.JSON, nullable=False, default=dict)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False, default=_now)

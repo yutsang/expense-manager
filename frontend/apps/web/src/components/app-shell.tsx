@@ -28,6 +28,10 @@ import {
   Percent,
   Landmark,
   Sparkles,
+  Shield,
+  CheckSquare,
+  SlidersHorizontal,
+  Package,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
 
@@ -51,6 +55,10 @@ const NAV_ITEMS = [
   { group: "Reports",   href: "/reports/ap-aging",       label: "AP Aging",         icon: Clock },
   { group: "Reports",   href: "/reports/trial-balance",  label: "Trial Balance",    icon: Calculator },
   { group: "Reports",   href: "/reports/general-ledger", label: "General Ledger",   icon: Table2 },
+  { group: "Audit",     href: "/audit/timeline",         label: "Audit Timeline",   icon: Shield },
+  { group: "Audit",     href: "/audit/chain",            label: "Chain Verification", icon: CheckSquare },
+  { group: "Audit",     href: "/audit/sampling",         label: "Sampling & Testing", icon: SlidersHorizontal },
+  { group: "Audit",     href: "/audit/evidence",         label: "Evidence Package",  icon: Package },
 ];
 
 function NavItem({
