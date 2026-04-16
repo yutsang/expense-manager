@@ -9,15 +9,16 @@ from app.core.db import AsyncSessionLocal
 from app.core.logging import get_logger
 from app.core.tenant import set_rls_tenant
 from app.infra.models import Contact
-from app.services.sanctions import refresh_fatf, refresh_ofac, screen_all_contacts
+from app.services.sanctions import refresh_additional_lists, refresh_fatf, refresh_ofac, screen_all_contacts
 
 log = get_logger(__name__)
 
 
 async def refresh_sanctions_lists(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Fetch OFAC + FATF lists, store snapshots, screen all contacts in all tenants."""
+    """Fetch OFAC + FATF + UN + UK OFSI + EU lists, store snapshots, screen all contacts."""
     ofac_changed = False
     fatf_changed = False
+    additional_changed = False
 
     async with AsyncSessionLocal() as db:
         # OFAC
@@ -34,15 +35,23 @@ async def refresh_sanctions_lists(ctx: dict[str, Any]) -> dict[str, Any]:
         except Exception as exc:
             log.error("sanctions.fatf_refresh_failed", error=str(exc))
 
+        # UN, UK OFSI, EU
+        try:
+            additional_results = await refresh_additional_lists(db)
+            additional_changed = any(changed for _, changed in additional_results)
+        except Exception as exc:
+            log.error("sanctions.additional_refresh_failed", error=str(exc))
+
         await db.commit()
 
     results: dict[str, Any] = {
         "ofac_changed": ofac_changed,
         "fatf_changed": fatf_changed,
+        "additional_changed": additional_changed,
         "tenants_screened": 0,
     }
 
-    if not (ofac_changed or fatf_changed):
+    if not (ofac_changed or fatf_changed or additional_changed):
         return results
 
     # Screen all tenants — discover tenant_ids from contacts table
