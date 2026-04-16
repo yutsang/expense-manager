@@ -56,6 +56,12 @@ def upgrade() -> None:
     op.execute(
         "CREATE INDEX ix_sanctions_entries_aliases ON sanctions_list_entries USING GIN (aliases)"
     )
+    # pg_trgm for fast ILIKE on primary_name (13k+ OFAC entries)
+    op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+    op.execute(
+        "CREATE INDEX ix_sanctions_entries_name_trgm ON sanctions_list_entries "
+        "USING GIN (primary_name gin_trgm_ops)"
+    )
 
     # ── contact_sanctions_results ─────────────────────────────────────────────
     op.create_table(
@@ -99,6 +105,7 @@ def downgrade() -> None:
     op.execute("ALTER TABLE contact_sanctions_results NO FORCE ROW LEVEL SECURITY")
     op.execute("ALTER TABLE contact_sanctions_results DISABLE ROW LEVEL SECURITY")
     op.drop_table("contact_sanctions_results")
+    op.execute("DROP INDEX IF EXISTS ix_sanctions_entries_name_trgm")
     op.drop_index("ix_sanctions_entries_aliases", table_name="sanctions_list_entries")
     op.drop_index("ix_sanctions_entries_ref_id", table_name="sanctions_list_entries")
     op.drop_index("ix_sanctions_entries_snapshot", table_name="sanctions_list_entries")

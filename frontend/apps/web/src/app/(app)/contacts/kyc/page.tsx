@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ShieldCheck, ShieldAlert, Edit2, X, Check, ChevronDown, RefreshCw, Scan } from "lucide-react";
+import { ShieldCheck, ShieldAlert, Edit2, X, Check, ChevronDown, RefreshCw, Scan, ScanLine } from "lucide-react";
 import { kycApi, sanctionsApi, type KycListItem, type KycUpdate, type SanctionsScreeningResult } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 
@@ -356,6 +356,8 @@ export default function KycPage() {
   const [screeningResults, setScreeningResults] = useState<Map<string, SanctionsScreeningResult>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
   const [screeningId, setScreeningId] = useState<string | null>(null);
+  const [screeningAll, setScreeningAll] = useState(false);
+  const [screenAllProgress, setScreenAllProgress] = useState(0);
 
   useEffect(() => {
     kycApi
@@ -408,6 +410,40 @@ export default function KycPage() {
     }
   }
 
+  async function handleScreenAll() {
+    setScreeningAll(true);
+    setScreenAllProgress(0);
+    const contacts = items.map((it) => it.contact_id);
+    let done = 0;
+    for (const contactId of contacts) {
+      try {
+        const result = await sanctionsApi.screenContact(contactId);
+        setScreeningResults((prev) => new Map(prev).set(contactId, result));
+      } catch {
+        // continue
+      }
+      done++;
+      setScreenAllProgress(Math.round((done / contacts.length) * 100));
+    }
+    setScreeningAll(false);
+  }
+
+  function handleDismissMatch(contactId: string) {
+    // Mark as clear manually by updating KYC sanctions_status to "clear"
+    kycApi.update(contactId, { sanctions_status: "clear" }).then((updated) => {
+      setItems((prev) => prev.map((it) =>
+        it.contact_id === contactId ? { ...it, sanctions_status: "clear" } : it
+      ));
+      // Remove from screening results map to show "not screened" until next screen
+      setScreeningResults((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(contactId);
+        if (existing) next.set(contactId, { ...existing, match_status: "clear", match_score: 0 });
+        return next;
+      });
+    }).catch(() => null);
+  }
+
   const filtered = items.filter((it) => {
     if (filterKyc && it.kyc_status !== filterKyc) return false;
     if (filterSanctions && it.sanctions_status !== filterSanctions) return false;
@@ -422,6 +458,14 @@ export default function KycPage() {
         actions={
           <div className="flex items-center gap-2">
             <button
+              onClick={() => { void handleScreenAll(); }}
+              disabled={screeningAll || screeningId !== null}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+            >
+              <ScanLine className="h-4 w-4" />
+              {screeningAll ? `Screening… ${screenAllProgress}%` : "Screen All"}
+            </button>
+            <button
               onClick={() => { void handleRefreshLists(); }}
               disabled={refreshing}
               className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
@@ -429,7 +473,6 @@ export default function KycPage() {
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               Refresh Lists
             </button>
-            <ShieldCheck className="h-5 w-5 text-muted-foreground" />
           </div>
         }
       />
@@ -540,9 +583,23 @@ export default function KycPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {/* Dismiss button — shown when match needs review */}
+                          {(() => {
+                            const sr = screeningResults.get(item.contact_id);
+                            return sr && (sr.match_status === "potential_match" || sr.match_status === "confirmed_match") ? (
+                              <button
+                                onClick={() => handleDismissMatch(item.contact_id)}
+                                title="Mark as false positive / clear"
+                                className="inline-flex items-center gap-1 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 transition-colors"
+                              >
+                                <X className="h-3 w-3" />
+                                Dismiss
+                              </button>
+                            ) : null;
+                          })()}
                           <button
                             onClick={() => { void handleScreen(item.contact_id); }}
-                            disabled={screeningId === item.contact_id}
+                            disabled={screeningId === item.contact_id || screeningAll}
                             className="inline-flex items-center gap-1 rounded-md border border-input px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-60"
                           >
                             {screeningId === item.contact_id ? (

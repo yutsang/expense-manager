@@ -105,10 +105,19 @@ async def search_entries(
         count_base = count_base.where(SanctionsListEntry.source == source)
 
     if q:
+        from sqlalchemy import cast, text
+        from sqlalchemy.dialects.postgresql import JSONB as _JSONB
+
         pattern = f"%{q}%"
+        # Search primary_name, ref_id, and any alias name inside the JSONB array
+        alias_subquery = text(
+            "EXISTS (SELECT 1 FROM jsonb_array_elements(sanctions_list_entries.aliases) AS a "
+            "WHERE a->>'name' ILIKE :pat)"
+        ).bindparams(pat=pattern)
         name_filter = or_(
             SanctionsListEntry.primary_name.ilike(pattern),
             SanctionsListEntry.ref_id.ilike(pattern),
+            alias_subquery,
         )
         base = base.where(name_filter)
         count_base = count_base.where(name_filter)
