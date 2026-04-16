@@ -1175,3 +1175,11 @@ class SanctionsEntryResponse(BaseModel):
 class SanctionsEntryListResponse(BaseModel):
     items: list[SanctionsEntryResponse]
     total: int
+
+
+# ── Bank Import ───────────────────────────────────────────────────────────────
+
+class BankImportResult(BaseModel):
+    imported: int
+    skipped_duplicates: int
+    errors: list[str]

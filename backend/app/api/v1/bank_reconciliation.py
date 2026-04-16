@@ -1,18 +1,20 @@
 """Bank accounts, transactions, and reconciliation API."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
     BankAccountCreate,
     BankAccountResponse,
+    BankImportResult,
     BankReconciliationCreate,
     BankReconciliationResponse,
     BankTransactionCreate,
     BankTransactionResponse,
     MatchTransactionRequest,
 )
+from app.services.bank_import import import_csv
 from app.services.bank_reconciliation import (
     BankAccountNotFoundError,
     BankTransactionNotFoundError,
@@ -133,6 +135,43 @@ async def unmatch(
         return BankTransactionResponse.model_validate(txn)
     except BankTransactionNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bank transaction not found")
+
+
+# ---------------------------------------------------------------------------
+# Bank Statement CSV Import
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/bank-accounts/{account_id}/import",
+    response_model=BankImportResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_bank_statement(
+    account_id: str,
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+    currency: str = Query(default="USD"),
+) -> BankImportResult:
+    """Upload a bank statement CSV and import transactions."""
+    try:
+        await get_bank_account(db, tenant_id, account_id)
+    except BankAccountNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bank account not found")
+
+    content = await file.read()
+    result = await import_csv(
+        db,
+        tenant_id=tenant_id,
+        actor_id=actor_id,
+        bank_account_id=account_id,
+        csv_bytes=content,
+        currency=currency,
+    )
+    await db.commit()
+    return BankImportResult(**result)
 
 
 # ---------------------------------------------------------------------------

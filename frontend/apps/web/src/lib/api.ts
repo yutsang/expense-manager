@@ -619,6 +619,12 @@ export interface BankReconciliation {
   created_at: string;
 }
 
+export interface BankImportResult {
+  imported: number;
+  skipped_duplicates: number;
+  errors: string[];
+}
+
 export const bankReconciliationApi = {
   listAccounts: () => request<BankAccount[]>("GET", "/v1/bank-accounts"),
   createAccount: (data: Partial<BankAccount> & { name: string; currency: string }) =>
@@ -635,6 +641,24 @@ export const bankReconciliationApi = {
     request<BankReconciliation[]>("GET", `/v1/bank-accounts/${accountId}/reconciliations`),
   createReconciliation: (accountId: string, data: { statement_balance: string; reconciliation_date: string }) =>
     request<BankReconciliation>("POST", `/v1/bank-accounts/${accountId}/reconciliations`, data),
+  importStatement: (accountId: string, file: File, currency: string): Promise<BankImportResult> => {
+    const form = new FormData();
+    form.append("file", file);
+    const token = getToken();
+    const tenantId = getTenantId();
+    return fetch(`${BASE}/v1/bank-accounts/${accountId}/import?currency=${currency}`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "X-Tenant-ID": tenantId,
+      },
+      credentials: "include",
+      body: form,
+    }).then(async (r) => {
+      if (!r.ok) throw new Error(await r.text());
+      return r.json() as Promise<BankImportResult>;
+    });
+  },
 };
 
 // ── Expense Claims ───────────────────────────────────────────────────────────
