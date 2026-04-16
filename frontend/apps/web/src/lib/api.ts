@@ -727,6 +727,31 @@ export const paymentsApi = {
     request<Payment>("POST", `/v1/payments/${id}/void`, { reason: reason ?? "Voided by user" }),
 };
 
+// ── FX Rates ──────────────────────────────────────────────────────────────────
+
+export interface FxRate {
+  id: string;
+  from_currency: string;
+  to_currency: string;
+  rate_date: string;
+  rate: string;
+  source: string;
+  created_at: string;
+}
+
+export interface FxRateUpsert {
+  from_currency: string;
+  to_currency: string;
+  rate_date: string;
+  rate: string;
+  source?: string;
+}
+
+export const fxApi = {
+  list: () => request<FxRate[]>("GET", "/v1/fx/rates"),
+  upsert: (body: FxRateUpsert) => request<FxRate>("PUT", "/v1/fx/rates", body),
+};
+
 // ── AI Assistant ──────────────────────────────────────────────────────────────
 
 export type AiMessageRole = "user" | "assistant" | "tool_result";

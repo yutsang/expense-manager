@@ -1,4 +1,4 @@
-"""FX Rates API — upsert and lookup."""
+"""FX Rates API — upsert, list, and lookup."""
 
 from __future__ import annotations
 
@@ -6,12 +6,26 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
+from sqlalchemy import select
 
 from app.api.v1.deps import DbSession, TenantId
 from app.api.v1.schemas import FxRateResponse, FxRateUpsert
+from app.infra.models import FxRate
 from app.services.fx import FxRateNotFoundError, get_rate, upsert_rate
 
 router = APIRouter(prefix="/fx", tags=["fx"])
+
+
+@router.get("/rates", response_model=list[FxRateResponse], status_code=status.HTTP_200_OK)
+async def list_fx_rates(
+    db: DbSession,
+    tenant_id: TenantId,
+    limit: int = Query(default=200, ge=1, le=500),
+) -> list[FxRate]:
+    result = await db.execute(
+        select(FxRate).order_by(FxRate.from_currency, FxRate.to_currency, FxRate.rate_date.desc()).limit(limit)
+    )
+    return list(result.scalars().all())
 
 
 @router.put("/rates", response_model=FxRateResponse, status_code=status.HTTP_200_OK)

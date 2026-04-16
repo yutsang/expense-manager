@@ -50,6 +50,7 @@ const NAV_ITEMS = [
   { group: "Ledger",    href: "/accounts",               label: "Chart of Accounts",icon: BookOpen },
   { group: "Ledger",    href: "/journals",               label: "Journal Entries",  icon: BookMarked },
   { group: "Ledger",    href: "/periods",                label: "Periods",          icon: Calendar },
+  { group: "Ledger",    href: "/fx",                     label: "FX Rates",         icon: TrendingUp },
   { group: "Sales",     href: "/contacts",               label: "Contacts",         icon: Users },
   { group: "Sales",     href: "/contacts/kyc",           label: "KYC / Sanctions",  icon: ShieldCheck },
   { group: "Compliance", href: "/compliance/sanctions",  label: "Sanctions Lists",  icon: List },
