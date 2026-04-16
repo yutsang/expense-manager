@@ -58,7 +58,7 @@ export const useAuthStore = create<AuthState>()(
           const tid = data.tenant_id ?? data.tenant_ids?.[0];
           if (tid) localStorage.setItem("aegis_tenant_id", tid);
           // Set a JS-visible cookie so the Next.js middleware can detect auth state
-          document.cookie = "aegis_client=1; path=/; max-age=86400; SameSite=Lax";
+          document.cookie = "aegis_client=1; path=/; max-age=2592000; SameSite=Lax"; // 30 days
         }
         set({ user: data.user, isAuthenticated: true });
         return { requires_mfa: false };

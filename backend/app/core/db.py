@@ -19,6 +19,11 @@ engine = create_async_engine(
     max_overflow=settings.database_max_overflow,
     echo=settings.debug,
     pool_pre_ping=True,
+    # Serverless / auto-suspend DBs (Neon, Supabase) take up to 5s to wake.
+    # pool_timeout: how long to wait for a connection from the pool.
+    # connect_args timeout: how long asyncpg waits for the TCP handshake.
+    pool_timeout=30,
+    connect_args={"timeout": 30},
 )
 
 AsyncSessionLocal = async_sessionmaker(
