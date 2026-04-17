@@ -36,6 +36,10 @@ class ExpenseClaimTransitionError(ValueError):
     pass
 
 
+class SelfApprovalError(ValueError):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
@@ -182,6 +186,10 @@ async def approve_expense_claim(
     if claim.status != "submitted":
         raise ExpenseClaimTransitionError(
             f"Cannot approve expense claim with status '{claim.status}'"
+        )
+    if actor_id is not None and actor_id == claim.created_by:
+        raise SelfApprovalError(
+            "The claim creator cannot approve their own expense claim (segregation of duties)"
         )
     now = datetime.now(tz=UTC)
     claim.status = "approved"

@@ -15,6 +15,7 @@ from app.api.v1.schemas import (
 from app.services.expense_claims import (
     ExpenseClaimNotFoundError,
     ExpenseClaimTransitionError,
+    SelfApprovalError,
     approve_expense_claim,
     create_expense_claim,
     get_expense_claim,
@@ -93,6 +94,8 @@ async def approve(claim_id: str, db: DbSession, tenant_id: TenantId, actor_id: A
         return await _claim_response(db, claim)
     except ExpenseClaimNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Expense claim not found")
+    except SelfApprovalError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ExpenseClaimTransitionError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
