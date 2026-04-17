@@ -7,7 +7,7 @@ State machine:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -22,6 +22,7 @@ from app.infra.models import (
     JournalLine,
     Period,
 )
+from app.services.periods import PeriodPostingError, get_period_for_date
 
 log = get_logger(__name__)
 
@@ -41,6 +42,10 @@ class SelfApprovalError(ValueError):
 
 
 class DuplicateReceiptError(ValueError):
+    pass
+
+
+class FutureDateError(ValueError):
     pass
 
 
@@ -111,6 +116,30 @@ async def create_expense_claim(
                 f"Receipt URL '{existing.receipt_url}' is already attached to "
                 f"expense claim {existing.number} (id={existing.claim_id})"
             )
+
+    # ── Date validation (Issue #27) ──────────────────────────────────────
+    claim_date_str = data["claim_date"]
+    claim_date_val = (
+        claim_date_str
+        if isinstance(claim_date_str, date)
+        else date.fromisoformat(str(claim_date_str))
+    )
+
+    if claim_date_val > date.today():
+        raise FutureDateError(f"Expense claim date {claim_date_val} is in the future")
+
+    period = await get_period_for_date(db, tenant_id=tenant_id, on_date=claim_date_val)
+    if period.status in ("hard_closed", "audited"):
+        raise PeriodPostingError(
+            f"Cannot create expense claim: period '{period.name}' is {period.status}"
+        )
+    if period.status == "soft_closed":
+        log.warning(
+            "expense_claim.soft_closed_period",
+            tenant_id=tenant_id,
+            period=period.name,
+            claim_date=str(claim_date_val),
+        )
 
     total_amount = Decimal("0")
     tax_total = Decimal("0")

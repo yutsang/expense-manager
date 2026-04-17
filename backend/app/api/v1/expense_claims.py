@@ -16,6 +16,7 @@ from app.services.expense_claims import (
     DuplicateReceiptError,
     ExpenseClaimNotFoundError,
     ExpenseClaimTransitionError,
+    FutureDateError,
     SelfApprovalError,
     approve_expense_claim,
     create_expense_claim,
@@ -26,6 +27,7 @@ from app.services.expense_claims import (
     reject_expense_claim,
     submit_expense_claim,
 )
+from app.services.periods import PeriodPostingError
 
 router = APIRouter(prefix="/expense-claims", tags=["expense-claims"])
 
@@ -60,7 +62,7 @@ async def create(body: ExpenseClaimCreate, db: DbSession, tenant_id: TenantId, a
     )
     try:
         claim = await create_expense_claim(db, tenant_id, actor_id, data)
-    except DuplicateReceiptError as exc:
+    except (DuplicateReceiptError, FutureDateError, PeriodPostingError) as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     await db.commit()
     await db.refresh(claim)
