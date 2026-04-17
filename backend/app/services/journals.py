@@ -9,7 +9,7 @@ Invariants enforced at three layers (CLAUDE.md §2.1):
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select, text
@@ -27,6 +27,8 @@ from app.infra.models import Account, JournalEntry, JournalLine
 from app.services.periods import assert_can_post
 
 log = get_logger(__name__)
+
+_IDEMPOTENCY_WINDOW = timedelta(hours=24)
 
 
 class JournalNotFoundError(ValueError):
@@ -57,10 +59,41 @@ async def create_draft(
     source_id: str | None = None,
     actor_id: str | None = None,
     system_generated: bool = False,
+    idempotency_key: str | None = None,
 ) -> JournalEntry:
-    """Create a draft journal entry. Does NOT post; lines are validated for structure."""
+    """Create a draft journal entry. Does NOT post; lines are validated for structure.
+
+    If *idempotency_key* is provided and a journal entry with the same key+tenant
+    was created within the last 24 hours, the existing entry is returned
+    instead of creating a duplicate.
+    """
     if not lines:
         raise JournalBalanceError("Cannot create a journal with no lines")
+
+    # ── Idempotency check ────────────────────────────────────────────────
+    if idempotency_key is not None:
+        cutoff = datetime.now(tz=UTC) - _IDEMPOTENCY_WINDOW
+        existing = await db.scalar(
+            select(JournalEntry).where(
+                JournalEntry.tenant_id == tenant_id,
+                JournalEntry.idempotency_key == idempotency_key,
+                JournalEntry.created_at >= cutoff,
+            )
+        )
+        if existing is not None:
+            log.info(
+                "journal.idempotent_hit",
+                tenant_id=tenant_id,
+                journal_id=existing.id,
+                idempotency_key=idempotency_key,
+            )
+            return existing
+    else:
+        log.warning(
+            "journal.missing_idempotency_key",
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+        )
 
     # Validate line structure
     for ln in lines:
@@ -96,6 +129,7 @@ async def create_draft(
         status="draft",
         total_debit=total_d,
         total_credit=total_c,
+        idempotency_key=idempotency_key,
         created_at=now,
         updated_at=now,
         created_by=actor_id,

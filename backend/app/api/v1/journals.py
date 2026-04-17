@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, Query, Response, status
 from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
@@ -79,6 +80,8 @@ async def create_journal_endpoint(
     db: DbSession,
     tenant_id: TenantId,
     actor_id: ActorId,
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> JournalResponse:
     try:
         line_inputs = [_to_line_input(ln) for ln in body.lines]
@@ -92,8 +95,12 @@ async def create_journal_endpoint(
             source_type=body.source_type,
             source_id=body.source_id,
             actor_id=actor_id,
+            idempotency_key=idempotency_key,
         )
         await db.commit()
+        # If idempotent hit, the journal already existed — return 200 instead of 201
+        if idempotency_key is not None and je.idempotency_key == idempotency_key and not db.new:
+            response.status_code = status.HTTP_200_OK
     except (JournalBalanceError, ControlAccountError) as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)

@@ -236,6 +236,7 @@ class JournalResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     posted_at: datetime | None
+    idempotency_key: str | None = None
     lines: list[JournalLineResponse] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}

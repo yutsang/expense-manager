@@ -370,11 +370,13 @@ class JournalEntry(Base):
     )
     created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "number", name="uq_je_tenant_number"),
         CheckConstraint("status IN ('draft','posted','void')", name="ck_je_status"),
+        sa.Index("ix_je_idempotency", "tenant_id", "idempotency_key"),
     )
 
 
