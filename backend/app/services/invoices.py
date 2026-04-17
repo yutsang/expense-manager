@@ -2,6 +2,7 @@
 
 State machine:
   draft → authorised → sent → partial|paid → (terminal)
+  draft → awaiting_approval → authorised (when threshold exceeded, requires second user)
   any non-void → void
 """
 
@@ -15,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.infra.models import Account, Invoice, InvoiceLine, JournalEntry, JournalLine
+from app.infra.models import Account, Invoice, InvoiceLine, JournalEntry, JournalLine, Tenant
 
 log = get_logger(__name__)
 
@@ -35,9 +36,20 @@ class InvoiceTransitionError(ValueError):
     pass
 
 
+class InvoiceApprovalError(ValueError):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+async def get_tenant(db: AsyncSession, tenant_id: str) -> Tenant:
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    if not tenant:
+        raise ValueError(f"Tenant not found: {tenant_id}")
+    return tenant
 
 
 def _compute_line(
@@ -179,17 +191,14 @@ async def get_invoice_lines(db: AsyncSession, invoice_id: str) -> list[InvoiceLi
     return list(result.scalars())
 
 
-async def authorise_invoice(
-    db: AsyncSession, tenant_id: str, invoice_id: str, actor_id: str | None
-) -> Invoice:
-    """Authorise a draft invoice: assign a real number, post the AR journal entry."""
-    inv = await get_invoice(db, tenant_id, invoice_id)
-    if inv.status != "draft":
-        raise InvoiceTransitionError(f"Cannot authorise invoice with status '{inv.status}'")
-
-    lines = await get_invoice_lines(db, invoice_id)
-
-    # Resolve the AR account for this tenant (assume code 1100 = AR)
+async def _post_invoice_journal(
+    db: AsyncSession,
+    tenant_id: str,
+    inv: Invoice,
+    lines: list[InvoiceLine],
+    actor_id: str | None,
+) -> None:
+    """Post the AR journal entry for an authorised invoice."""
     ar_account = await db.scalar(
         select(Account).where(
             Account.tenant_id == tenant_id,
@@ -199,23 +208,9 @@ async def authorise_invoice(
 
     now = datetime.now(tz=UTC)
 
-    # Generate sequential invoice number
-    count_result = await db.execute(
-        select(func.count())
-        .select_from(Invoice)
-        .where(
-            Invoice.tenant_id == tenant_id,
-            Invoice.status != "draft",
-        )
-    )
-    seq = (count_result.scalar() or 0) + 1
-    inv.number = f"INV-{seq:05d}"
-
-    # Build the journal entry: Dr AR, Cr Revenue lines, Cr Tax Payable
     je_lines: list[JournalLine] = []
     line_no = 1
 
-    # Debit: Accounts Receivable for total incl. tax
     total = Decimal(str(inv.total))
     fx = Decimal(str(inv.fx_rate))
     func_total = (total * fx).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
@@ -240,7 +235,6 @@ async def authorise_invoice(
         )
         line_no += 1
 
-    # Credit: Revenue per invoice line
     for il in lines:
         la = Decimal(str(il.line_amount))
         func_la = (la * fx).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
@@ -261,7 +255,6 @@ async def authorise_invoice(
         )
         line_no += 1
 
-    # Create and post the JE only if we have AR + at least one revenue line
     if len(je_lines) >= 2:
         je = JournalEntry(
             tenant_id=tenant_id,
@@ -272,7 +265,7 @@ async def authorise_invoice(
             period_name=inv.period_name or inv.issue_date[:7],
             currency=inv.currency,
             source_type="invoice",
-            source_id=invoice_id,
+            source_id=inv.id,
             posted_at=now,
             posted_by=actor_id,
             created_by=actor_id,
@@ -287,6 +280,58 @@ async def authorise_invoice(
 
         inv.journal_entry_id = je.id
 
+
+async def authorise_invoice(
+    db: AsyncSession, tenant_id: str, invoice_id: str, actor_id: str | None
+) -> Invoice:
+    """Authorise a draft invoice: assign a real number, post the AR journal entry.
+
+    If the tenant has an invoice_approval_threshold and the invoice total meets
+    or exceeds it, the invoice moves to 'awaiting_approval' instead of
+    'authorised'. A second user must then call approve_invoice().
+    """
+    inv = await get_invoice(db, tenant_id, invoice_id)
+    if inv.status != "draft":
+        raise InvoiceTransitionError(f"Cannot authorise invoice with status '{inv.status}'")
+
+    lines = await get_invoice_lines(db, invoice_id)
+
+    # Generate sequential invoice number
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(Invoice)
+        .where(
+            Invoice.tenant_id == tenant_id,
+            Invoice.status != "draft",
+        )
+    )
+    seq = (count_result.scalar() or 0) + 1
+    inv.number = f"INV-{seq:05d}"
+
+    # Check threshold: does this invoice require second-user approval?
+    tenant = await get_tenant(db, tenant_id)
+    threshold = tenant.invoice_approval_threshold
+    invoice_total = Decimal(str(inv.total))
+
+    if threshold is not None and invoice_total >= Decimal(str(threshold)):
+        # Large invoice: park in awaiting_approval, do NOT post JE yet
+        inv.status = "awaiting_approval"
+        inv.authorised_by = actor_id
+        inv.updated_by = actor_id
+        inv.version += 1
+        await db.flush()
+        await db.refresh(inv)
+        log.info(
+            "invoice.awaiting_approval",
+            tenant_id=tenant_id,
+            invoice_id=invoice_id,
+            number=inv.number,
+        )
+        return inv
+
+    # No threshold or below threshold: single-step authorise + post JE
+    await _post_invoice_journal(db, tenant_id, inv, lines, actor_id)
+
     inv.status = "authorised"
     inv.updated_by = actor_id
     inv.version += 1
@@ -294,6 +339,38 @@ async def authorise_invoice(
     await db.flush()
     await db.refresh(inv)
     log.info("invoice.authorised", tenant_id=tenant_id, invoice_id=invoice_id, number=inv.number)
+    return inv
+
+
+async def approve_invoice(
+    db: AsyncSession, tenant_id: str, invoice_id: str, actor_id: str | None
+) -> Invoice:
+    """Second-step approval for large invoices that exceeded the approval threshold.
+
+    The approver must NOT be the same user who initiated the authorise action.
+    """
+    inv = await get_invoice(db, tenant_id, invoice_id)
+    if inv.status != "awaiting_approval":
+        raise InvoiceTransitionError(
+            f"Cannot approve invoice with status '{inv.status}'; "
+            "only invoices in 'awaiting_approval' can be approved"
+        )
+
+    if actor_id and inv.authorised_by == actor_id:
+        raise InvoiceApprovalError(
+            "Invoice cannot be approved by the same user who initiated authorisation"
+        )
+
+    lines = await get_invoice_lines(db, invoice_id)
+    await _post_invoice_journal(db, tenant_id, inv, lines, actor_id)
+
+    inv.status = "authorised"
+    inv.updated_by = actor_id
+    inv.version += 1
+
+    await db.flush()
+    await db.refresh(inv)
+    log.info("invoice.approved", tenant_id=tenant_id, invoice_id=invoice_id, number=inv.number)
     return inv
 
 

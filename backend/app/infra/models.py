@@ -56,6 +56,7 @@ class Tenant(Base):
     fiscal_year_start_month: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=1)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     region: Mapped[str] = mapped_column(String(16), nullable=False, default="us")
+    invoice_approval_threshold: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="trial")
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
@@ -610,8 +611,9 @@ class Invoice(Base):
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
     tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
     number: Mapped[str] = mapped_column(String(64), nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
-    # draft | authorised | sent | partial | paid | void | credit_note
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
+    # draft | awaiting_approval | authorised | sent | partial | paid | void | credit_note
+    authorised_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     contact_id: Mapped[str] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("contacts.id", ondelete="RESTRICT"),
@@ -654,7 +656,7 @@ class Invoice(Base):
     __table_args__ = (
         UniqueConstraint("tenant_id", "number", name="uq_invoices_tenant_number"),
         CheckConstraint(
-            "status IN ('draft','authorised','sent','partial','paid','void','credit_note')",
+            "status IN ('draft','awaiting_approval','authorised','sent','partial','paid','void','credit_note')",
             name="ck_invoices_status",
         ),
     )

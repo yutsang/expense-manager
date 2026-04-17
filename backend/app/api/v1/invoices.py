@@ -18,8 +18,10 @@ from app.api.v1.schemas import (
 from app.infra.models import Contact, Invoice
 from app.services.email_service import send_email
 from app.services.invoices import (
+    InvoiceApprovalError,
     InvoiceNotFoundError,
     InvoiceTransitionError,
+    approve_invoice,
     authorise_invoice,
     create_invoice,
     get_invoice,
@@ -121,6 +123,21 @@ async def authorise(invoice_id: str, db: DbSession, tenant_id: TenantId, actor_i
         return await _invoice_response(db, inv)
     except InvoiceNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    except InvoiceTransitionError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+@router.post("/{invoice_id}/approve", response_model=InvoiceResponse)
+async def approve(invoice_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+    try:
+        inv = await approve_invoice(db, tenant_id, invoice_id, actor_id)
+        await db.commit()
+        await db.refresh(inv)
+        return await _invoice_response(db, inv)
+    except InvoiceNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    except InvoiceApprovalError as exc:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc))
     except InvoiceTransitionError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 

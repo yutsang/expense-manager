@@ -547,6 +547,7 @@ class InvoiceResponse(BaseModel):
     id: str
     number: str
     status: str
+    authorised_by: str | None = None
     contact_id: str
     issue_date: str
     due_date: str | None
@@ -580,6 +581,22 @@ class InvoiceResponse(BaseModel):
 class InvoiceListResponse(BaseModel):
     items: list[InvoiceResponse]
     next_cursor: str | None
+
+
+# ── Tenant Settings ──────────────────────────────────────────────────────────
+
+
+class TenantSettingsUpdate(BaseModel):
+    invoice_approval_threshold: str | None = None
+
+    @field_validator("invoice_approval_threshold")
+    @classmethod
+    def threshold_must_be_non_negative_decimal(cls, v: str | None) -> str | None:
+        if v is not None:
+            d = Decimal(v)
+            if d < 0:
+                raise ValueError("invoice_approval_threshold must be non-negative")
+        return v
 
 
 # ── Bills ─────────────────────────────────────────────────────────────────────
