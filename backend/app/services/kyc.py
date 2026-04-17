@@ -1,15 +1,16 @@
-"""KYC / Sanctions service — get_or_create, update, list, dashboard alerts."""
+"""KYC / Sanctions service — get_or_create, update, list, dashboard alerts, UBO tracking."""
 
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.infra.models import Contact, ContactKyc
+from app.infra.models import Contact, ContactKyc, ContactUBO
 
 log = get_logger(__name__)
 
@@ -18,6 +19,10 @@ _EXPIRY_SOON_DAYS = 60
 
 
 class KycNotFoundError(ValueError):
+    pass
+
+
+class UBONotFoundError(ValueError):
     pass
 
 
@@ -186,6 +191,26 @@ async def get_dashboard_alerts(
     )
     unrated_contacts = len(list(unrated_result.scalars()))
 
+    # Count corporate contacts (supplier/both) with no UBO records on file
+    corporate_result = await db.execute(
+        select(Contact).where(
+            Contact.tenant_id == tenant_id,
+            Contact.is_archived.is_(False),
+            Contact.contact_type.in_(["supplier", "both"]),
+        )
+    )
+    corporate_contacts = list(corporate_result.scalars())
+    missing_ubos = 0
+    for contact in corporate_contacts:
+        ubo_result = await db.execute(
+            select(ContactUBO).where(
+                ContactUBO.tenant_id == tenant_id,
+                ContactUBO.contact_id == contact.id,
+            )
+        )
+        if not list(ubo_result.scalars()):
+            missing_ubos += 1
+
     return {
         "id_expiring_soon": id_expiring_soon,
         "id_expired": id_expired,
@@ -193,4 +218,122 @@ async def get_dashboard_alerts(
         "pending_kyc": pending_kyc,
         "flagged": flagged,
         "unrated_contacts": unrated_contacts,
+        "missing_ubos": missing_ubos,
     }
+
+
+# ---------------------------------------------------------------------------
+# UBO (Ultimate Beneficial Owner) CRUD — HK Cap 622
+# ---------------------------------------------------------------------------
+
+
+async def create_ubo(
+    db: AsyncSession,
+    *,
+    tenant_id: str,
+    contact_id: str,
+    controller_name: str,
+    ownership_pct: Decimal,
+    control_type: str,
+    effective_date: date,
+    is_significant_controller: bool = False,
+    id_type: str | None = None,
+    id_number: str | None = None,
+    nationality: str | None = None,
+    address: str | None = None,
+    ceased_date: date | None = None,
+) -> ContactUBO:
+    """Create a new UBO record for a contact."""
+    ubo = ContactUBO(
+        tenant_id=tenant_id,
+        contact_id=contact_id,
+        controller_name=controller_name,
+        ownership_pct=ownership_pct,
+        control_type=control_type,
+        effective_date=effective_date,
+        is_significant_controller=is_significant_controller,
+        id_type=id_type,
+        id_number=id_number,
+        nationality=nationality,
+        address=address,
+        ceased_date=ceased_date,
+    )
+    db.add(ubo)
+    await db.flush()
+    await db.refresh(ubo)
+    log.info("ubo.created", tenant_id=tenant_id, contact_id=contact_id)
+    return ubo
+
+
+async def list_ubos(
+    db: AsyncSession,
+    *,
+    contact_id: str,
+    tenant_id: str,
+) -> list[ContactUBO]:
+    """List all UBO records for a contact."""
+    result = await db.execute(
+        select(ContactUBO).where(
+            ContactUBO.contact_id == contact_id,
+            ContactUBO.tenant_id == tenant_id,
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def get_ubo(
+    db: AsyncSession,
+    *,
+    ubo_id: str,
+    tenant_id: str,
+) -> ContactUBO:
+    """Get a single UBO record by ID."""
+    ubo = await db.scalar(
+        select(ContactUBO).where(
+            ContactUBO.id == ubo_id,
+            ContactUBO.tenant_id == tenant_id,
+        )
+    )
+    if not ubo:
+        raise UBONotFoundError(f"UBO {ubo_id} not found")
+    return ubo
+
+
+async def update_ubo(
+    db: AsyncSession,
+    *,
+    ubo_id: str,
+    tenant_id: str,
+    **fields: Any,
+) -> ContactUBO:
+    """Update UBO fields and bump version."""
+    ubo = await db.scalar(
+        select(ContactUBO).where(
+            ContactUBO.id == ubo_id,
+            ContactUBO.tenant_id == tenant_id,
+        )
+    )
+    if not ubo:
+        raise UBONotFoundError(f"UBO {ubo_id} not found")
+    allowed = {
+        "controller_name",
+        "id_type",
+        "id_number",
+        "nationality",
+        "address",
+        "ownership_pct",
+        "control_type",
+        "is_significant_controller",
+        "effective_date",
+        "ceased_date",
+        "updated_by",
+    }
+    for key, val in fields.items():
+        if key in allowed:
+            setattr(ubo, key, val)
+    ubo.version += 1
+    ubo.updated_at = datetime.now(tz=UTC)
+    await db.flush()
+    await db.refresh(ubo)
+    log.info("ubo.updated", tenant_id=tenant_id, ubo_id=ubo_id)
+    return ubo

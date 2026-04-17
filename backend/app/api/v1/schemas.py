@@ -1280,6 +1280,84 @@ class KycDashboardAlerts(BaseModel):
     pending_kyc: int
     flagged: int
     unrated_contacts: int = 0
+    missing_ubos: int = 0
+
+
+# ── UBO (Ultimate Beneficial Owner / Significant Controller — Cap 622) ───────
+
+
+class ContactUBOCreate(BaseModel):
+    controller_name: str = Field(..., min_length=1, max_length=255)
+    id_type: str | None = Field(
+        default=None, pattern="^(passport|national_id|drivers_license|other)$"
+    )
+    id_number: str | None = Field(default=None, max_length=100)
+    nationality: str | None = Field(default=None, max_length=10)
+    address: str | None = None
+    ownership_pct: str = Field(..., description="Ownership percentage as decimal string (0-100)")
+    control_type: str = Field(..., pattern="^(shareholding|voting_rights|board_appointment|other)$")
+    is_significant_controller: bool = False
+    effective_date: date
+    ceased_date: date | None = None
+
+    @field_validator("ownership_pct")
+    @classmethod
+    def ownership_pct_in_range(cls, v: str) -> str:
+        d = Decimal(v)
+        if d < 0 or d > 100:
+            raise ValueError("ownership_pct must be between 0 and 100")
+        return v
+
+
+class ContactUBOUpdate(BaseModel):
+    controller_name: str | None = Field(default=None, min_length=1, max_length=255)
+    id_type: str | None = Field(
+        default=None, pattern="^(passport|national_id|drivers_license|other)$"
+    )
+    id_number: str | None = None
+    nationality: str | None = None
+    address: str | None = None
+    ownership_pct: str | None = None
+    control_type: str | None = Field(
+        default=None, pattern="^(shareholding|voting_rights|board_appointment|other)$"
+    )
+    is_significant_controller: bool | None = None
+    effective_date: date | None = None
+    ceased_date: date | None = None
+
+    @field_validator("ownership_pct")
+    @classmethod
+    def ownership_pct_in_range(cls, v: str | None) -> str | None:
+        if v is not None:
+            d = Decimal(v)
+            if d < 0 or d > 100:
+                raise ValueError("ownership_pct must be between 0 and 100")
+        return v
+
+
+class ContactUBOResponse(BaseModel):
+    id: str
+    contact_id: str
+    controller_name: str
+    id_type: str | None
+    id_number: str | None
+    nationality: str | None
+    address: str | None
+    ownership_pct: str
+    control_type: str
+    is_significant_controller: bool
+    effective_date: date
+    ceased_date: date | None
+    created_at: datetime
+    updated_at: datetime
+    version: int
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("ownership_pct", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
 
 
 # ── Sanctions ─────────────────────────────────────────────────────────────────

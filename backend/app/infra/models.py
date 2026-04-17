@@ -540,6 +540,51 @@ class ContactKyc(Base):
     )
 
 
+class ContactUBO(Base):
+    """Ultimate Beneficial Owner / Significant Controller per HK Cap 622."""
+
+    __tablename__ = "contact_ubos"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    contact_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    controller_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    id_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    id_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    nationality: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ownership_pct: Mapped[object] = mapped_column(Numeric(5, 2), nullable=False)
+    control_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    is_significant_controller: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    effective_date: Mapped[object] = mapped_column(Date, nullable=False)
+    ceased_date: Mapped[object | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint(
+            "control_type IN ('shareholding','voting_rights','board_appointment','other')",
+            name="ck_contact_ubos_control_type",
+        ),
+        CheckConstraint(
+            "ownership_pct >= 0 AND ownership_pct <= 100",
+            name="ck_contact_ubos_ownership_pct",
+        ),
+    )
+
+
 class Item(Base):
     """Products or services that appear on invoice/bill lines."""
 
