@@ -807,6 +807,7 @@ class PaymentResponse(BaseModel):
     payment_date: str
     reference: str | None
     status: str
+    idempotency_key: str | None = None
     created_at: datetime
     updated_at: datetime
 

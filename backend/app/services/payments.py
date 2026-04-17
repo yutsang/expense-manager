@@ -7,6 +7,7 @@ State machine:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_EVEN, Decimal
 
 from sqlalchemy import func, select
@@ -18,6 +19,7 @@ from app.infra.models import Bill, Contact, Invoice, Payment, PaymentAllocation
 log = get_logger(__name__)
 
 _QUANTIZE_4 = Decimal("0.0001")
+_IDEMPOTENCY_WINDOW = timedelta(hours=24)
 
 
 class PaymentNotFoundError(ValueError):
@@ -45,8 +47,14 @@ async def create_payment(
     payment_date: str,
     reference: str | None = None,
     bank_account_ref: str | None = None,
+    idempotency_key: str | None = None,
 ) -> Payment:
-    """Create a new payment. Validates the contact exists for this tenant."""
+    """Create a new payment. Validates the contact exists for this tenant.
+
+    If *idempotency_key* is provided and a payment with the same key+tenant
+    was created within the last 24 hours, the existing payment is returned
+    instead of creating a duplicate.
+    """
     contact = await db.scalar(
         select(Contact).where(
             Contact.id == contact_id,
@@ -55,6 +63,31 @@ async def create_payment(
     )
     if contact is None:
         raise AllocationError(f"Contact not found: {contact_id}")
+
+    # ── Idempotency check ────────────────────────────────────────────────
+    if idempotency_key is not None:
+        cutoff = datetime.now(tz=UTC) - _IDEMPOTENCY_WINDOW
+        existing = await db.scalar(
+            select(Payment).where(
+                Payment.tenant_id == tenant_id,
+                Payment.idempotency_key == idempotency_key,
+                Payment.created_at >= cutoff,
+            )
+        )
+        if existing is not None:
+            log.info(
+                "payment.idempotent_hit",
+                tenant_id=tenant_id,
+                payment_id=existing.id,
+                idempotency_key=idempotency_key,
+            )
+            return existing
+    else:
+        log.warning(
+            "payment.missing_idempotency_key",
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+        )
 
     count_result = await db.execute(
         select(func.count()).select_from(Payment).where(Payment.tenant_id == tenant_id)
@@ -76,6 +109,7 @@ async def create_payment(
         fx_rate=fx_rate,
         functional_amount=functional_amount,
         reference=reference,
+        idempotency_key=idempotency_key,
         created_by=actor_id,
         updated_by=actor_id,
     )

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, Query, Response, status
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
@@ -39,6 +40,8 @@ async def create(
     db: DbSession,
     tenant_id: TenantId,
     actor_id: ActorId,
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> PaymentResponse:
     try:
         payment = await create_payment(
@@ -53,9 +56,17 @@ async def create(
             payment_date=body.payment_date,
             reference=body.reference,
             bank_account_ref=body.bank_account_ref,
+            idempotency_key=idempotency_key,
         )
         await db.commit()
         await db.refresh(payment)
+        # If idempotent hit, the payment already existed — return 200 instead of 201
+        if (
+            idempotency_key is not None
+            and payment.idempotency_key == idempotency_key
+            and not db.new
+        ):
+            response.status_code = status.HTTP_200_OK
         return _payment_response(payment)
     except AllocationError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))

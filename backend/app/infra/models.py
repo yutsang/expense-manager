@@ -819,6 +819,7 @@ class Payment(Base):
     journal_entry_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True
     )
+    idempotency_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
     )
@@ -834,6 +835,7 @@ class Payment(Base):
         CheckConstraint("payment_type IN ('received','made')", name="ck_payments_type"),
         CheckConstraint("status IN ('pending','applied','voided')", name="ck_payments_status"),
         CheckConstraint("amount > 0", name="ck_payments_positive"),
+        sa.Index("ix_payments_idempotency", "tenant_id", "idempotency_key"),
     )
 
 
