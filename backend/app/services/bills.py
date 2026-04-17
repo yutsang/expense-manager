@@ -52,6 +52,10 @@ async def create_bill(
     notes: str | None = None,
     lines: list[dict],
 ) -> Bill:
+    # Validate date order
+    if due_date is not None and due_date < issue_date:
+        raise ValueError("Due date must be on or after issue date")
+
     subtotal = Decimal("0")
     tax_total = Decimal("0")
     line_models: list[BillLine] = []
@@ -83,6 +87,10 @@ async def create_bill(
         )
 
     total = subtotal + tax_total
+
+    if total <= Decimal("0"):
+        raise ValueError("Bill total must be greater than zero")
+
     functional_total = (total * fx_rate).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
 
     # Auto-increment bill number

@@ -12,7 +12,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ── Shared ────────────────────────────────────────────────────────────────────
 
@@ -564,6 +564,12 @@ class InvoiceCreate(BaseModel):
             raise ValueError("fx_rate must be positive")
         return v
 
+    @model_validator(mode="after")
+    def due_date_not_before_issue_date(self) -> InvoiceCreate:
+        if self.due_date is not None and self.due_date < self.issue_date:
+            raise ValueError("Due date must be on or after issue date")
+        return self
+
 
 class InvoiceLineResponse(BaseModel):
     id: str
@@ -675,6 +681,12 @@ class BillCreate(BaseModel):
     supplier_reference: str | None = None
     notes: str | None = None
     lines: list[BillLineCreate] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def due_date_not_before_issue_date(self) -> BillCreate:
+        if self.due_date is not None and self.due_date < self.issue_date:
+            raise ValueError("Due date must be on or after issue date")
+        return self
 
 
 class BillLineResponse(BaseModel):
@@ -811,6 +823,13 @@ class PaymentCreate(BaseModel):
     payment_date: str  # ISO date
     reference: str | None = None
     bank_account_ref: str | None = None
+
+    @field_validator("amount")
+    @classmethod
+    def amount_must_be_positive(cls, v: str) -> str:
+        if Decimal(v) <= 0:
+            raise ValueError("Amount must be positive")
+        return v
 
 
 class PaymentAllocationCreate(BaseModel):

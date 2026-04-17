@@ -65,20 +65,23 @@ async def _invoice_response(db, inv) -> InvoiceResponse:
 @router.post("", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 async def create(body: InvoiceCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
     lines = await _resolve_line_tax(db, tenant_id, body.lines)
-    inv = await create_invoice(
-        db,
-        tenant_id,
-        actor_id,
-        contact_id=body.contact_id,
-        issue_date=str(body.issue_date),
-        due_date=str(body.due_date) if body.due_date else None,
-        currency=body.currency,
-        fx_rate=Decimal(body.fx_rate),
-        period_name=body.period_name,
-        reference=body.reference,
-        notes=body.notes,
-        lines=lines,
-    )
+    try:
+        inv = await create_invoice(
+            db,
+            tenant_id,
+            actor_id,
+            contact_id=body.contact_id,
+            issue_date=str(body.issue_date),
+            due_date=str(body.due_date) if body.due_date else None,
+            currency=body.currency,
+            fx_rate=Decimal(body.fx_rate),
+            period_name=body.period_name,
+            reference=body.reference,
+            notes=body.notes,
+            lines=lines,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(inv)
     return await _invoice_response(db, inv)

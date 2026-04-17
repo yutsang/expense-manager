@@ -127,6 +127,10 @@ async def create_invoice(
     lines: list[dict],
 ) -> Invoice:
     """Create a draft invoice with computed totals."""
+    # Validate date order
+    if due_date is not None and due_date < issue_date:
+        raise ValueError("Due date must be on or after issue date")
+
     # Compute totals
     subtotal = Decimal("0")
     tax_total = Decimal("0")
@@ -159,6 +163,10 @@ async def create_invoice(
         )
 
     total = subtotal + tax_total
+
+    if total <= Decimal("0"):
+        raise ValueError("Invoice total must be greater than zero")
+
     functional_total = (total * fx_rate).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
 
     inv = Invoice(

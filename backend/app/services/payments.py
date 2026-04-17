@@ -55,6 +55,9 @@ async def create_payment(
     was created within the last 24 hours, the existing payment is returned
     instead of creating a duplicate.
     """
+    if amount <= Decimal("0"):
+        raise ValueError("Amount must be positive")
+
     contact = await db.scalar(
         select(Contact).where(
             Contact.id == contact_id,

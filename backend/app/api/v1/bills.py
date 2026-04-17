@@ -55,20 +55,23 @@ async def _bill_response(db, bill) -> BillResponse:
 @router.post("", response_model=BillResponse, status_code=status.HTTP_201_CREATED)
 async def create(body: BillCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
     lines = await _resolve_line_tax(db, tenant_id, body.lines)
-    bill = await create_bill(
-        db,
-        tenant_id,
-        actor_id,
-        contact_id=body.contact_id,
-        issue_date=str(body.issue_date),
-        due_date=str(body.due_date) if body.due_date else None,
-        currency=body.currency,
-        fx_rate=Decimal(body.fx_rate),
-        period_name=body.period_name,
-        supplier_reference=body.supplier_reference,
-        notes=body.notes,
-        lines=lines,
-    )
+    try:
+        bill = await create_bill(
+            db,
+            tenant_id,
+            actor_id,
+            contact_id=body.contact_id,
+            issue_date=str(body.issue_date),
+            due_date=str(body.due_date) if body.due_date else None,
+            currency=body.currency,
+            fx_rate=Decimal(body.fx_rate),
+            period_name=body.period_name,
+            supplier_reference=body.supplier_reference,
+            notes=body.notes,
+            lines=lines,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(bill)
     return await _bill_response(db, bill)

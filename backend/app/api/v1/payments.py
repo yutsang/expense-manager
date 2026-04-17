@@ -68,8 +68,8 @@ async def create(
         ):
             response.status_code = status.HTTP_200_OK
         return _payment_response(payment)
-    except AllocationError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except (ValueError, AllocationError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
 @router.get("", response_model=PaymentListResponse)
