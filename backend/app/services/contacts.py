@@ -37,6 +37,7 @@ async def create_contact(
     region: str | None = None,
     postal_code: str | None = None,
     country: str | None = None,
+    credit_limit: str | None = None,
 ) -> Contact:
     if code:
         exists = await db.scalar(
@@ -48,6 +49,8 @@ async def create_contact(
         )
         if exists:
             raise ContactCodeConflictError(f"Contact code '{code}' already in use")
+
+    from decimal import Decimal
 
     contact = Contact(
         tenant_id=tenant_id,
@@ -64,6 +67,7 @@ async def create_contact(
         region=region,
         postal_code=postal_code,
         country=country,
+        credit_limit=Decimal(credit_limit) if credit_limit is not None else None,
         created_by=actor_id,
         updated_by=actor_id,
     )
@@ -129,6 +133,7 @@ async def update_contact(
         "postal_code",
         "country",
         "contact_type",
+        "credit_limit",
     }
     for key, val in updates.items():
         if key in allowed:

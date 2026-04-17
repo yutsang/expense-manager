@@ -316,6 +316,16 @@ class ContactCreate(BaseModel):
     region: str | None = None
     postal_code: str | None = None
     country: str | None = None
+    credit_limit: str | None = None
+
+    @field_validator("credit_limit")
+    @classmethod
+    def credit_limit_must_be_non_negative_decimal(cls, v: str | None) -> str | None:
+        if v is not None:
+            d = Decimal(v)
+            if d < 0:
+                raise ValueError("credit_limit must be non-negative")
+        return v
 
 
 class ContactUpdate(BaseModel):
@@ -332,6 +342,16 @@ class ContactUpdate(BaseModel):
     postal_code: str | None = None
     country: str | None = None
     contact_type: str | None = Field(default=None, pattern="^(customer|supplier|both|employee)$")
+    credit_limit: str | None = None
+
+    @field_validator("credit_limit")
+    @classmethod
+    def credit_limit_must_be_non_negative_decimal(cls, v: str | None) -> str | None:
+        if v is not None:
+            d = Decimal(v)
+            if d < 0:
+                raise ValueError("credit_limit must be non-negative")
+        return v
 
 
 class ContactResponse(BaseModel):
@@ -350,10 +370,16 @@ class ContactResponse(BaseModel):
     postal_code: str | None
     country: str | None
     is_archived: bool
+    credit_limit: str | None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("credit_limit", mode="before")
+    @classmethod
+    def decimal_to_str_or_none(cls, v: Any) -> str | None:
+        return str(v) if v is not None else None
 
 
 class ContactListResponse(BaseModel):
@@ -515,6 +541,7 @@ class InvoiceCreate(BaseModel):
     reference: str | None = None
     notes: str | None = None
     lines: list[InvoiceLineCreate] = Field(..., min_length=1)
+    force: bool = Field(default=False)
 
     @field_validator("fx_rate")
     @classmethod

@@ -18,6 +18,7 @@ from app.api.v1.schemas import (
 from app.infra.models import Contact, Invoice
 from app.services.email_service import send_email
 from app.services.invoices import (
+    CreditLimitExceededError,
     InvoiceApprovalError,
     InvoiceNotFoundError,
     InvoiceTransitionError,
@@ -115,14 +116,22 @@ async def get_one(invoice_id: str, db: DbSession, tenant_id: TenantId):
 
 
 @router.post("/{invoice_id}/authorise", response_model=InvoiceResponse)
-async def authorise(invoice_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def authorise(
+    invoice_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+    force: bool = Query(default=False),
+):
     try:
-        inv = await authorise_invoice(db, tenant_id, invoice_id, actor_id)
+        inv = await authorise_invoice(db, tenant_id, invoice_id, actor_id, force=force)
         await db.commit()
         await db.refresh(inv)
         return await _invoice_response(db, inv)
     except InvoiceNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    except CreditLimitExceededError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except InvoiceTransitionError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 

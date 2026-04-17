@@ -12,11 +12,19 @@ import uuid
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.infra.models import Account, Invoice, InvoiceLine, JournalEntry, JournalLine, Tenant
+from app.infra.models import (
+    Account,
+    Contact,
+    Invoice,
+    InvoiceLine,
+    JournalEntry,
+    JournalLine,
+    Tenant,
+)
 
 log = get_logger(__name__)
 
@@ -40,6 +48,10 @@ class InvoiceApprovalError(ValueError):
     pass
 
 
+class CreditLimitExceededError(ValueError):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -50,6 +62,30 @@ async def get_tenant(db: AsyncSession, tenant_id: str) -> Tenant:
     if not tenant:
         raise ValueError(f"Tenant not found: {tenant_id}")
     return tenant
+
+
+async def get_contact(db: AsyncSession, tenant_id: str, contact_id: str) -> Contact:
+    contact = await db.scalar(
+        select(Contact).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
+    )
+    if not contact:
+        raise ValueError(f"Contact not found: {contact_id}")
+    return contact
+
+
+async def _get_outstanding_invoice_total(
+    db: AsyncSession, tenant_id: str, contact_id: str
+) -> Decimal:
+    """Sum amount_due of all non-void, non-paid invoices for a contact."""
+    _OUTSTANDING_STATUSES = ("draft", "awaiting_approval", "authorised", "sent", "partial")
+    result = await db.scalar(
+        select(func.coalesce(func.sum(Invoice.amount_due), 0)).where(
+            Invoice.tenant_id == tenant_id,
+            Invoice.contact_id == contact_id,
+            Invoice.status.in_(_OUTSTANDING_STATUSES),
+        )
+    )
+    return Decimal(str(result))
 
 
 def _compute_line(
@@ -282,9 +318,17 @@ async def _post_invoice_journal(
 
 
 async def authorise_invoice(
-    db: AsyncSession, tenant_id: str, invoice_id: str, actor_id: str | None
+    db: AsyncSession,
+    tenant_id: str,
+    invoice_id: str,
+    actor_id: str | None,
+    force: bool = False,
 ) -> Invoice:
     """Authorise a draft invoice: assign a real number, post the AR journal entry.
+
+    If the contact has a credit_limit and the new invoice would push outstanding
+    AR above that limit, the authorisation is rejected with CreditLimitExceededError
+    (unless force=True).
 
     If the tenant has an invoice_approval_threshold and the invoice total meets
     or exceeds it, the invoice moves to 'awaiting_approval' instead of
@@ -295,6 +339,20 @@ async def authorise_invoice(
         raise InvoiceTransitionError(f"Cannot authorise invoice with status '{inv.status}'")
 
     lines = await get_invoice_lines(db, invoice_id)
+
+    # Credit limit check
+    if not force:
+        contact = await get_contact(db, tenant_id, inv.contact_id)
+        if contact.credit_limit is not None:
+            credit_limit = Decimal(str(contact.credit_limit))
+            outstanding = await _get_outstanding_invoice_total(db, tenant_id, inv.contact_id)
+            invoice_total_for_check = Decimal(str(inv.total))
+            if outstanding + invoice_total_for_check > credit_limit:
+                raise CreditLimitExceededError(
+                    f"Invoice total {invoice_total_for_check} would bring outstanding AR "
+                    f"to {outstanding + invoice_total_for_check}, exceeding credit limit "
+                    f"of {credit_limit} for contact {inv.contact_id}"
+                )
 
     # Generate sequential invoice number — atomic increment to avoid race conditions
     seq_result = await db.execute(
