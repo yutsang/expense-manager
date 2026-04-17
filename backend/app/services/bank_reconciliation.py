@@ -28,6 +28,12 @@ class BankReconciliationNotFoundError(ValueError):
     pass
 
 
+class DuplicateReconciliationError(ValueError):
+    """Raised when a journal line is already matched to another bank transaction."""
+
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Bank Accounts
 # ---------------------------------------------------------------------------
@@ -158,6 +164,18 @@ async def match_transaction(
 ) -> BankTransaction:
     """Link a bank transaction to a journal line and mark as reconciled."""
     txn = await _get_transaction(db, tenant_id, transaction_id)
+
+    # Check if journal_line_id is already used by another bank transaction
+    existing = await db.scalar(
+        select(BankTransaction).where(
+            BankTransaction.tenant_id == tenant_id,
+            BankTransaction.journal_line_id == journal_line_id,
+            BankTransaction.id != transaction_id,
+        )
+    )
+    if existing:
+        raise DuplicateReconciliationError(journal_line_id)
+
     now = datetime.now(tz=UTC)
     txn.journal_line_id = journal_line_id
     txn.is_reconciled = True

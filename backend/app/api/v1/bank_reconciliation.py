@@ -19,6 +19,7 @@ from app.services.bank_import import import_csv
 from app.services.bank_reconciliation import (
     BankAccountNotFoundError,
     BankTransactionNotFoundError,
+    DuplicateReconciliationError,
     create_bank_account,
     create_bank_transaction,
     create_reconciliation,
@@ -126,6 +127,11 @@ async def match(
         return BankTransactionResponse.model_validate(txn)
     except BankTransactionNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bank transaction not found")
+    except DuplicateReconciliationError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="Journal line is already reconciled with another bank transaction",
+        )
 
 
 @router.delete("/bank-transactions/{transaction_id}/match", response_model=BankTransactionResponse)
