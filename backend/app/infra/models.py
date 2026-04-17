@@ -58,6 +58,7 @@ class Tenant(Base):
     region: Mapped[str] = mapped_column(String(16), nullable=False, default="us")
     invoice_approval_threshold: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
     invoice_number_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    journal_approval_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="trial")
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
@@ -361,6 +362,10 @@ class JournalEntry(Base):
     total_debit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     total_credit: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    submitted_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     posted_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     posted_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -376,7 +381,9 @@ class JournalEntry(Base):
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "number", name="uq_je_tenant_number"),
-        CheckConstraint("status IN ('draft','posted','void')", name="ck_je_status"),
+        CheckConstraint(
+            "status IN ('draft','awaiting_approval','posted','void')", name="ck_je_status"
+        ),
         sa.Index("ix_je_idempotency", "tenant_id", "idempotency_key"),
     )
 

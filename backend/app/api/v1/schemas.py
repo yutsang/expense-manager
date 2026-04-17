@@ -236,7 +236,11 @@ class JournalResponse(BaseModel):
     total_credit: str
     created_at: datetime
     updated_at: datetime
-    posted_at: datetime | None
+    submitted_by: str | None = None
+    submitted_at: datetime | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    posted_at: datetime | None = None
     idempotency_key: str | None = None
     lines: list[JournalLineResponse] = Field(default_factory=list)
 

@@ -42,20 +42,20 @@ class TestJournalEntryModelIdempotencyKey:
         # Find the JournalEntry class section and verify idempotency_key is there
         idx = source.index("class JournalEntry(Base):")
         # Look at a reasonable chunk after the class definition
-        je_block = source[idx : idx + 2500]
+        je_block = source[idx : idx + 3000]
         assert "idempotency_key" in je_block
 
     def test_idempotency_key_is_nullable(self) -> None:
         source = self._read_models_source()
         idx = source.index("class JournalEntry(Base):")
-        je_block = source[idx : idx + 2500]
+        je_block = source[idx : idx + 3000]
         # The column should allow None for backward compatibility
         assert "nullable=True" in je_block or "Mapped[str | None]" in je_block
 
     def test_idempotency_key_has_index(self) -> None:
         source = self._read_models_source()
         idx = source.index("class JournalEntry(Base):")
-        je_block = source[idx : idx + 2500]
+        je_block = source[idx : idx + 3000]
         # Should have an index for fast lookup
         assert "ix_je_idempotency" in je_block or "index=True" in je_block
 

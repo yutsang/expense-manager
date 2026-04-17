@@ -48,6 +48,10 @@ class FutureDateError(ValueError):
     pass
 
 
+class SelfApprovalError(ValueError):
+    pass
+
+
 async def _next_number(db: AsyncSession, tenant_id: str, year: int) -> str:
     result = await db.execute(
         text("SELECT next_je_number(:tid, :year)"),
@@ -291,6 +295,123 @@ async def post_journal(
         after={"status": "posted", "number": number},
     )
     log.info("journal_posted", number=number, tenant_id=tenant_id)
+    return je
+
+
+async def submit_journal(
+    db: AsyncSession,
+    *,
+    journal_id: str,
+    tenant_id: str,
+    actor_id: str,
+) -> JournalEntry:
+    """Submit a draft journal entry for approval. Moves draft -> awaiting_approval."""
+    je = await _get_je(db, journal_id=journal_id, tenant_id=tenant_id)
+    if je.status != "draft":
+        raise JournalStatusError(
+            f"Only draft journals can be submitted for approval (current: {je.status})"
+        )
+
+    now = datetime.now(tz=UTC)
+    before = {"status": je.status}
+
+    je.status = "awaiting_approval"
+    je.submitted_by = actor_id
+    je.submitted_at = now
+    je.updated_at = now
+    je.updated_by = actor_id
+    je.version += 1
+    await db.flush()
+
+    await emit(
+        db,
+        action="journal.submit",
+        entity_type="journal_entry",
+        entity_id=journal_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before=before,
+        after={"status": "awaiting_approval"},
+    )
+    log.info("journal_submitted", journal_id=journal_id, tenant_id=tenant_id)
+    return je
+
+
+async def approve_journal(
+    db: AsyncSession,
+    *,
+    journal_id: str,
+    tenant_id: str,
+    actor_id: str,
+    admin_override: bool = False,
+) -> JournalEntry:
+    """Approve a journal entry awaiting approval. Moves awaiting_approval -> posted.
+
+    The approver must NOT be the same person who submitted the journal
+    (segregation of duties / maker-checker).
+    """
+    je = await _get_je(db, journal_id=journal_id, tenant_id=tenant_id)
+    if je.status != "awaiting_approval":
+        raise JournalStatusError(
+            f"Only journals awaiting approval can be approved (current: {je.status})"
+        )
+
+    # Segregation of duties: approver != preparer
+    if je.submitted_by == actor_id:
+        raise SelfApprovalError("The approver cannot be the same person who submitted the journal")
+
+    # Validate period is open (or soft-closed + admin override)
+    await assert_can_post(
+        db, period_id=je.period_id, tenant_id=tenant_id, admin_override=admin_override
+    )
+
+    # Load and validate lines
+    lines_result = await db.execute(
+        select(JournalLine).where(JournalLine.journal_entry_id == journal_id)
+    )
+    db_lines = list(lines_result.scalars().all())
+    domain_lines = [
+        JournalLineInput(
+            account_id=ln.account_id,
+            debit=Decimal(str(ln.debit)),
+            credit=Decimal(str(ln.credit)),
+            currency=ln.currency,
+            functional_debit=Decimal(str(ln.functional_debit)),
+            functional_credit=Decimal(str(ln.functional_credit)),
+        )
+        for ln in db_lines
+    ]
+    validate_balance(domain_lines)  # Layer 2 check
+
+    now = datetime.now(tz=UTC)
+    number = await _next_number(db, tenant_id, je.date.year)  # type: ignore[attr-defined]
+    before = {"status": je.status, "number": je.number}
+
+    je.status = "posted"
+    je.number = number
+    je.approved_by = actor_id
+    je.approved_at = now
+    je.posted_at = now
+    je.posted_by = actor_id
+    je.updated_at = now
+    je.updated_by = actor_id
+    je.version += 1
+    # DB trigger (layer 3) fires here when SQLAlchemy flushes
+    await db.flush()
+
+    await emit(
+        db,
+        action="journal.approve",
+        entity_type="journal_entry",
+        entity_id=journal_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before=before,
+        after={"status": "posted", "number": number},
+    )
+    log.info("journal_approved", number=number, tenant_id=tenant_id)
     return je
 
 

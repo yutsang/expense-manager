@@ -23,10 +23,13 @@ from app.services.journals import (
     FutureDateError,
     InvalidAccountError,
     JournalNotFoundError,
+    SelfApprovalError,
+    approve_journal,
     create_draft,
     get_journal,
     list_journals,
     post_journal,
+    submit_journal,
     void_journal,
 )
 from app.services.periods import PeriodNotFoundError, PeriodPostingError
@@ -184,6 +187,76 @@ async def post_journal_endpoint(
     except JournalNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except (JournalStatusError, JournalBalanceError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    except PeriodPostingError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    lines = await _load_lines(db, je.id)
+    return _journal_response(je, lines)
+
+
+@router.post(
+    "/{journal_id}/submit",
+    response_model=JournalResponse,
+    responses={422: {"model": ProblemDetail}},
+)
+async def submit_journal_endpoint(
+    journal_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> JournalResponse:
+    if not actor_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Actor-ID required")
+    try:
+        je = await submit_journal(
+            db,
+            journal_id=journal_id,
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+        )
+        await db.commit()
+    except JournalNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except JournalStatusError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
+    lines = await _load_lines(db, je.id)
+    return _journal_response(je, lines)
+
+
+@router.post(
+    "/{journal_id}/approve",
+    response_model=JournalResponse,
+    responses={403: {"model": ProblemDetail}, 422: {"model": ProblemDetail}},
+)
+async def approve_journal_endpoint(
+    journal_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+    admin_override: bool = Query(default=False),
+) -> JournalResponse:
+    if not actor_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Actor-ID required")
+    try:
+        je = await approve_journal(
+            db,
+            journal_id=journal_id,
+            tenant_id=tenant_id,
+            actor_id=actor_id,
+            admin_override=admin_override,
+        )
+        await db.commit()
+    except JournalNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except SelfApprovalError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except JournalStatusError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
