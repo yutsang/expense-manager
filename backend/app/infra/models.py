@@ -68,6 +68,10 @@ class Tenant(Base):
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
+    setup_completed_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+
     __table_args__ = (
         CheckConstraint(
             "status IN ('trial','active','suspended','closed')", name="ck_tenants_status"
@@ -720,6 +724,13 @@ class Invoice(Base):
         TIMESTAMP(timezone=True), nullable=True
     )
     reminder_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Customer portal (Issue #36)
+    share_token: Mapped[str | None] = mapped_column(String(256), nullable=True, unique=True)
+    viewed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
+    acknowledged_by_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
     )
@@ -1638,4 +1649,70 @@ class Attachment(Base):
     uploaded_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+
+
+# ---------------------------------------------------------------------------
+# Issue #42 — Accruals and Prepayments
+# ---------------------------------------------------------------------------
+
+
+class Accrual(Base):
+    """Accrual or prepayment with automatic reversal in the next period."""
+
+    __tablename__ = "accruals"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    accrual_type: Mapped[str] = mapped_column(String(16), nullable=False)  # accrual | prepayment
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
+    debit_account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    credit_account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    period_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("periods.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    journal_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("journal_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reversal_journal_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("journal_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="posted"
+    )  # posted | reversed
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint(
+            "accrual_type IN ('accrual','prepayment')", name="ck_accruals_type"
+        ),
+        CheckConstraint(
+            "status IN ('posted','reversed')", name="ck_accruals_status"
+        ),
+        CheckConstraint("amount > 0", name="ck_accruals_positive"),
     )

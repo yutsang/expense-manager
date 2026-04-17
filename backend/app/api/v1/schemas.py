@@ -1520,3 +1520,172 @@ class BulkActionResponse(BaseModel):
 
     succeeded: list[str]
     failed: list[BulkActionFailure]
+
+
+# ── Onboarding (Issue #34) ──────────────────────────────────────────────────
+
+
+class OnboardingSetup(BaseModel):
+    """Request body for tenant onboarding wizard."""
+
+    company_name: str = Field(..., min_length=1, max_length=255)
+    legal_name: str = Field(..., min_length=1, max_length=255)
+    country: str = Field(default="US", min_length=2, max_length=10)
+    functional_currency: str = Field(default="USD", min_length=3, max_length=3)
+    fiscal_year_start_month: int = Field(default=1, ge=1, le=12)
+    coa_template: str = Field(
+        ..., pattern="^(general|professional_services|retail)$"
+    )
+    bank_account_name: str = Field(..., min_length=1, max_length=255)
+    bank_name: str | None = Field(default=None, max_length=255)
+    bank_account_number: str | None = Field(default=None, max_length=100)
+    bank_currency: str = Field(default="USD", min_length=3, max_length=3)
+    first_contact_name: str | None = Field(default=None, max_length=255)
+    first_contact_email: str | None = Field(default=None, max_length=254)
+    first_contact_type: str | None = Field(
+        default=None, pattern="^(customer|supplier|both)$"
+    )
+
+
+class OnboardingResponse(BaseModel):
+    """Response from onboarding setup."""
+
+    tenant_id: str
+    setup_completed_at: str
+    accounts_created: int
+    periods_created: int
+    bank_account_id: str | None
+    first_contact_id: str | None
+
+
+# ── Invoice Portal (Issue #36) ──────────────────────────────────────────────
+
+
+class ShareLinkResponse(BaseModel):
+    """Response from generating a share link for an invoice."""
+
+    share_token: str
+    public_url: str
+    expires_at: str
+
+
+class PublicInvoiceLineResponse(BaseModel):
+    """Line item in public invoice view."""
+
+    description: str | None
+    quantity: str
+    unit_price: str
+    line_amount: str
+    tax_amount: str
+
+
+class PublicInvoiceResponse(BaseModel):
+    """Public-facing invoice view (no internal IDs exposed)."""
+
+    invoice_number: str
+    status: str
+    contact_name: str
+    issue_date: str
+    due_date: str | None
+    currency: str
+    subtotal: str
+    tax_total: str
+    total: str
+    notes: str | None
+    lines: list[PublicInvoiceLineResponse] = Field(default_factory=list)
+    company_name: str
+    acknowledged_at: str | None = None
+
+
+class InvoiceAcknowledgeRequest(BaseModel):
+    """Request body for acknowledging an invoice."""
+
+    customer_name: str | None = Field(default=None, max_length=255)
+
+
+class InvoiceAcknowledgeResponse(BaseModel):
+    """Response from acknowledging an invoice."""
+
+    acknowledged_at: str
+    acknowledged_by_name: str | None
+
+
+# ── Global Search (Issue #39) ───────────────────────────────────────────────
+
+
+class SearchResultItem(BaseModel):
+    """A single search result."""
+
+    entity_type: str
+    entity_id: str
+    title: str
+    subtitle: str | None = None
+    url: str | None = None
+
+
+class SearchResponse(BaseModel):
+    """Response from global search."""
+
+    query: str
+    items: list[SearchResultItem]
+    total: int
+
+
+# ── Accruals / Prepayments (Issue #42) ──────────────────────────────────────
+
+
+class AccrualCreate(BaseModel):
+    """Request body for creating an accrual or prepayment."""
+
+    accrual_type: str = Field(..., pattern="^(accrual|prepayment)$")
+    description: str = Field(..., min_length=1, max_length=500)
+    amount: str = Field(..., description="Amount as decimal string")
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    debit_account_id: str
+    credit_account_id: str
+    period_id: str
+
+    @field_validator("amount")
+    @classmethod
+    def amount_must_be_positive(cls, v: str) -> str:
+        d = Decimal(v)
+        if d <= 0:
+            raise ValueError("amount must be positive")
+        return v
+
+    @model_validator(mode="after")
+    def accounts_must_differ(self) -> AccrualCreate:
+        if self.debit_account_id == self.credit_account_id:
+            raise ValueError("debit and credit accounts must differ")
+        return self
+
+
+class AccrualResponse(BaseModel):
+    """Response for an accrual/prepayment record."""
+
+    id: str
+    accrual_type: str
+    description: str
+    amount: str
+    currency: str
+    debit_account_id: str
+    credit_account_id: str
+    period_id: str
+    journal_entry_id: str | None
+    reversal_journal_entry_id: str | None
+    status: str
+    created_at: Any
+    updated_at: Any
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class AccrualListResponse(BaseModel):
+    """List of accruals."""
+
+    items: list[AccrualResponse]

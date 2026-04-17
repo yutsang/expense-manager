@@ -77,6 +77,7 @@ async def request_context_middleware(request: Request, call_next: object) -> Res
 # ─── Routers ────────────────────────────────────────────────────────────────
 from app.api.v1 import (  # noqa: E402
     accounts,
+    accruals,
     ai,
     attachments,
     audit,
@@ -86,10 +87,12 @@ from app.api.v1 import (  # noqa: E402
     contacts,
     expense_claims,
     fx,
+    invoice_portal,
     invoices,
     items,
     journals,
     kyc,
+    onboarding,
     payments,
     periods,
     purchase_orders,
@@ -97,6 +100,7 @@ from app.api.v1 import (  # noqa: E402
     reports,
     sales_documents,
     sanctions,
+    search,
     sync,
 )
 
@@ -123,6 +127,11 @@ app.include_router(receipts.router, prefix=_API_PREFIX)
 app.include_router(sales_documents.router, prefix=_API_PREFIX)
 app.include_router(purchase_orders.router, prefix=_API_PREFIX)
 app.include_router(attachments.router, prefix=_API_PREFIX)
+app.include_router(onboarding.router, prefix=_API_PREFIX)
+app.include_router(invoice_portal.router, prefix=_API_PREFIX)
+app.include_router(invoice_portal.public_router, prefix=_API_PREFIX)
+app.include_router(search.router, prefix=_API_PREFIX)
+app.include_router(accruals.router, prefix=_API_PREFIX)
 
 
 @app.get("/health", tags=["meta"], summary="Health check")
