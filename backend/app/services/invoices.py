@@ -430,6 +430,162 @@ async def approve_invoice(
     return inv
 
 
+async def create_credit_note(
+    db: AsyncSession,
+    tenant_id: str,
+    inv: Invoice,
+    lines: list[InvoiceLine],
+    actor_id: str | None,
+) -> tuple[Invoice, JournalEntry]:
+    """Create a credit note that reverses an authorised invoice.
+
+    Returns (credit_note_invoice, reversing_journal_entry).
+    The credit note is a new Invoice row with status 'credit_note',
+    negated amounts, and a reference back to the original invoice.
+    The reversing JE credits AR and debits revenue accounts.
+    """
+    now = datetime.now(tz=UTC)
+
+    total = Decimal(str(inv.total))
+    subtotal = Decimal(str(inv.subtotal))
+    tax_total = Decimal(str(inv.tax_total))
+    fx = Decimal(str(inv.fx_rate))
+    func_total = (total * fx).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+
+    cn_number = f"CN-{inv.number}"
+
+    # Create the credit note Invoice record with negated amounts
+    cn = Invoice(
+        tenant_id=tenant_id,
+        number=cn_number,
+        status="credit_note",
+        contact_id=inv.contact_id,
+        issue_date=now.strftime("%Y-%m-%d"),
+        due_date=inv.due_date,
+        period_name=inv.period_name or now.strftime("%Y-%m"),
+        reference=f"Credit note for {inv.number}",
+        currency=inv.currency,
+        fx_rate=fx,
+        subtotal=-subtotal,
+        tax_total=-tax_total,
+        total=-total,
+        amount_due=-total,
+        functional_total=-func_total,
+        credit_note_for_id=inv.id,
+        notes=f"Reversing invoice {inv.number}",
+        created_by=actor_id,
+        updated_by=actor_id,
+    )
+    db.add(cn)
+    await db.flush()
+
+    # Create negated invoice lines on the credit note
+    for il in lines:
+        la = Decimal(str(il.line_amount))
+        ta = Decimal(str(il.tax_amount))
+        cn_line = InvoiceLine(
+            tenant_id=tenant_id,
+            invoice_id=cn.id,
+            line_no=il.line_no,
+            item_id=il.item_id,
+            account_id=il.account_id,
+            tax_code_id=il.tax_code_id,
+            description=il.description,
+            quantity=il.quantity,
+            unit_price=il.unit_price,
+            discount_pct=il.discount_pct,
+            line_amount=-la,
+            tax_amount=-ta,
+        )
+        db.add(cn_line)
+
+    # Post the reversing journal entry
+    ar_account = await db.scalar(
+        select(Account).where(
+            Account.tenant_id == tenant_id,
+            Account.code == "1100",
+        )
+    )
+
+    je_lines: list[JournalLine] = []
+    line_no = 1
+
+    ar_id = ar_account.id if ar_account else None
+
+    # Credit AR (reverse the original debit)
+    if ar_id:
+        je_lines.append(
+            JournalLine(
+                tenant_id=tenant_id,
+                line_no=line_no,
+                account_id=ar_id,
+                contact_id=inv.contact_id,
+                description=f"Credit note {cn_number}",
+                debit=Decimal("0"),
+                credit=total,
+                currency=inv.currency,
+                fx_rate=fx,
+                functional_debit=Decimal("0"),
+                functional_credit=func_total,
+            )
+        )
+        line_no += 1
+
+    # Debit revenue accounts (reverse the original credits)
+    for il in lines:
+        la = Decimal(str(il.line_amount))
+        func_la = (la * fx).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+        je_lines.append(
+            JournalLine(
+                tenant_id=tenant_id,
+                line_no=line_no,
+                account_id=il.account_id,
+                contact_id=inv.contact_id,
+                description=il.description or f"Credit note {cn_number} line {il.line_no}",
+                debit=la,
+                credit=Decimal("0"),
+                currency=inv.currency,
+                fx_rate=fx,
+                functional_debit=func_la,
+                functional_credit=Decimal("0"),
+            )
+        )
+        line_no += 1
+
+    je = JournalEntry(
+        tenant_id=tenant_id,
+        number=f"JE-CN-{inv.number}",
+        status="posted",
+        description=f"Reversing journal for credit note {cn_number}",
+        transaction_date=now.strftime("%Y-%m-%d"),
+        period_name=inv.period_name or now.strftime("%Y-%m"),
+        currency=inv.currency,
+        source_type="credit_note",
+        source_id=cn.id,
+        posted_at=now,
+        posted_by=actor_id,
+        created_by=actor_id,
+        updated_by=actor_id,
+    )
+    db.add(je)
+    await db.flush()
+
+    for jl in je_lines:
+        jl.journal_entry_id = je.id
+        db.add(jl)
+
+    cn.journal_entry_id = je.id
+    await db.flush()
+
+    log.info(
+        "credit_note.created",
+        tenant_id=tenant_id,
+        credit_note_id=cn.id,
+        original_invoice_id=inv.id,
+    )
+    return cn, je
+
+
 async def void_invoice(
     db: AsyncSession, tenant_id: str, invoice_id: str, actor_id: str | None
 ) -> Invoice:
@@ -438,6 +594,12 @@ async def void_invoice(
         raise InvoiceTransitionError("Invoice is already void")
     if inv.status == "paid":
         raise InvoiceTransitionError("Cannot void a fully paid invoice — issue a credit note")
+
+    # For invoices that have a posted JE (authorised/sent/partial),
+    # create a credit note with a reversing journal entry
+    if inv.journal_entry_id is not None:
+        lines = await get_invoice_lines(db, invoice_id)
+        await create_credit_note(db, tenant_id, inv, lines, actor_id)
 
     inv.status = "void"
     inv.voided_at = datetime.now(tz=UTC)

@@ -592,6 +592,7 @@ class InvoiceResponse(BaseModel):
     amount_due: str
     functional_total: str
     journal_entry_id: str | None
+    credit_note_for_id: str | None = None
     notes: str | None
     last_reminder_sent_at: datetime | None
     reminder_count: int

@@ -24,6 +24,7 @@ from app.services.invoices import (
     InvoiceTransitionError,
     approve_invoice,
     authorise_invoice,
+    create_credit_note,  # noqa: F401 — re-exported; void_invoice calls it internally
     create_invoice,
     get_invoice,
     get_invoice_lines,

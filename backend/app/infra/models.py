@@ -640,6 +640,10 @@ class Invoice(Base):
     journal_entry_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("journal_entries.id", ondelete="SET NULL"), nullable=True
     )
+    # Links a credit note to the original invoice it reverses
+    credit_note_for_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False), ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
