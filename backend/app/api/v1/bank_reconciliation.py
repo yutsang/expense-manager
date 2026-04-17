@@ -13,22 +13,28 @@ from app.api.v1.schemas import (
     BankReconciliationResponse,
     BankTransactionCreate,
     BankTransactionResponse,
+    BankTransactionUpdate,
     MatchTransactionRequest,
+    UnreconcileRequest,
 )
 from app.services.bank_import import import_csv
 from app.services.bank_reconciliation import (
     BankAccountNotFoundError,
     BankTransactionNotFoundError,
     DuplicateReconciliationError,
+    ReconciledTransactionError,
     create_bank_account,
     create_bank_transaction,
     create_reconciliation,
+    delete_bank_transaction,
     get_bank_account,
     list_bank_accounts,
     list_bank_transactions,
     list_reconciliations,
     match_transaction,
     unmatch_transaction,
+    unreconcile_transaction,
+    update_bank_transaction,
 )
 
 router = APIRouter(tags=["bank-reconciliation"])
@@ -110,6 +116,75 @@ async def create_transaction(
     await db.commit()
     await db.refresh(txn)
     return BankTransactionResponse.model_validate(txn)
+
+
+@router.patch("/bank-transactions/{transaction_id}", response_model=BankTransactionResponse)
+async def update_transaction(
+    transaction_id: str,
+    body: BankTransactionUpdate,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+):
+    try:
+        data = body.model_dump(exclude_unset=True)
+        txn = await update_bank_transaction(db, tenant_id, actor_id, transaction_id, data)
+        await db.commit()
+        await db.refresh(txn)
+        return BankTransactionResponse.model_validate(txn)
+    except BankTransactionNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bank transaction not found")
+    except ReconciledTransactionError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="Transaction has been reconciled and cannot be modified",
+        )
+
+
+@router.delete("/bank-transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_transaction(
+    transaction_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+):
+    try:
+        await delete_bank_transaction(db, tenant_id, actor_id, transaction_id)
+        await db.commit()
+    except BankTransactionNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bank transaction not found")
+    except ReconciledTransactionError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="Transaction has been reconciled and cannot be modified",
+        )
+
+
+@router.post(
+    "/bank-transactions/{transaction_id}/unreconcile",
+    response_model=BankTransactionResponse,
+)
+async def unreconcile(
+    transaction_id: str,
+    body: UnreconcileRequest,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+):
+    try:
+        txn = await unreconcile_transaction(
+            db, tenant_id, actor_id, transaction_id, reason=body.reason
+        )
+        await db.commit()
+        await db.refresh(txn)
+        return BankTransactionResponse.model_validate(txn)
+    except BankTransactionNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bank transaction not found")
+    except ReconciledTransactionError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="Transaction is not reconciled",
+        )
 
 
 @router.post("/bank-transactions/{transaction_id}/match", response_model=BankTransactionResponse)

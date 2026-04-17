@@ -1013,6 +1013,29 @@ class MatchTransactionRequest(BaseModel):
     journal_line_id: str
 
 
+class BankTransactionUpdate(BaseModel):
+    transaction_date: date | None = None
+    description: str | None = Field(default=None, max_length=500)
+    reference: str | None = Field(default=None, max_length=200)
+    amount: str | None = Field(
+        default=None, description="Positive = money in, negative = money out"
+    )
+
+    @field_validator("amount")
+    @classmethod
+    def amount_must_be_decimal(cls, v: str | None) -> str | None:
+        if v is not None:
+            try:
+                Decimal(v)
+            except Exception:
+                raise ValueError("amount must be a valid decimal string")
+        return v
+
+
+class UnreconcileRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
 # ── Bank Reconciliations ──────────────────────────────────────────────────────
 
 

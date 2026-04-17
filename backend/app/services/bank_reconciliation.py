@@ -34,6 +34,12 @@ class DuplicateReconciliationError(ValueError):
     pass
 
 
+class ReconciledTransactionError(ValueError):
+    """Raised when attempting to modify or delete a reconciled bank transaction."""
+
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Bank Accounts
 # ---------------------------------------------------------------------------
@@ -204,6 +210,85 @@ async def unmatch_transaction(
     await db.flush()
     await db.refresh(txn)
     log.info("bank_transaction.unmatched", tenant_id=tenant_id, transaction_id=transaction_id)
+    return txn
+
+
+def _assert_not_reconciled(txn: BankTransaction) -> None:
+    """Raise if the bank transaction is reconciled (immutability guard)."""
+    if txn.is_reconciled:
+        raise ReconciledTransactionError(
+            f"Bank transaction {txn.id} is reconciled and cannot be modified"
+        )
+
+
+async def update_bank_transaction(
+    db: AsyncSession,
+    tenant_id: str,
+    actor_id: str | None,
+    transaction_id: str,
+    data: dict,
+) -> BankTransaction:
+    """Update a bank transaction. Raises if it is reconciled."""
+    txn = await _get_transaction(db, tenant_id, transaction_id)
+    _assert_not_reconciled(txn)
+
+    for field in ("description", "reference"):
+        if field in data:
+            setattr(txn, field, data[field])
+    if "amount" in data:
+        txn.amount = Decimal(str(data["amount"]))
+    if "transaction_date" in data:
+        txn.transaction_date = data["transaction_date"]
+
+    txn.updated_by = actor_id
+    txn.version += 1
+    await db.flush()
+    await db.refresh(txn)
+    log.info("bank_transaction.updated", tenant_id=tenant_id, transaction_id=transaction_id)
+    return txn
+
+
+async def delete_bank_transaction(
+    db: AsyncSession,
+    tenant_id: str,
+    actor_id: str | None,
+    transaction_id: str,
+) -> None:
+    """Delete a bank transaction. Raises if it is reconciled."""
+    txn = await _get_transaction(db, tenant_id, transaction_id)
+    _assert_not_reconciled(txn)
+
+    await db.delete(txn)
+    await db.flush()
+    log.info("bank_transaction.deleted", tenant_id=tenant_id, transaction_id=transaction_id)
+
+
+async def unreconcile_transaction(
+    db: AsyncSession,
+    tenant_id: str,
+    actor_id: str | None,
+    transaction_id: str,
+    *,
+    reason: str,
+) -> BankTransaction:
+    """Explicitly un-reconcile a bank transaction. Requires a reason for audit."""
+    txn = await _get_transaction(db, tenant_id, transaction_id)
+    if not txn.is_reconciled:
+        raise ReconciledTransactionError(f"Bank transaction {txn.id} is not reconciled")
+
+    txn.journal_line_id = None
+    txn.is_reconciled = False
+    txn.reconciled_at = None
+    txn.updated_by = actor_id
+    txn.version += 1
+    await db.flush()
+    await db.refresh(txn)
+    log.info(
+        "bank_transaction.unreconciled",
+        tenant_id=tenant_id,
+        transaction_id=transaction_id,
+        reason=reason,
+    )
     return txn
 
 
