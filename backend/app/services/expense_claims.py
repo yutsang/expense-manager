@@ -40,6 +40,10 @@ class SelfApprovalError(ValueError):
     pass
 
 
+class DuplicateReceiptError(ValueError):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
@@ -70,6 +74,43 @@ async def create_expense_claim(
 ) -> ExpenseClaim:
     """Create a draft expense claim with computed totals."""
     lines_data: list[dict] = data.get("lines", [])
+
+    # ── Duplicate receipt URL detection ──────────────────────────────────
+    receipt_urls = [
+        line.get("receipt_url")
+        for line in lines_data
+        if line.get("receipt_url")  # skip None and empty string
+    ]
+
+    # Intra-claim: no two lines may share the same receipt_url
+    seen: set[str] = set()
+    for url in receipt_urls:
+        if url in seen:
+            raise DuplicateReceiptError(f"Duplicate receipt URL within this claim: {url}")
+        seen.add(url)
+
+    # Cross-claim: receipt_url must not exist on any non-rejected claim in this tenant
+    if receipt_urls:
+        cross_q = (
+            select(
+                ExpenseClaimLine.claim_id,
+                ExpenseClaim.number,
+                ExpenseClaimLine.receipt_url,
+            )
+            .join(ExpenseClaim, ExpenseClaimLine.claim_id == ExpenseClaim.id)
+            .where(
+                ExpenseClaimLine.tenant_id == tenant_id,
+                ExpenseClaimLine.receipt_url.in_(receipt_urls),
+                ExpenseClaim.status != "rejected",
+            )
+        )
+        cross_result = await db.execute(cross_q)
+        existing = cross_result.first()
+        if existing:
+            raise DuplicateReceiptError(
+                f"Receipt URL '{existing.receipt_url}' is already attached to "
+                f"expense claim {existing.number} (id={existing.claim_id})"
+            )
 
     total_amount = Decimal("0")
     tax_total = Decimal("0")

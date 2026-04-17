@@ -13,6 +13,7 @@ from app.api.v1.schemas import (
     ExpenseClaimResponse,
 )
 from app.services.expense_claims import (
+    DuplicateReceiptError,
     ExpenseClaimNotFoundError,
     ExpenseClaimTransitionError,
     SelfApprovalError,
@@ -57,7 +58,10 @@ async def create(body: ExpenseClaimCreate, db: DbSession, tenant_id: TenantId, a
     data["claim_date"] = (
         str(body.claim_date) if isinstance(body.claim_date, date) else body.claim_date
     )
-    claim = await create_expense_claim(db, tenant_id, actor_id, data)
+    try:
+        claim = await create_expense_claim(db, tenant_id, actor_id, data)
+    except DuplicateReceiptError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     await db.commit()
     await db.refresh(claim)
     return await _claim_response(db, claim)
