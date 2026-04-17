@@ -12,7 +12,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_EVEN, Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -296,16 +296,14 @@ async def authorise_invoice(
 
     lines = await get_invoice_lines(db, invoice_id)
 
-    # Generate sequential invoice number
-    count_result = await db.execute(
-        select(func.count())
-        .select_from(Invoice)
-        .where(
-            Invoice.tenant_id == tenant_id,
-            Invoice.status != "draft",
-        )
+    # Generate sequential invoice number — atomic increment to avoid race conditions
+    seq_result = await db.execute(
+        update(Tenant)
+        .where(Tenant.id == tenant_id)
+        .values(invoice_number_seq=Tenant.invoice_number_seq + 1)
+        .returning(Tenant.invoice_number_seq)
     )
-    seq = (count_result.scalar() or 0) + 1
+    seq = seq_result.scalar_one()
     inv.number = f"INV-{seq:05d}"
 
     # Check threshold: does this invoice require second-user approval?

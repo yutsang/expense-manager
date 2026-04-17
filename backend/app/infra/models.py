@@ -57,6 +57,7 @@ class Tenant(Base):
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="UTC")
     region: Mapped[str] = mapped_column(String(16), nullable=False, default="us")
     invoice_approval_threshold: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
+    invoice_number_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="trial")
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
