@@ -419,20 +419,30 @@ async def _build_aging_response(
     as_of: date,
     table: str,
     open_statuses: tuple[str, ...],
+    limit: int = 50,
+    cursor: str | None = None,
 ) -> AgingResponse:
     # table and open_statuses are internal constants — not user input
     placeholders = ", ".join(f"'{s}'" for s in open_statuses)
-    sql_str = (
-        "SELECT t.id AS doc_id, t.number AS invoice_number, t.issue_date, t.due_date,"
-        " t.total, t.amount_due, t.contact_id, c.name AS contact_name"
-        f" FROM {table} t JOIN contacts c ON c.id = t.contact_id"  # nosec B608
-        f" WHERE t.status IN ({placeholders}) AND t.amount_due > 0"  # nosec B608
-        " ORDER BY t.due_date ASC NULLS LAST, t.issue_date ASC"
-    )
-    rows = await db.execute(text(sql_str))
-    result = rows.fetchall()
 
-    aging_rows: list[AgingRowResponse] = []
+    # 1) Bucket totals via SQL — always reflects the full dataset
+    bucket_sql = (
+        "SELECT"
+        " CASE"
+        "   WHEN t.due_date IS NULL OR :as_of <= t.due_date THEN 'current'"
+        "   WHEN (:as_of - t.due_date) <= 30 THEN '1-30'"
+        "   WHEN (:as_of - t.due_date) <= 60 THEN '31-60'"
+        "   WHEN (:as_of - t.due_date) <= 90 THEN '61-90'"
+        "   ELSE '90+'"
+        " END AS bucket,"
+        " COALESCE(SUM(t.amount_due), 0) AS bucket_total"
+        f" FROM {table} t"  # nosec B608
+        f" WHERE t.status IN ({placeholders}) AND t.amount_due > 0"  # nosec B608
+        " GROUP BY bucket"
+    )
+    bucket_rows = await db.execute(text(bucket_sql), {"as_of": as_of})
+    bucket_result = bucket_rows.fetchall()
+
     bucket_totals: dict[str, Decimal] = {
         "current": Decimal("0"),
         "1-30": Decimal("0"),
@@ -440,8 +450,35 @@ async def _build_aging_response(
         "61-90": Decimal("0"),
         "90+": Decimal("0"),
     }
-    grand_total = Decimal("0")
+    for brow in bucket_result:
+        bucket_totals[brow.bucket] = Decimal(str(brow.bucket_total))
+    grand_total = sum(bucket_totals.values())
 
+    # 2) Paginated detail rows
+    detail_sql = (
+        "SELECT t.id AS doc_id, t.number AS invoice_number, t.issue_date, t.due_date,"
+        " t.total, t.amount_due, t.contact_id, c.name AS contact_name"
+        f" FROM {table} t JOIN contacts c ON c.id = t.contact_id"  # nosec B608
+        f" WHERE t.status IN ({placeholders}) AND t.amount_due > 0"  # nosec B608
+    )
+    params: dict[str, object] = {"as_of": as_of}
+    if cursor is not None:
+        detail_sql += " AND t.id > :cursor"
+        params["cursor"] = cursor
+    detail_sql += (
+        " ORDER BY t.due_date ASC NULLS LAST, t.issue_date ASC, t.id ASC"
+        f" LIMIT {limit + 1}"
+    )
+    rows = await db.execute(text(detail_sql), params)
+    result = list(rows.fetchall())
+
+    # Detect next page
+    next_cursor: str | None = None
+    if len(result) > limit:
+        next_cursor = str(result[limit - 1].doc_id)
+        result = result[:limit]
+
+    aging_rows: list[AgingRowResponse] = []
     for row in result:
         amount_due = Decimal(str(row.amount_due))
         total = Decimal(str(row.total))
@@ -464,9 +501,6 @@ async def _build_aging_response(
             days_overdue = 0
 
         bucket = _aging_bucket(days_overdue)
-        bucket_totals[bucket] += amount_due
-        grand_total += amount_due
-
         issue = _to_date(row.issue_date)
         aging_rows.append(
             AgingRowResponse(
@@ -492,6 +526,7 @@ async def _build_aging_response(
         grand_total=f"{grand_total:.2f}",
         rows=aging_rows,
         generated_at=datetime.now(tz=UTC),
+        next_cursor=next_cursor,
     )
 
 
@@ -500,8 +535,12 @@ async def ar_aging_endpoint(
     db: DbSession,
     tenant_id: TenantId,
     as_of: date = Query(..., description="AR aging as of this date"),
+    limit: int = Query(default=50, le=200),
+    cursor: str | None = Query(default=None),
 ) -> AgingResponse:
-    return await _build_aging_response(db, as_of, "invoices", ("authorised", "sent", "partial"))
+    return await _build_aging_response(
+        db, as_of, "invoices", ("authorised", "sent", "partial"), limit=limit, cursor=cursor
+    )
 
 
 @router.get("/ap-aging", response_model=AgingResponse)
@@ -509,8 +548,12 @@ async def ap_aging_endpoint(
     db: DbSession,
     tenant_id: TenantId,
     as_of: date = Query(..., description="AP aging as of this date"),
+    limit: int = Query(default=50, le=200),
+    cursor: str | None = Query(default=None),
 ) -> AgingResponse:
-    return await _build_aging_response(db, as_of, "bills", ("approved", "partial"))
+    return await _build_aging_response(
+        db, as_of, "bills", ("approved", "partial"), limit=limit, cursor=cursor
+    )
 
 
 async def _account_balance_at(db: DbSession, account_type: str, as_of: date) -> Decimal:

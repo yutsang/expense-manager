@@ -904,6 +904,7 @@ class AgingResponse(BaseModel):
     grand_total: str
     rows: list[AgingRowResponse]
     generated_at: datetime
+    next_cursor: str | None = None
 
 
 # ── Cash Flow ─────────────────────────────────────────────────────────────────
