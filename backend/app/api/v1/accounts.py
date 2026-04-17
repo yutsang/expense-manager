@@ -221,6 +221,7 @@ async def create_account_endpoint(
             subtype=body.subtype,
             normal_balance=body.normal_balance,
             parent_id=body.parent_id,
+            is_control_account=body.is_control_account,
             currency=body.currency,
             description=body.description,
             actor_id=actor_id,

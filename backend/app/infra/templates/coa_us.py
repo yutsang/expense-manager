@@ -35,6 +35,7 @@ COA_TEMPLATE: list[dict] = [
         "subtype": "current_asset",
         "normal_balance": "debit",
         "is_system": True,
+        "is_control_account": True,
     },
     {
         "code": "1110",
@@ -112,6 +113,7 @@ COA_TEMPLATE: list[dict] = [
         "subtype": "current_liability",
         "normal_balance": "credit",
         "is_system": True,
+        "is_control_account": True,
     },
     {
         "code": "2100",
@@ -142,6 +144,7 @@ COA_TEMPLATE: list[dict] = [
         "type": "liability",
         "subtype": "current_liability",
         "normal_balance": "credit",
+        "is_control_account": True,
     },
     {
         "code": "2300",

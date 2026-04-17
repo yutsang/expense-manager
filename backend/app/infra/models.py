@@ -255,6 +255,7 @@ class Account(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_control_account: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

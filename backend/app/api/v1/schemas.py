@@ -53,6 +53,7 @@ class AccountCreate(BaseModel):
     subtype: str = Field(default="other", max_length=50)
     normal_balance: str = Field(..., pattern="^(debit|credit)$")
     parent_id: str | None = None
+    is_control_account: bool = False
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     description: str | None = None
 
@@ -72,6 +73,7 @@ class AccountResponse(BaseModel):
     parent_id: str | None
     is_active: bool
     is_system: bool
+    is_control_account: bool
     currency: str | None
     description: str | None
     created_at: datetime

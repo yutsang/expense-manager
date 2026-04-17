@@ -42,6 +42,7 @@ async def create_account(
     normal_balance: str,
     parent_id: str | None = None,
     is_system: bool = False,
+    is_control_account: bool = False,
     currency: str | None = None,
     description: str | None = None,
     actor_id: str | None = None,
@@ -71,6 +72,7 @@ async def create_account(
         normal_balance=normal_balance,
         parent_id=parent_id,
         is_system=is_system,
+        is_control_account=is_control_account,
         currency=currency,
         description=description,
         created_at=datetime.now(tz=UTC),
@@ -212,6 +214,7 @@ async def seed_coa_from_template(
                 subtype=entry.get("subtype", "other"),
                 normal_balance=entry["normal_balance"],
                 is_system=entry.get("is_system", False),
+                is_control_account=entry.get("is_control_account", False),
                 currency=entry.get("currency"),
                 description=entry.get("description"),
             )
@@ -232,6 +235,7 @@ async def seed_coa_from_template(
                 normal_balance=entry["normal_balance"],
                 parent_id=parent_id,
                 is_system=entry.get("is_system", False),
+                is_control_account=entry.get("is_control_account", False),
                 currency=entry.get("currency"),
                 description=entry.get("description"),
             )

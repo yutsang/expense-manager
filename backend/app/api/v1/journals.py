@@ -18,6 +18,7 @@ from app.api.v1.schemas import (
 from app.domain.ledger.journal import JournalBalanceError, JournalLineInput, JournalStatusError
 from app.infra.models import JournalLine
 from app.services.journals import (
+    ControlAccountError,
     JournalNotFoundError,
     create_draft,
     get_journal,
@@ -93,7 +94,7 @@ async def create_journal_endpoint(
             actor_id=actor_id,
         )
         await db.commit()
-    except JournalBalanceError as exc:
+    except (JournalBalanceError, ControlAccountError) as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc

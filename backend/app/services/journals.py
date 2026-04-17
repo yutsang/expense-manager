@@ -23,13 +23,17 @@ from app.domain.ledger.journal import (
     JournalStatusError,
     validate_balance,
 )
-from app.infra.models import JournalEntry, JournalLine
+from app.infra.models import Account, JournalEntry, JournalLine
 from app.services.periods import assert_can_post
 
 log = get_logger(__name__)
 
 
 class JournalNotFoundError(ValueError):
+    pass
+
+
+class ControlAccountError(ValueError):
     pass
 
 
@@ -52,6 +56,7 @@ async def create_draft(
     source_type: str = "manual",
     source_id: str | None = None,
     actor_id: str | None = None,
+    system_generated: bool = False,
 ) -> JournalEntry:
     """Create a draft journal entry. Does NOT post; lines are validated for structure."""
     if not lines:
@@ -61,6 +66,18 @@ async def create_draft(
     for ln in lines:
         if ln.debit < Decimal("0") or ln.credit < Decimal("0"):
             raise JournalBalanceError("Line amounts must be non-negative")
+
+    # Guard: reject manual entries that target control accounts (AC-3, Issue #18)
+    if not system_generated:
+        account_ids = list({ln.account_id for ln in lines})
+        result = await db.execute(select(Account).where(Account.id.in_(account_ids)))
+        accounts = result.scalars().all()
+        control_accounts = [a for a in accounts if a.is_control_account]
+        if control_accounts:
+            names = ", ".join(f"{a.code} ({a.name})" for a in control_accounts)
+            raise ControlAccountError(
+                f"Manual journal entries cannot target control accounts: {names}"
+            )
 
     now = datetime.now(tz=UTC)
     je_id = str(uuid.uuid4())
