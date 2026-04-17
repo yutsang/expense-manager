@@ -11,6 +11,9 @@ from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
+    BulkActionFailure,
+    BulkActionRequest,
+    BulkActionResponse,
     InvoiceCreate,
     InvoiceListResponse,
     InvoiceResponse,
@@ -112,6 +115,40 @@ async def list_all(
         lines = await get_invoice_lines(db, inv.id)
         result.append(InvoiceResponse.model_validate({**inv.__dict__, "lines": lines}))
     return InvoiceListResponse(items=result, next_cursor=next_cursor)
+
+
+@router.post("/bulk/authorise", response_model=BulkActionResponse)
+async def bulk_authorise(
+    body: BulkActionRequest, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+) -> BulkActionResponse:
+    """Authorise multiple draft invoices. Processes all items; does not fail-fast."""
+    succeeded: list[str] = []
+    failed: list[BulkActionFailure] = []
+    for inv_id in body.ids:
+        try:
+            await authorise_invoice(db, tenant_id, inv_id, actor_id)
+            succeeded.append(inv_id)
+        except Exception as exc:
+            failed.append(BulkActionFailure(id=inv_id, error=str(exc)))
+    await db.commit()
+    return BulkActionResponse(succeeded=succeeded, failed=failed)
+
+
+@router.post("/bulk/void", response_model=BulkActionResponse)
+async def bulk_void(
+    body: BulkActionRequest, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+) -> BulkActionResponse:
+    """Void multiple invoices. Processes all items; does not fail-fast."""
+    succeeded: list[str] = []
+    failed: list[BulkActionFailure] = []
+    for inv_id in body.ids:
+        try:
+            await void_invoice(db, tenant_id, inv_id, actor_id)
+            succeeded.append(inv_id)
+        except Exception as exc:
+            failed.append(BulkActionFailure(id=inv_id, error=str(exc)))
+    await db.commit()
+    return BulkActionResponse(succeeded=succeeded, failed=failed)
 
 
 @router.get("/{invoice_id}", response_model=InvoiceResponse)

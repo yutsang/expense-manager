@@ -11,6 +11,9 @@ from app.api.v1.schemas import (
     BillCreate,
     BillListResponse,
     BillResponse,
+    BulkActionFailure,
+    BulkActionRequest,
+    BulkActionResponse,
 )
 from app.services.bills import (
     ArchivedContactError,
@@ -102,6 +105,40 @@ async def list_all(
         lines = await get_bill_lines(db, bill.id)
         result.append(BillResponse.model_validate({**bill.__dict__, "lines": lines}))
     return BillListResponse(items=result, next_cursor=next_cursor)
+
+
+@router.post("/bulk/approve", response_model=BulkActionResponse)
+async def bulk_approve(
+    body: BulkActionRequest, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+) -> BulkActionResponse:
+    """Approve multiple bills. Processes all items; does not fail-fast."""
+    succeeded: list[str] = []
+    failed: list[BulkActionFailure] = []
+    for bill_id in body.ids:
+        try:
+            await approve_bill(db, tenant_id, bill_id, actor_id)
+            succeeded.append(bill_id)
+        except Exception as exc:
+            failed.append(BulkActionFailure(id=bill_id, error=str(exc)))
+    await db.commit()
+    return BulkActionResponse(succeeded=succeeded, failed=failed)
+
+
+@router.post("/bulk/void", response_model=BulkActionResponse)
+async def bulk_void(
+    body: BulkActionRequest, db: DbSession, tenant_id: TenantId, actor_id: ActorId
+) -> BulkActionResponse:
+    """Void multiple bills. Processes all items; does not fail-fast."""
+    succeeded: list[str] = []
+    failed: list[BulkActionFailure] = []
+    for bill_id in body.ids:
+        try:
+            await void_bill(db, tenant_id, bill_id, actor_id)
+            succeeded.append(bill_id)
+        except Exception as exc:
+            failed.append(BulkActionFailure(id=bill_id, error=str(exc)))
+    await db.commit()
+    return BulkActionResponse(succeeded=succeeded, failed=failed)
 
 
 @router.get("/{bill_id}", response_model=BillResponse)

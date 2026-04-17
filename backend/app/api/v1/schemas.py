@@ -1469,3 +1469,26 @@ class ReceiptResponse(BaseModel):
     @classmethod
     def decimal_to_str_or_none(cls, v: Any) -> str | None:
         return str(v) if v is not None else None
+
+
+# ── Bulk Actions ─────────────────────────────────────────────────────────────
+
+
+class BulkActionRequest(BaseModel):
+    """Request body for bulk approve / void operations."""
+
+    ids: list[str] = Field(..., min_length=1)
+
+
+class BulkActionFailure(BaseModel):
+    """One failed item in a bulk operation."""
+
+    id: str
+    error: str
+
+
+class BulkActionResponse(BaseModel):
+    """Response for bulk operations: lists of succeeded IDs and failed items."""
+
+    succeeded: list[str]
+    failed: list[BulkActionFailure]
