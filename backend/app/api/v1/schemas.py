@@ -105,6 +105,20 @@ class PeriodResponse(BaseModel):
 class PeriodTransitionRequest(BaseModel):
     target_status: str = Field(..., pattern="^(open|soft_closed|hard_closed|audited)$")
     reason: str | None = None
+    force: bool = False
+
+
+class PeriodTransitionWarningResponse(BaseModel):
+    status: str  # always "warning"
+    period_id: str
+    period_name: str
+    open_invoices: int
+    open_invoices_total: str  # Decimal string
+    open_invoices_currency: str
+    open_bills: int
+    open_bills_total: str  # Decimal string
+    open_bills_currency: str
+    message: str
 
 
 class PeriodListResponse(BaseModel):

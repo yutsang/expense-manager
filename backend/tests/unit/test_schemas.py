@@ -11,6 +11,8 @@ from app.api.v1.schemas import (
     JournalCreate,
     JournalLineCreate,
     JournalVoidRequest,
+    PeriodTransitionRequest,
+    PeriodTransitionWarningResponse,
 )
 
 
@@ -169,6 +171,43 @@ class TestFxRateUpsertForceField:
             force=True,
         )
         assert r.force is True
+
+
+class TestPeriodTransitionRequestForce:
+    def test_force_defaults_to_false(self) -> None:
+        r = PeriodTransitionRequest(target_status="soft_closed")
+        assert r.force is False
+
+    def test_force_can_be_set_to_true(self) -> None:
+        r = PeriodTransitionRequest(target_status="soft_closed", force=True)
+        assert r.force is True
+
+
+class TestPeriodTransitionWarningResponse:
+    def test_serializes_correctly(self) -> None:
+        w = PeriodTransitionWarningResponse(
+            status="warning",
+            period_id="p-1",
+            period_name="2025-01",
+            open_invoices=3,
+            open_invoices_total="1500.0000",
+            open_invoices_currency="USD",
+            open_bills=2,
+            open_bills_total="800.0000",
+            open_bills_currency="USD",
+            message="3 open invoices (USD 1500.0000) and 2 open bills (USD 800.0000)",
+        )
+        assert w.status == "warning"
+        assert w.period_id == "p-1"
+        assert w.period_name == "2025-01"
+        assert w.open_invoices == 3
+        assert w.open_invoices_total == "1500.0000"
+        assert w.open_invoices_currency == "USD"
+        assert w.open_bills == 2
+        assert w.open_bills_total == "800.0000"
+        assert w.open_bills_currency == "USD"
+        assert "3 open invoices" in w.message
+        assert "2 open bills" in w.message
 
 
 class TestJournalVoidRequest:

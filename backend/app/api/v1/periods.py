@@ -8,7 +8,12 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
-from app.api.v1.schemas import PeriodListResponse, PeriodResponse, PeriodTransitionRequest
+from app.api.v1.schemas import (
+    PeriodListResponse,
+    PeriodResponse,
+    PeriodTransitionRequest,
+    PeriodTransitionWarningResponse,
+)
 from app.domain.ledger.period import PeriodTransitionError
 from app.services.periods import (
     PeriodNotFoundError,
@@ -85,25 +90,31 @@ async def get_period_endpoint(
     return PeriodResponse.model_validate(period)
 
 
-@router.post("/{period_id}/transition", response_model=PeriodResponse)
+@router.post(
+    "/{period_id}/transition",
+    response_model=PeriodResponse | PeriodTransitionWarningResponse,
+)
 async def transition_period_endpoint(
     period_id: str,
     body: PeriodTransitionRequest,
     db: DbSession,
     tenant_id: TenantId,
     actor_id: ActorId,
-) -> PeriodResponse:
+) -> PeriodResponse | PeriodTransitionWarningResponse:
     if not actor_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Actor-ID required")
     try:
-        period = await transition_period(
+        result = await transition_period(
             db,
             period_id=period_id,
             tenant_id=tenant_id,
             target_status=body.target_status,
             actor_id=actor_id,
             reason=body.reason,
+            force=body.force,
         )
+        if isinstance(result, dict):
+            return PeriodTransitionWarningResponse(**result)
         await db.commit()
     except PeriodNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -111,4 +122,4 @@ async def transition_period_endpoint(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
-    return PeriodResponse.model_validate(period)
+    return PeriodResponse.model_validate(result)
