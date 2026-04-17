@@ -28,6 +28,7 @@ from app.services.items import (
 )
 from app.services.tax_codes import (
     TaxCodeConflictError,
+    TaxCodeInUseError,
     TaxCodeNotFoundError,
     create_tax_code,
     get_tax_code,
@@ -179,6 +180,8 @@ async def update_tax_code_endpoint(
         return tc
     except TaxCodeNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Tax code not found")
+    except TaxCodeInUseError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
 
 
 # Combine into one module router

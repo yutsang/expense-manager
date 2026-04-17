@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.infra.models import TaxCode
+from app.infra.models import Bill, BillLine, Invoice, InvoiceLine, TaxCode
 
 log = get_logger(__name__)
 
@@ -18,6 +18,10 @@ class TaxCodeNotFoundError(ValueError):
 
 
 class TaxCodeConflictError(ValueError):
+    pass
+
+
+class TaxCodeInUseError(ValueError):
     pass
 
 
@@ -162,10 +166,64 @@ async def get_tax_code(db: AsyncSession, tenant_id: str, tax_code_id: str) -> Ta
     return tc
 
 
+_CLOSED_INVOICE_STATUSES = {"paid", "void"}
+_CLOSED_BILL_STATUSES = {"paid", "void"}
+
+
+async def _count_open_references(
+    db: AsyncSession, tenant_id: str, tax_code_id: str
+) -> tuple[int, int]:
+    """Return (open_invoice_count, open_bill_count) for a tax code."""
+    inv_count: int = (
+        await db.scalar(
+            select(func.count())
+            .select_from(InvoiceLine)
+            .join(Invoice, InvoiceLine.invoice_id == Invoice.id)
+            .where(
+                InvoiceLine.tenant_id == tenant_id,
+                InvoiceLine.tax_code_id == tax_code_id,
+                Invoice.status.notin_(_CLOSED_INVOICE_STATUSES),
+            )
+        )
+        or 0
+    )
+
+    bill_count: int = (
+        await db.scalar(
+            select(func.count())
+            .select_from(BillLine)
+            .join(Bill, BillLine.bill_id == Bill.id)
+            .where(
+                BillLine.tenant_id == tenant_id,
+                BillLine.tax_code_id == tax_code_id,
+                Bill.status.notin_(_CLOSED_BILL_STATUSES),
+            )
+        )
+        or 0
+    )
+
+    return inv_count, bill_count
+
+
 async def update_tax_code(
     db: AsyncSession, tenant_id: str, tax_code_id: str, actor_id: str | None, updates: dict
 ) -> TaxCode:
     tc = await get_tax_code(db, tenant_id, tax_code_id)
+
+    # Block deactivation if open documents reference this tax code
+    is_deactivating = updates.get("is_active") is False and tc.is_active
+    if is_deactivating:
+        inv_count, bill_count = await _count_open_references(db, tenant_id, tax_code_id)
+        if inv_count or bill_count:
+            parts: list[str] = []
+            if inv_count:
+                parts.append(f"{inv_count} open invoice(s)")
+            if bill_count:
+                parts.append(f"{bill_count} open bill(s)")
+            raise TaxCodeInUseError(
+                f"Tax code is used by {' and '.join(parts)} — " f"resolve them before deactivating"
+            )
+
     allowed = {
         "name",
         "rate",
