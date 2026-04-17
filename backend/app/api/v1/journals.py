@@ -20,6 +20,7 @@ from app.domain.ledger.journal import JournalBalanceError, JournalLineInput, Jou
 from app.infra.models import JournalLine
 from app.services.journals import (
     ControlAccountError,
+    FutureDateError,
     JournalNotFoundError,
     create_draft,
     get_journal,
@@ -96,12 +97,17 @@ async def create_journal_endpoint(
             source_id=body.source_id,
             actor_id=actor_id,
             idempotency_key=idempotency_key,
+            force=body.force,
         )
         await db.commit()
         # If idempotent hit, the journal already existed — return 200 instead of 201
         if idempotency_key is not None and je.idempotency_key == idempotency_key and not db.new:
             response.status_code = status.HTTP_200_OK
-    except (JournalBalanceError, ControlAccountError) as exc:
+    except (JournalBalanceError, ControlAccountError, FutureDateError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    except PeriodPostingError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc

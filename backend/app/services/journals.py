@@ -24,11 +24,12 @@ from app.domain.ledger.journal import (
     validate_balance,
 )
 from app.infra.models import Account, JournalEntry, JournalLine
-from app.services.periods import assert_can_post
+from app.services.periods import PeriodPostingError, assert_can_post, get_period_for_date
 
 log = get_logger(__name__)
 
 _IDEMPOTENCY_WINDOW = timedelta(hours=24)
+_MAX_FUTURE_DAYS = 7
 
 
 class JournalNotFoundError(ValueError):
@@ -36,6 +37,10 @@ class JournalNotFoundError(ValueError):
 
 
 class ControlAccountError(ValueError):
+    pass
+
+
+class FutureDateError(ValueError):
     pass
 
 
@@ -60,6 +65,7 @@ async def create_draft(
     actor_id: str | None = None,
     system_generated: bool = False,
     idempotency_key: str | None = None,
+    force: bool = False,
 ) -> JournalEntry:
     """Create a draft journal entry. Does NOT post; lines are validated for structure.
 
@@ -94,6 +100,47 @@ async def create_draft(
             tenant_id=tenant_id,
             actor_id=actor_id,
         )
+
+    # ── Date validation (Issue #26) ────────────────────────────────────────
+    if not system_generated:
+        period = await get_period_for_date(db, tenant_id=tenant_id, on_date=date_)
+        if period.status in ("hard_closed", "audited"):
+            raise PeriodPostingError(
+                f"Cannot create journal entry: period '{period.name}' is {period.status}"
+            )
+        if period.status == "soft_closed":
+            log.warning(
+                "journal.soft_closed_period",
+                tenant_id=tenant_id,
+                period=period.name,
+                date=str(date_),
+            )
+
+        days_ahead = (date_ - date.today()).days
+        if days_ahead > _MAX_FUTURE_DAYS:
+            if not force:
+                raise FutureDateError(
+                    f"Journal date {date_} is {days_ahead} days in the future "
+                    f"(max {_MAX_FUTURE_DAYS} without force)"
+                )
+            # force=True: allow but audit-log the override
+            await emit(
+                db,
+                action="journal.future_date_override",
+                entity_type="journal_entry",
+                entity_id="pending",
+                actor_type="user" if actor_id else "system",
+                actor_id=actor_id,
+                tenant_id=tenant_id,
+                after={"date": str(date_), "days_ahead": days_ahead},
+            )
+            log.warning(
+                "journal.future_date_force",
+                tenant_id=tenant_id,
+                date=str(date_),
+                days_ahead=days_ahead,
+                actor_id=actor_id,
+            )
 
     # Validate line structure
     for ln in lines:

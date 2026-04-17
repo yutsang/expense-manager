@@ -216,6 +216,7 @@ class JournalCreate(BaseModel):
     lines: list[JournalLineCreate] = Field(..., min_length=2)
     source_type: str = Field(default="manual")
     source_id: str | None = None
+    force: bool = Field(default=False)
 
 
 class JournalVoidRequest(BaseModel):
