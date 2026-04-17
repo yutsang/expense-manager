@@ -1592,6 +1592,35 @@ class PurchaseOrderLine(Base):
     po: Mapped[PurchaseOrder] = sa.orm.relationship("PurchaseOrder", back_populates="lines")
 
 
+class PeriodChecklistItem(Base):
+    """Sign-off record for a period close checklist task."""
+
+    __tablename__ = "period_checklist_items"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    period_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("periods.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    task_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    checked_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    checked_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        UniqueConstraint("period_id", "task_key", name="uq_period_checklist_period_task"),
+    )
+
+
 class Attachment(Base):
     """Generic file attachment — can be linked to any document type."""
 

@@ -17,6 +17,7 @@ from app.api.v1.schemas import (
     InvoiceCreate,
     InvoiceListResponse,
     InvoiceResponse,
+    SendInvoiceRequest,
 )
 from app.infra.models import Contact, Invoice
 from app.services.email_service import send_email
@@ -34,6 +35,7 @@ from app.services.invoices import (
     get_invoice,
     get_invoice_lines,
     list_invoices,
+    send_invoice,
     void_invoice,
 )
 from app.services.tax_codes import TaxCodeNotFoundError, get_tax_code
@@ -100,11 +102,20 @@ async def list_all(
     tenant_id: TenantId,
     inv_status: str | None = Query(default=None, alias="status"),
     contact_id: str | None = Query(default=None),
+    due_before: str | None = Query(default=None, description="Filter: due_date <= this date"),
+    due_after: str | None = Query(default=None, description="Filter: due_date >= this date"),
     limit: int = Query(default=50, le=200),
     cursor: str | None = Query(default=None),
 ):
     items = await list_invoices(
-        db, tenant_id, status=inv_status, contact_id=contact_id, limit=limit + 1, cursor=cursor
+        db,
+        tenant_id,
+        status=inv_status,
+        contact_id=contact_id,
+        due_before=due_before,
+        due_after=due_after,
+        limit=limit + 1,
+        cursor=cursor,
     )
     next_cursor = None
     if len(items) > limit:
@@ -356,6 +367,32 @@ async def download_pdf(invoice_id: str, db: DbSession, tenant_id: TenantId) -> R
             "Content-Disposition": f'attachment; filename="invoice-{inv.number}.pdf"',
         },
     )
+
+
+@router.post("/{invoice_id}/send", response_model=InvoiceResponse)
+async def send(
+    invoice_id: str,
+    body: SendInvoiceRequest,
+    db: DbSession,
+    tenant_id: TenantId,
+):
+    """Send an invoice via email. Sets status to 'sent' and records sent_at."""
+    try:
+        inv = await send_invoice(
+            db,
+            tenant_id,
+            invoice_id,
+            to=body.to,
+            subject=body.subject,
+            message=body.message,
+        )
+        await db.commit()
+        await db.refresh(inv)
+        return await _invoice_response(db, inv)
+    except InvoiceNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+    except InvoiceTransitionError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
 @router.post("/{invoice_id}/reminder", status_code=status.HTTP_202_ACCEPTED)

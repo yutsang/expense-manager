@@ -9,6 +9,9 @@ from pydantic import BaseModel
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
+    ChecklistSignoffRequest,
+    PeriodChecklistItemResponse,
+    PeriodChecklistResponse,
     PeriodListResponse,
     PeriodResponse,
     PeriodTransitionRequest,
@@ -18,9 +21,11 @@ from app.domain.ledger.period import PeriodTransitionError
 from app.services.periods import (
     PeriodNotFoundError,
     PeriodPostingError,
+    get_checklist,
     get_period,
     list_periods,
     provision_periods,
+    sign_off_checklist_item,
     transition_period,
 )
 
@@ -123,3 +128,52 @@ async def transition_period_endpoint(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc
     return PeriodResponse.model_validate(result)
+
+
+@router.get("/{period_id}/checklist", response_model=PeriodChecklistResponse)
+async def get_checklist_endpoint(
+    period_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+) -> PeriodChecklistResponse:
+    """Get the pre-close checklist for a period with sign-off status."""
+    try:
+        items = await get_checklist(db, period_id=period_id, tenant_id=tenant_id)
+    except PeriodNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    completed = sum(1 for i in items if i["checked_by"] is not None)
+    return PeriodChecklistResponse(
+        period_id=period_id,
+        items=[PeriodChecklistItemResponse(**i) for i in items],
+        completed=completed,
+        total=len(items),
+    )
+
+
+@router.post("/{period_id}/checklist/signoff", response_model=PeriodChecklistItemResponse)
+async def signoff_checklist_endpoint(
+    period_id: str,
+    body: ChecklistSignoffRequest,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> PeriodChecklistItemResponse:
+    """Sign off a checklist task for a period."""
+    if not actor_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Actor-ID required")
+    try:
+        result = await sign_off_checklist_item(
+            db,
+            period_id=period_id,
+            tenant_id=tenant_id,
+            task_key=body.task_key,
+            actor_id=actor_id,
+        )
+        await db.commit()
+    except PeriodNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+    return PeriodChecklistItemResponse(**result)

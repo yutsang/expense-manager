@@ -90,11 +90,20 @@ async def list_all(
     tenant_id: TenantId,
     bill_status: str | None = Query(default=None, alias="status"),
     contact_id: str | None = Query(default=None),
+    due_before: str | None = Query(default=None, description="Filter: due_date <= this date"),
+    due_after: str | None = Query(default=None, description="Filter: due_date >= this date"),
     limit: int = Query(default=50, le=200),
     cursor: str | None = Query(default=None),
 ):
     items = await list_bills(
-        db, tenant_id, status=bill_status, contact_id=contact_id, limit=limit + 1, cursor=cursor
+        db,
+        tenant_id,
+        status=bill_status,
+        contact_id=contact_id,
+        due_before=due_before,
+        due_after=due_after,
+        limit=limit + 1,
+        cursor=cursor,
     )
     next_cursor = None
     if len(items) > limit:

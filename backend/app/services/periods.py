@@ -18,13 +18,22 @@ from app.domain.ledger.period import (
     can_post,
     generate_periods,
 )
-from app.infra.models import Bill, Invoice, Period, Tenant
+from app.infra.models import Bill, Invoice, Period, PeriodChecklistItem, Tenant
 
 log = get_logger(__name__)
 
 # Statuses considered "open" for warning purposes
 OPEN_INVOICE_STATUSES = {"draft", "authorised", "sent", "partial"}
 OPEN_BILL_STATUSES = {"draft", "awaiting_approval", "approved", "partial"}
+
+# Fixed checklist tasks for period-end close
+DEFAULT_CHECKLIST_TASKS: list[dict[str, str]] = [
+    {"task_key": "bank_reconciliation_complete", "label": "Bank reconciliation complete"},
+    {"task_key": "ar_aging_reviewed", "label": "AR aging reviewed"},
+    {"task_key": "ap_aging_reviewed", "label": "AP aging reviewed"},
+    {"task_key": "expense_claims_approved", "label": "All expense claims approved"},
+    {"task_key": "accruals_posted", "label": "Accruals posted"},
+]
 
 
 class PeriodNotFoundError(ValueError):
@@ -287,3 +296,90 @@ async def provision_periods(
         await db.flush()
         log.info("periods_provisioned", count=len(created), tenant_id=tenant_id)
     return created
+
+
+# ---------------------------------------------------------------------------
+# Period Close Checklist
+# ---------------------------------------------------------------------------
+
+
+async def get_checklist(db: AsyncSession, *, period_id: str, tenant_id: str) -> list[dict]:
+    """Return all checklist tasks for a period, merging sign-off state from DB."""
+    result = await db.execute(
+        select(PeriodChecklistItem).where(
+            PeriodChecklistItem.period_id == period_id,
+            PeriodChecklistItem.tenant_id == tenant_id,
+        )
+    )
+    existing = {item.task_key: item for item in result.scalars().all()}
+
+    items: list[dict] = []
+    for task in DEFAULT_CHECKLIST_TASKS:
+        signed = existing.get(task["task_key"])
+        items.append(
+            {
+                "task_key": task["task_key"],
+                "label": task["label"],
+                "checked_by": signed.checked_by if signed else None,
+                "checked_at": signed.checked_at if signed else None,
+            }
+        )
+    return items
+
+
+async def sign_off_checklist_item(
+    db: AsyncSession,
+    *,
+    period_id: str,
+    tenant_id: str,
+    task_key: str,
+    actor_id: str,
+) -> dict:
+    """Sign off a checklist task for a period. Idempotent — re-signing updates the record."""
+    # Validate period exists (raises PeriodNotFoundError if not found)
+    await get_period(db, period_id=period_id, tenant_id=tenant_id)
+
+    # Validate task_key
+    valid_keys = {t["task_key"] for t in DEFAULT_CHECKLIST_TASKS}
+    if task_key not in valid_keys:
+        raise ValueError(f"Unknown checklist task: {task_key}")
+
+    # Check for existing sign-off
+    result = await db.execute(
+        select(PeriodChecklistItem).where(
+            PeriodChecklistItem.period_id == period_id,
+            PeriodChecklistItem.tenant_id == tenant_id,
+            PeriodChecklistItem.task_key == task_key,
+        )
+    )
+    existing = result.scalar_one_or_none()
+
+    now = datetime.now(tz=UTC)
+    if existing:
+        existing.checked_by = actor_id
+        existing.checked_at = now
+        existing.updated_at = now
+        existing.version += 1
+    else:
+        item = PeriodChecklistItem(
+            id=str(uuid.uuid4()),
+            tenant_id=tenant_id,
+            period_id=period_id,
+            task_key=task_key,
+            checked_by=actor_id,
+            checked_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(item)
+
+    await db.flush()
+
+    label = next(t["label"] for t in DEFAULT_CHECKLIST_TASKS if t["task_key"] == task_key)
+    log.info("checklist.signoff", period_id=period_id, task_key=task_key, actor_id=actor_id)
+    return {
+        "task_key": task_key,
+        "label": label,
+        "checked_by": actor_id,
+        "checked_at": now,
+    }

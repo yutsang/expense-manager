@@ -166,6 +166,8 @@ async def list_bills(
     *,
     status: str | None = None,
     contact_id: str | None = None,
+    due_before: str | None = None,
+    due_after: str | None = None,
     limit: int = 50,
     cursor: str | None = None,
 ) -> list[Bill]:
@@ -174,6 +176,10 @@ async def list_bills(
         q = q.where(Bill.status == status)
     if contact_id:
         q = q.where(Bill.contact_id == contact_id)
+    if due_before:
+        q = q.where(Bill.due_date <= due_before)
+    if due_after:
+        q = q.where(Bill.due_date >= due_after)
     if cursor:
         q = q.where(Bill.id > cursor)
     q = q.order_by(Bill.issue_date.desc(), Bill.id).limit(limit)

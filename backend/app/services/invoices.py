@@ -236,6 +236,8 @@ async def list_invoices(
     *,
     status: str | None = None,
     contact_id: str | None = None,
+    due_before: str | None = None,
+    due_after: str | None = None,
     limit: int = 50,
     cursor: str | None = None,
 ) -> list[Invoice]:
@@ -244,6 +246,10 @@ async def list_invoices(
         q = q.where(Invoice.status == status)
     if contact_id:
         q = q.where(Invoice.contact_id == contact_id)
+    if due_before:
+        q = q.where(Invoice.due_date <= due_before)
+    if due_after:
+        q = q.where(Invoice.due_date >= due_after)
     if cursor:
         q = q.where(Invoice.id > cursor)
     q = q.order_by(Invoice.issue_date.desc(), Invoice.id).limit(limit)
@@ -663,4 +669,52 @@ async def void_invoice(
     await db.flush()
     await db.refresh(inv)
     log.info("invoice.voided", tenant_id=tenant_id, invoice_id=invoice_id)
+    return inv
+
+
+# Statuses from which an invoice can be sent
+_SENDABLE_STATUSES = {"authorised", "sent", "partial"}
+
+
+async def send_invoice(
+    db: AsyncSession,
+    tenant_id: str,
+    invoice_id: str,
+    *,
+    to: str,
+    subject: str | None = None,
+    message: str | None = None,
+) -> Invoice:
+    """Send an invoice via email and mark it as 'sent'.
+
+    Only authorised, sent, or partial invoices can be sent (resending is allowed).
+    Draft and void invoices cannot be sent.
+    """
+    from app.services.email_service import send_email
+
+    inv = await get_invoice(db, tenant_id, invoice_id)
+
+    if inv.status not in _SENDABLE_STATUSES:
+        raise InvoiceTransitionError(
+            f"Cannot send invoice in '{inv.status}' status — must be authorised first"
+        )
+
+    # Verify the contact exists (raises ValueError if not found)
+    await get_contact(db, tenant_id, inv.contact_id)
+
+    # Build email subject if not provided
+    email_subject = subject or f"Invoice {inv.number}"
+    email_html = f"<p>{message or 'Please find your invoice attached.'}</p>"
+
+    ok = await send_email(to=to, subject=email_subject, html=email_html)
+    if ok:
+        now = datetime.now(tz=UTC)
+        inv.sent_at = now
+        inv.updated_at = now
+        if inv.status == "authorised":
+            inv.status = "sent"
+        inv.version += 1
+        await db.flush()
+
+    log.info("invoice.sent", tenant_id=tenant_id, invoice_id=invoice_id, to=to, ok=ok)
     return inv

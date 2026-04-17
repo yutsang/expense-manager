@@ -117,36 +117,42 @@ async def dashboard_endpoint(
     tenant_id: TenantId,
 ) -> DashboardResponse:
     # Cash balance: sum(debit - credit) on bank subtype accounts
-    cash_row = await db.execute(text("""
+    cash_row = await db.execute(
+        text("""
             SELECT COALESCE(SUM(jl.debit - jl.credit), 0) AS cash_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.subtype = 'bank'
               AND je.status = 'posted'
-        """))
+        """)
+    )
     cash_balance = Decimal(str(cash_row.scalar() or 0))
 
     # AR: balance on account code 1100
-    ar_row = await db.execute(text("""
+    ar_row = await db.execute(
+        text("""
             SELECT COALESCE(SUM(jl.debit - jl.credit), 0) AS ar_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.code = '1100'
               AND je.status = 'posted'
-        """))
+        """)
+    )
     accounts_receivable = Decimal(str(ar_row.scalar() or 0))
 
     # AP: balance on account code 2000 (credit normal, so credit - debit)
-    ap_row = await db.execute(text("""
+    ap_row = await db.execute(
+        text("""
             SELECT COALESCE(SUM(jl.credit - jl.debit), 0) AS ap_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.code = '2000'
               AND je.status = 'posted'
-        """))
+        """)
+    )
     accounts_payable = Decimal(str(ap_row.scalar() or 0))
 
     # Revenue MTD: total credit on revenue accounts for current month
@@ -197,11 +203,13 @@ async def dashboard_endpoint(
     invoices_overdue = int(inv_row.scalar() or 0)
 
     # Bills awaiting approval
-    bills_row = await db.execute(text("""
+    bills_row = await db.execute(
+        text("""
             SELECT COUNT(*) AS awaiting_count
             FROM bills
             WHERE status = 'awaiting_approval'
-        """))
+        """)
+    )
     bills_awaiting_approval = int(bills_row.scalar() or 0)
 
     def fmt(d: Decimal) -> str:
@@ -421,6 +429,7 @@ async def _build_aging_response(
     open_statuses: tuple[str, ...],
     limit: int = 50,
     cursor: str | None = None,
+    bucket: str | None = None,
 ) -> AgingResponse:
     # table and open_statuses are internal constants — not user input
     placeholders = ", ".join(f"'{s}'" for s in open_statuses)
@@ -466,8 +475,7 @@ async def _build_aging_response(
         detail_sql += " AND t.id > :cursor"
         params["cursor"] = cursor
     detail_sql += (
-        " ORDER BY t.due_date ASC NULLS LAST, t.issue_date ASC, t.id ASC"
-        f" LIMIT {limit + 1}"
+        f" ORDER BY t.due_date ASC NULLS LAST, t.issue_date ASC, t.id ASC LIMIT {limit + 1}"
     )
     rows = await db.execute(text(detail_sql), params)
     result = list(rows.fetchall())
@@ -500,10 +508,16 @@ async def _build_aging_response(
         else:
             days_overdue = 0
 
-        bucket = _aging_bucket(days_overdue)
+        row_bucket = _aging_bucket(days_overdue)
+
+        # If a bucket filter is specified, skip rows not in that bucket
+        if bucket is not None and row_bucket != bucket:
+            continue
+
         issue = _to_date(row.issue_date)
         aging_rows.append(
             AgingRowResponse(
+                doc_id=str(row.doc_id),
                 contact_id=str(row.contact_id),
                 contact_name=row.contact_name,
                 invoice_number=row.invoice_number,
@@ -512,7 +526,7 @@ async def _build_aging_response(
                 total=f"{total:.2f}",
                 amount_due=f"{amount_due:.2f}",
                 days_overdue=days_overdue,
-                bucket=bucket,
+                bucket=row_bucket,
             )
         )
 
@@ -537,9 +551,18 @@ async def ar_aging_endpoint(
     as_of: date = Query(..., description="AR aging as of this date"),
     limit: int = Query(default=50, le=200),
     cursor: str | None = Query(default=None),
+    bucket: str | None = Query(
+        default=None, description="Filter by aging bucket: current, 1-30, 31-60, 61-90, 90+"
+    ),
 ) -> AgingResponse:
     return await _build_aging_response(
-        db, as_of, "invoices", ("authorised", "sent", "partial"), limit=limit, cursor=cursor
+        db,
+        as_of,
+        "invoices",
+        ("authorised", "sent", "partial"),
+        limit=limit,
+        cursor=cursor,
+        bucket=bucket,
     )
 
 
@@ -550,9 +573,18 @@ async def ap_aging_endpoint(
     as_of: date = Query(..., description="AP aging as of this date"),
     limit: int = Query(default=50, le=200),
     cursor: str | None = Query(default=None),
+    bucket: str | None = Query(
+        default=None, description="Filter by aging bucket: current, 1-30, 31-60, 61-90, 90+"
+    ),
 ) -> AgingResponse:
     return await _build_aging_response(
-        db, as_of, "bills", ("approved", "partial"), limit=limit, cursor=cursor
+        db,
+        as_of,
+        "bills",
+        ("approved", "partial"),
+        limit=limit,
+        cursor=cursor,
+        bucket=bucket,
     )
 
 

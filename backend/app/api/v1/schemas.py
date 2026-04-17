@@ -123,6 +123,24 @@ class PeriodTransitionWarningResponse(BaseModel):
     message: str
 
 
+class PeriodChecklistItemResponse(BaseModel):
+    task_key: str
+    label: str
+    checked_by: str | None
+    checked_at: datetime | None
+
+
+class ChecklistSignoffRequest(BaseModel):
+    task_key: str = Field(..., min_length=1, max_length=64)
+
+
+class PeriodChecklistResponse(BaseModel):
+    period_id: str
+    items: list[PeriodChecklistItemResponse]
+    completed: int
+    total: int
+
+
 class PeriodListResponse(BaseModel):
     items: list[PeriodResponse]
 
@@ -598,6 +616,14 @@ class InvoiceLineResponse(BaseModel):
         return str(v)
 
 
+class SendInvoiceRequest(BaseModel):
+    """Request body for sending an invoice via email."""
+
+    to: str = Field(..., min_length=3, max_length=254)
+    subject: str | None = None
+    message: str | None = None
+
+
 class InvoiceResponse(BaseModel):
     id: str
     number: str
@@ -618,6 +644,7 @@ class InvoiceResponse(BaseModel):
     journal_entry_id: str | None
     credit_note_for_id: str | None = None
     notes: str | None
+    sent_at: datetime | None
     last_reminder_sent_at: datetime | None
     reminder_count: int
     created_at: datetime
@@ -948,6 +975,7 @@ class BalanceSheetResponse(BaseModel):
 
 
 class AgingRowResponse(BaseModel):
+    doc_id: str  # invoice or bill ID for drill-down linking
     contact_id: str
     contact_name: str
     invoice_number: str
