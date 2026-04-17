@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState, type ReactNode } from "react";
 import { accountsApi, type Account } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -53,7 +54,7 @@ export default function AccountsPage() {
       setEditingId(null);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Update failed");
+      showToast("error", "Update failed", e instanceof Error ? e.message : undefined);
     }
   }
 
@@ -63,7 +64,7 @@ export default function AccountsPage() {
       await accountsApi.archive(id);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Archive failed");
+      showToast("error", "Archive failed", e instanceof Error ? e.message : undefined);
     }
   }
 
@@ -73,7 +74,7 @@ export default function AccountsPage() {
       await accountsApi.seedDefault();
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Seed failed");
+      showToast("error", "Seed failed", e instanceof Error ? e.message : undefined);
     } finally {
       setSeeding(false);
     }

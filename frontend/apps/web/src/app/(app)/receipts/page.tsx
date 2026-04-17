@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { type Receipt, receiptsApi } from "@/lib/api";
@@ -85,7 +86,7 @@ export default function ReceiptsPage() {
       if (selected?.id === id) setSelected(null);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 

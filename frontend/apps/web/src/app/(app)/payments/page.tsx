@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import {
   type Contact,
@@ -96,7 +97,7 @@ export default function PaymentsPage() {
       setForm({ ...EMPTY_FORM, payment_type: activeTab });
       await load(activeTab);
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -108,7 +109,7 @@ export default function PaymentsPage() {
       await paymentsApi.void(payment.id);
       await load(activeTab);
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 

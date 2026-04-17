@@ -6,13 +6,11 @@ import { BASE, type Account, type Contact, type Invoice, accountsApi, contactsAp
 import { getTenantIdOrRedirect } from "@/lib/get-tenant-id";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { safeFmt, safeLineTotal, safeGrandTotal } from "@/lib/money-safe";
+import { showToast } from "@/lib/toast";
 
 function fmt(amount: string, currency = "USD") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(parseFloat(amount));
+  return safeFmt(amount, currency);
 }
 
 interface LineInput {
@@ -76,10 +74,9 @@ export default function InvoicesPage() {
       return { ...f, lines };
     });
 
-  const lineTotal = (l: LineInput) =>
-    (parseFloat(l.quantity || "0") * parseFloat(l.unit_price || "0")).toFixed(2);
+  const lineTotal = (l: LineInput) => safeLineTotal(l.quantity, l.unit_price);
 
-  const grandTotal = form.lines.reduce((s, l) => s + parseFloat(lineTotal(l)), 0).toFixed(2);
+  const grandTotal = safeGrandTotal(form.lines);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +106,7 @@ export default function InvoicesPage() {
       });
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Failed to save invoice", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -120,7 +117,7 @@ export default function InvoicesPage() {
       await invoicesApi.authorise(id);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Failed to authorise invoice", e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -130,7 +127,7 @@ export default function InvoicesPage() {
       await invoicesApi.void(id);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Failed to void invoice", e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -146,7 +143,7 @@ export default function InvoicesPage() {
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const res = await fetch(`${BASE}/v1/invoices/${invoiceId}/pdf`, { headers });
     if (!res.ok) {
-      alert(`PDF generation failed: ${res.statusText}`);
+      showToast("error", "PDF generation failed", res.statusText);
       return;
     }
     const blob = await res.blob();
@@ -165,10 +162,10 @@ export default function InvoicesPage() {
       if (res.sent) {
         await load();
       } else {
-        alert("Reminder not sent — email not configured or contact has no email.");
+        showToast("warning", "Reminder not sent", "Email not configured or contact has no email.");
       }
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Failed to send reminder", e instanceof Error ? e.message : String(e));
     }
   };
 

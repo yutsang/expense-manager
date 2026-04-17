@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { periodsApi, type Period } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -43,7 +44,7 @@ export default function PeriodsPage() {
       await periodsApi.transition(period.id, nextStatus);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Transition failed");
+      showToast("error", "Transition failed", e instanceof Error ? e.message : undefined);
     }
   }
 

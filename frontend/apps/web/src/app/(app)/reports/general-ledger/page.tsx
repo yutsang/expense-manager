@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { accountsApi, reportsApi, type Account, type GLReport } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -37,7 +38,7 @@ export default function GeneralLedgerPage() {
   }, []);
 
   async function run() {
-    if (!accountId) { alert("Select an account"); return; }
+    if (!accountId) { showToast("warning", "Select an account"); return; }
     setLoading(true);
     setError(null);
     try {

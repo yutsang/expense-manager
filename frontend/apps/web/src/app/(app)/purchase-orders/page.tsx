@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import {
   type Contact,
@@ -138,7 +139,7 @@ export default function PurchaseOrdersPage() {
       });
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -150,7 +151,7 @@ export default function PurchaseOrdersPage() {
       await poApi.void(po.id);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -159,7 +160,7 @@ export default function PurchaseOrdersPage() {
       await poApi.update(po.id, { status: "sent" });
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 

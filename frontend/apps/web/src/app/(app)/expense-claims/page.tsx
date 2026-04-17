@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import {
   expenseClaimsApi,
@@ -104,7 +105,7 @@ export default function ExpenseClaimsPage() {
       setShowCreate(false);
       await load();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Create failed");
+      showToast("error", "Create failed", err instanceof Error ? err.message : undefined);
     } finally {
       setCreating(false);
     }
@@ -125,7 +126,7 @@ export default function ExpenseClaimsPage() {
       await expenseClaimsApi[action](claim.id);
       await load();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : `${action} failed`);
+      showToast("error", `${action} failed`, err instanceof Error ? err.message : undefined);
     }
   }
 

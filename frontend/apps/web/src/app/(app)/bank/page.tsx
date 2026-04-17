@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useRef, useState } from "react";
 import {
   bankReconciliationApi,
@@ -122,7 +123,7 @@ export default function BankPage() {
       setShowCreate(false);
       await loadAccounts();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Create failed");
+      showToast("error", "Create failed", err instanceof Error ? err.message : undefined);
     } finally {
       setCreating(false);
     }
@@ -145,7 +146,7 @@ export default function BankPage() {
       const res = await bankReconciliationApi.listTransactions(selectedId);
       setTransactions(res);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to add transaction");
+      showToast("error", "Failed to add transaction", err instanceof Error ? err.message : undefined);
     } finally {
       setAddingTx(false);
     }
@@ -160,7 +161,7 @@ export default function BankPage() {
         setTransactions(res);
       }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Match failed");
+      showToast("error", "Match failed", err instanceof Error ? err.message : undefined);
     }
   }
 
@@ -178,7 +179,7 @@ export default function BankPage() {
       const res = await bankReconciliationApi.listReconciliations(selectedId);
       setReconciliations(res);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to save reconciliation");
+      showToast("error", "Failed to save reconciliation", err instanceof Error ? err.message : undefined);
     } finally {
       setSavingReco(false);
     }
@@ -206,7 +207,7 @@ export default function BankPage() {
         setTransactions(txns);
       }
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Import failed");
+      showToast("error", "Import failed", err instanceof Error ? err.message : undefined);
     } finally {
       setImporting(false);
     }

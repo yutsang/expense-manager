@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -177,7 +178,7 @@ export default function ContactDetailPage() {
       setContact(updated);
       setShowEdit(false);
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -191,7 +192,7 @@ export default function ContactDetailPage() {
       await contactsApi.archive(id);
       router.push("/contacts");
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setArchiving(false);
     }
@@ -245,7 +246,7 @@ export default function ContactDetailPage() {
       setKyc(updated);
       setShowKycEdit(false);
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSavingKyc(false);
     }

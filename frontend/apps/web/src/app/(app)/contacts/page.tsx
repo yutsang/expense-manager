@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { type Contact, contactsApi } from "@/lib/api";
@@ -72,7 +73,7 @@ export default function ContactsPage() {
       setForm({ contact_type: "customer", name: "", code: "", email: "", phone: "", currency: "USD" });
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -84,7 +85,7 @@ export default function ContactsPage() {
       await contactsApi.archive(id);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 

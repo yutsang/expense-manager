@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { type Item, type TaxCode, itemsApi, taxCodesApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -120,7 +121,7 @@ export default function ItemsPage() {
       closeModal();
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -132,7 +133,7 @@ export default function ItemsPage() {
       await itemsApi.archive(id);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 

@@ -630,8 +630,8 @@ class InvoiceResponse(BaseModel):
     status: str
     authorised_by: str | None = None
     contact_id: str
-    issue_date: str
-    due_date: str | None
+    issue_date: date | str
+    due_date: date | str | None
     period_name: str | None
     reference: str | None
     currency: str
@@ -749,8 +749,8 @@ class BillResponse(BaseModel):
     status: str
     contact_id: str
     supplier_reference: str | None
-    issue_date: str
-    due_date: str | None
+    issue_date: date | str
+    due_date: date | str | None
     period_name: str | None
     currency: str
     fx_rate: str
@@ -851,7 +851,7 @@ class PaymentCreate(BaseModel):
     amount: str  # Decimal string
     currency: str = Field(default="USD", min_length=3, max_length=3)
     fx_rate: str = Field(default="1")
-    payment_date: str  # ISO date
+    payment_date: date | str  # ISO date
     reference: str | None = None
     bank_account_ref: str | None = None
 
@@ -898,7 +898,7 @@ class PaymentResponse(BaseModel):
     amount: str
     currency: str
     fx_rate: str
-    payment_date: str
+    payment_date: date | str
     reference: str | None
     status: str
     idempotency_key: str | None = None

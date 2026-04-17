@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import {
   type Contact,
@@ -140,7 +141,7 @@ export default function QuotesPage() {
       });
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -153,7 +154,7 @@ export default function QuotesPage() {
       await salesDocsApi.convert(doc.id);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -163,7 +164,7 @@ export default function QuotesPage() {
       await salesDocsApi.void(doc.id);
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     }
   };
 

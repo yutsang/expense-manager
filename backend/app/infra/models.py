@@ -15,7 +15,7 @@ Rules:
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy import (
@@ -697,8 +697,8 @@ class Invoice(Base):
         nullable=False,
         index=True,
     )
-    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)  # ISO date string
-    due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    issue_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     period_name: Mapped[str | None] = mapped_column(String(7), nullable=True)
     reference: Mapped[str | None] = mapped_column(String(128), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
@@ -806,8 +806,8 @@ class Bill(Base):
         nullable=False,
         index=True,
     )
-    issue_date: Mapped[str] = mapped_column(String(10), nullable=False)
-    due_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    issue_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     period_name: Mapped[str | None] = mapped_column(String(7), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     fx_rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False, default=1)
@@ -893,7 +893,7 @@ class Payment(Base):
         nullable=True,
         index=True,
     )
-    payment_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    payment_date: Mapped[date] = mapped_column(Date, nullable=False)
     amount: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     fx_rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False, default=1)

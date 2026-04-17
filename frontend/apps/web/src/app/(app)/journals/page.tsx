@@ -1,5 +1,6 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { journalsApi, periodsApi, accountsApi, type JournalEntry, type Period, type Account } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -91,11 +92,11 @@ export default function JournalsPage() {
   }
 
   async function handleCreate() {
-    if (!formPeriodId) { alert("Select a period"); return; }
+    if (!formPeriodId) { showToast("warning", "Select a period"); return; }
     const dr = totalDebit(formLines);
     const cr = totalCredit(formLines);
     if (Math.abs(dr - cr) > 0.0001) {
-      alert(`Entry is unbalanced — debit ${dr.toFixed(2)} ≠ credit ${cr.toFixed(2)}`);
+      showToast("error", "Entry is unbalanced", `Debit ${dr.toFixed(2)} does not equal credit ${cr.toFixed(2)}`);
       return;
     }
     setCreating(true);
@@ -121,7 +122,7 @@ export default function JournalsPage() {
       ]);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Create failed");
+      showToast("error", "Create failed", e instanceof Error ? e.message : undefined);
     } finally {
       setCreating(false);
     }
@@ -132,7 +133,7 @@ export default function JournalsPage() {
       await journalsApi.post(id);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Post failed");
+      showToast("error", "Post failed", e instanceof Error ? e.message : undefined);
     }
   }
 
@@ -143,7 +144,7 @@ export default function JournalsPage() {
       await journalsApi.void(id, reason);
       await load();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Void failed");
+      showToast("error", "Void failed", e instanceof Error ? e.message : undefined);
     }
   }
 

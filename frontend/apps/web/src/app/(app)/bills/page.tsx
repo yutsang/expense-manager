@@ -1,16 +1,14 @@
 "use client";
 
+import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { type Account, type Bill, type Contact, accountsApi, billsApi, contactsApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { safeFmt, safeLineTotal, safeGrandTotal } from "@/lib/money-safe";
 
 function fmt(amount: string, currency = "USD") {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(parseFloat(amount));
+  return safeFmt(amount, currency);
 }
 
 interface LineInput {
@@ -74,10 +72,9 @@ export default function BillsPage() {
       return { ...f, lines };
     });
 
-  const lineTotal = (l: LineInput) =>
-    (parseFloat(l.quantity || "0") * parseFloat(l.unit_price || "0")).toFixed(2);
+  const lineTotal = (l: LineInput) => safeLineTotal(l.quantity, l.unit_price);
 
-  const grandTotal = form.lines.reduce((s, l) => s + parseFloat(lineTotal(l)), 0).toFixed(2);
+  const grandTotal = safeGrandTotal(form.lines);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +106,7 @@ export default function BillsPage() {
       });
       await load();
     } catch (e) {
-      alert(`Error: ${e}`);
+      showToast("error", "Operation failed", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
