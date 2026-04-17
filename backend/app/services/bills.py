@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
-from app.infra.models import Account, Bill, BillLine, JournalEntry, JournalLine
+from app.infra.models import Account, Bill, BillLine, Contact, JournalEntry, JournalLine
 
 log = get_logger(__name__)
 
@@ -26,6 +26,14 @@ class BillNotFoundError(ValueError):
 
 
 class BillTransitionError(ValueError):
+    pass
+
+
+class InvalidAccountError(ValueError):
+    pass
+
+
+class ArchivedContactError(ValueError):
     pass
 
 
@@ -55,6 +63,26 @@ async def create_bill(
     # Validate date order
     if due_date is not None and due_date < issue_date:
         raise ValueError("Due date must be on or after issue date")
+
+    # ── Archived contact guard (Issue #12) ─────────────────────────────────
+    contact = await db.scalar(
+        select(Contact).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
+    )
+    if contact and contact.is_archived:
+        raise ArchivedContactError(
+            f"Contact {contact_id} is archived and cannot receive new documents"
+        )
+
+    # ── Account existence validation (Issue #10) ───────────────────────────
+    line_account_ids = list({line["account_id"] for line in lines})
+    acct_result = await db.execute(select(Account).where(Account.id.in_(line_account_ids)))
+    found_accounts = list(acct_result.scalars().all())
+    found_ids = {a.id for a in found_accounts if a.tenant_id == tenant_id}
+    missing_ids = set(line_account_ids) - found_ids
+    if missing_ids:
+        raise InvalidAccountError(
+            f"Invalid account IDs for this tenant: {', '.join(sorted(missing_ids))}"
+        )
 
     subtotal = Decimal("0")
     tax_total = Decimal("0")

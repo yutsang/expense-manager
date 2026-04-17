@@ -15,6 +15,7 @@ from app.api.v1.schemas import (
 from app.services.contacts import (
     ContactCodeConflictError,
     ContactNotFoundError,
+    DuplicateContactError,
     EddNotRequiredError,
     approve_edd,
     archive_contact,
@@ -35,6 +36,8 @@ async def create(body: ContactCreate, db: DbSession, tenant_id: TenantId, actor_
         await db.commit()
         return contact
     except ContactCodeConflictError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
+    except DuplicateContactError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
 
 

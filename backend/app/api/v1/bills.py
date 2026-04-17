@@ -13,8 +13,10 @@ from app.api.v1.schemas import (
     BillResponse,
 )
 from app.services.bills import (
+    ArchivedContactError,
     BillNotFoundError,
     BillTransitionError,
+    InvalidAccountError,
     approve_bill,
     create_bill,
     get_bill,
@@ -70,6 +72,8 @@ async def create(body: BillCreate, db: DbSession, tenant_id: TenantId, actor_id:
             notes=body.notes,
             lines=lines,
         )
+    except (InvalidAccountError, ArchivedContactError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await db.commit()

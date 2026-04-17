@@ -18,7 +18,9 @@ from app.api.v1.schemas import (
 from app.infra.models import Contact, Invoice
 from app.services.email_service import send_email
 from app.services.invoices import (
+    ArchivedContactError,
     CreditLimitExceededError,
+    InvalidAccountError,
     InvoiceApprovalError,
     InvoiceNotFoundError,
     InvoiceTransitionError,
@@ -80,6 +82,8 @@ async def create(body: InvoiceCreate, db: DbSession, tenant_id: TenantId, actor_
             notes=body.notes,
             lines=lines,
         )
+    except (InvalidAccountError, ArchivedContactError) as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     await db.commit()

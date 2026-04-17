@@ -36,6 +36,10 @@ class JournalNotFoundError(ValueError):
     pass
 
 
+class InvalidAccountError(ValueError):
+    pass
+
+
 class ControlAccountError(ValueError):
     pass
 
@@ -147,11 +151,19 @@ async def create_draft(
         if ln.debit < Decimal("0") or ln.credit < Decimal("0"):
             raise JournalBalanceError("Line amounts must be non-negative")
 
+    # ── Account existence validation (Issue #9) ─────────────────────────────
+    account_ids = list({ln.account_id for ln in lines})
+    result = await db.execute(select(Account).where(Account.id.in_(account_ids)))
+    accounts = list(result.scalars().all())
+    found_ids = {a.id for a in accounts if a.tenant_id == tenant_id}
+    missing_ids = set(account_ids) - found_ids
+    if missing_ids:
+        raise InvalidAccountError(
+            f"Invalid account IDs for this tenant: {', '.join(sorted(missing_ids))}"
+        )
+
     # Guard: reject manual entries that target control accounts (AC-3, Issue #18)
     if not system_generated:
-        account_ids = list({ln.account_id for ln in lines})
-        result = await db.execute(select(Account).where(Account.id.in_(account_ids)))
-        accounts = result.scalars().all()
         control_accounts = [a for a in accounts if a.is_control_account]
         if control_accounts:
             names = ", ".join(f"{a.code} ({a.name})" for a in control_accounts)

@@ -21,6 +21,7 @@ from app.infra.models import JournalLine
 from app.services.journals import (
     ControlAccountError,
     FutureDateError,
+    InvalidAccountError,
     JournalNotFoundError,
     create_draft,
     get_journal,
@@ -103,7 +104,7 @@ async def create_journal_endpoint(
         # If idempotent hit, the journal already existed — return 200 instead of 201
         if idempotency_key is not None and je.idempotency_key == idempotency_key and not db.new:
             response.status_code = status.HTTP_200_OK
-    except (JournalBalanceError, ControlAccountError, FutureDateError) as exc:
+    except (JournalBalanceError, ControlAccountError, FutureDateError, InvalidAccountError) as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         ) from exc

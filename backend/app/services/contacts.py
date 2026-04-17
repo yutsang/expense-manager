@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -24,6 +24,10 @@ class ContactCodeConflictError(ValueError):
 class ComplianceRestrictionError(ValueError):
     """Raised when a compliance policy blocks an operation."""
 
+    pass
+
+
+class DuplicateContactError(ValueError):
     pass
 
 
@@ -63,6 +67,21 @@ async def create_contact(
         )
         if exists:
             raise ContactCodeConflictError(f"Contact code '{code}' already in use")
+
+    # ── Duplicate detection by name + tax_number (Issue #14) ───────────────
+    if tax_number is not None:
+        dup = await db.scalar(
+            select(Contact).where(
+                Contact.tenant_id == tenant_id,
+                func.lower(Contact.name) == name.lower(),
+                Contact.tax_number == tax_number,
+                Contact.is_archived.is_(False),
+            )
+        )
+        if dup is not None:
+            raise DuplicateContactError(
+                f"A contact with the same name and tax number already exists: {dup.id}"
+            )
 
     from decimal import Decimal
 

@@ -52,6 +52,14 @@ class CreditLimitExceededError(ValueError):
     pass
 
 
+class InvalidAccountError(ValueError):
+    pass
+
+
+class ArchivedContactError(ValueError):
+    pass
+
+
 class ComplianceRestrictionError(ValueError):
     """Raised when AMLO Cap 615 compliance policy blocks an operation."""
 
@@ -130,6 +138,26 @@ async def create_invoice(
     # Validate date order
     if due_date is not None and due_date < issue_date:
         raise ValueError("Due date must be on or after issue date")
+
+    # ── Archived contact guard (Issue #12) ─────────────────────────────────
+    contact = await db.scalar(
+        select(Contact).where(Contact.id == contact_id, Contact.tenant_id == tenant_id)
+    )
+    if contact and contact.is_archived:
+        raise ArchivedContactError(
+            f"Contact {contact_id} is archived and cannot receive new documents"
+        )
+
+    # ── Account existence validation (Issue #10) ───────────────────────────
+    line_account_ids = list({line["account_id"] for line in lines})
+    acct_result = await db.execute(select(Account).where(Account.id.in_(line_account_ids)))
+    found_accounts = list(acct_result.scalars().all())
+    found_ids = {a.id for a in found_accounts if a.tenant_id == tenant_id}
+    missing_ids = set(line_account_ids) - found_ids
+    if missing_ids:
+        raise InvalidAccountError(
+            f"Invalid account IDs for this tenant: {', '.join(sorted(missing_ids))}"
+        )
 
     # Compute totals
     subtotal = Decimal("0")
