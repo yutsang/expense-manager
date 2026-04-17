@@ -13,6 +13,7 @@ from decimal import ROUND_HALF_EVEN, Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.emitter import emit
 from app.core.logging import get_logger
 from app.infra.models import Bill, Contact, Invoice, Payment, PaymentAllocation
 
@@ -119,6 +120,22 @@ async def create_payment(
     db.add(payment)
     await db.flush()
     await db.refresh(payment)
+
+    await emit(
+        db,
+        action="payment.created",
+        entity_type="payment",
+        entity_id=payment.id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        after={
+            "number": payment.number,
+            "status": payment.status,
+            "amount": str(payment.amount),
+            "payment_type": payment.payment_type,
+        },
+    )
     log.info("payment.created", tenant_id=tenant_id, payment_id=payment.id)
     return payment
 
@@ -249,6 +266,22 @@ async def allocate_payment(
 
     await db.flush()
     await db.refresh(allocation)
+
+    await emit(
+        db,
+        action="payment.allocated",
+        entity_type="payment_allocation",
+        entity_id=allocation.id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        after={
+            "payment_id": payment_id,
+            "invoice_id": invoice_id,
+            "bill_id": bill_id,
+            "amount": str(amount_q),
+        },
+    )
     log.info(
         "payment.allocated",
         tenant_id=tenant_id,
@@ -299,5 +332,17 @@ async def void_payment(
 
     await db.flush()
     await db.refresh(payment)
+
+    await emit(
+        db,
+        action="payment.voided",
+        entity_type="payment",
+        entity_id=payment_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before={"status": "pending"},
+        after={"status": "voided", "reason": reason},
+    )
     log.info("payment.voided", tenant_id=tenant_id, payment_id=payment_id, reason=reason)
     return payment

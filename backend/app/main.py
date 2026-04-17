@@ -86,6 +86,7 @@ from app.api.v1 import (  # noqa: E402
     bills,
     contacts,
     expense_claims,
+    fixed_assets,
     fx,
     invoice_portal,
     invoices,
@@ -94,6 +95,7 @@ from app.api.v1 import (  # noqa: E402
     kyc,
     onboarding,
     payments,
+    payroll,
     periods,
     purchase_orders,
     receipts,
@@ -132,6 +134,8 @@ app.include_router(invoice_portal.router, prefix=_API_PREFIX)
 app.include_router(invoice_portal.public_router, prefix=_API_PREFIX)
 app.include_router(search.router, prefix=_API_PREFIX)
 app.include_router(accruals.router, prefix=_API_PREFIX)
+app.include_router(fixed_assets.router, prefix=_API_PREFIX)
+app.include_router(payroll.router, prefix=_API_PREFIX)
 
 
 @app.get("/health", tags=["meta"], summary="Health check")

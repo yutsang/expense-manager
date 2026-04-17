@@ -1708,11 +1708,124 @@ class Accrual(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
-        CheckConstraint(
-            "accrual_type IN ('accrual','prepayment')", name="ck_accruals_type"
-        ),
-        CheckConstraint(
-            "status IN ('posted','reversed')", name="ck_accruals_status"
-        ),
+        CheckConstraint("accrual_type IN ('accrual','prepayment')", name="ck_accruals_type"),
+        CheckConstraint("status IN ('posted','reversed')", name="ck_accruals_status"),
         CheckConstraint("amount > 0", name="ck_accruals_positive"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Fixed Assets Register (Issue #41)
+# ---------------------------------------------------------------------------
+
+
+class FixedAsset(Base):
+    """A fixed asset with depreciation tracking."""
+
+    __tablename__ = "fixed_assets"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    acquisition_date: Mapped[str] = mapped_column(String(10), nullable=False)
+    cost: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    residual_value: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False, default=0)
+    useful_life_months: Mapped[int] = mapped_column(Integer, nullable=False)
+    depreciation_method: Mapped[str] = mapped_column(String(20), nullable=False)
+    asset_account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    depreciation_account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    accumulated_depreciation_account_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("accounts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('equipment','vehicle','furniture','leasehold_improvement','other')",
+            name="ck_fixed_assets_category",
+        ),
+        CheckConstraint(
+            "depreciation_method IN ('straight_line','declining_balance')",
+            name="ck_fixed_assets_depr_method",
+        ),
+        CheckConstraint(
+            "status IN ('active','disposed','fully_depreciated')",
+            name="ck_fixed_assets_status",
+        ),
+        CheckConstraint("cost > 0", name="ck_fixed_assets_cost_positive"),
+        CheckConstraint("residual_value >= 0", name="ck_fixed_assets_residual_non_negative"),
+        CheckConstraint("useful_life_months > 0", name="ck_fixed_assets_life_positive"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Salary Records / MPF Tracking (Issue #46)
+# ---------------------------------------------------------------------------
+
+
+class SalaryRecord(Base):
+    """Monthly salary record with MPF contribution tracking."""
+
+    __tablename__ = "salary_records"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    employee_contact_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("contacts.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    period_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("periods.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    gross_salary: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    employer_mpf: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    employee_mpf: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    net_pay: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    mpf_scheme_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    payment_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    journal_entry_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("journal_entries.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint("gross_salary >= 0", name="ck_salary_records_gross_non_negative"),
+        CheckConstraint("employer_mpf >= 0", name="ck_salary_records_employer_mpf_non_negative"),
+        CheckConstraint("employee_mpf >= 0", name="ck_salary_records_employee_mpf_non_negative"),
     )

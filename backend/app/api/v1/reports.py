@@ -6,6 +6,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy import text
 
 from app.api.v1.deps import DbSession, TenantId
@@ -893,6 +894,119 @@ async def cash_flow_endpoint(
         opening_cash=f"{opening_cash:.2f}",
         closing_cash=f"{closing_cash:.2f}",
         generated_at=datetime.now(tz=UTC),
+    )
+
+
+@router.post("/management-accounts")
+async def management_accounts_pdf_endpoint(
+    db: DbSession,
+    tenant_id: TenantId,
+    period_id: str = Query(..., description="Period ID for report scope"),
+) -> Response:
+    """Generate a combined P&L + Balance Sheet + Cash Flow as a single PDF."""
+    from app.services.management_accounts import build_management_accounts_pdf
+
+    # Look up the period for date range
+    from app.services.periods import get_period
+
+    try:
+        period = await get_period(db, period_id=period_id, tenant_id=tenant_id)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    period_start = (
+        period.start_date.date() if hasattr(period.start_date, "date") else period.start_date
+    )
+    period_end = period.end_date.date() if hasattr(period.end_date, "date") else period.end_date
+
+    # Fetch P&L data
+    pl_response = await pl_endpoint(db, tenant_id, from_date=period_start, to_date=period_end)
+    pl_data = {
+        "from_date": str(period_start),
+        "to_date": str(period_end),
+        "total_revenue": pl_response.total_revenue,
+        "total_expenses": pl_response.total_expenses,
+        "net_profit": pl_response.net_profit,
+        "revenue_lines": [
+            {"code": ln.code, "name": ln.name, "balance": ln.balance}
+            for ln in pl_response.revenue_lines
+        ],
+        "expense_lines": [
+            {"code": ln.code, "name": ln.name, "balance": ln.balance}
+            for ln in pl_response.expense_lines
+        ],
+    }
+
+    # Fetch Balance Sheet data
+    bs_response = await balance_sheet_endpoint(db, tenant_id, as_of=period_end)
+    bs_data = {
+        "as_of": str(period_end),
+        "assets": {
+            "total": bs_response.assets.total,
+            "lines": [
+                {"code": ln.code, "name": ln.name, "balance": ln.balance}
+                for ln in bs_response.assets.lines
+            ],
+        },
+        "liabilities": {
+            "total": bs_response.liabilities.total,
+            "lines": [
+                {"code": ln.code, "name": ln.name, "balance": ln.balance}
+                for ln in bs_response.liabilities.lines
+            ],
+        },
+        "equity": {
+            "total": bs_response.equity.total,
+            "lines": [
+                {"code": ln.code, "name": ln.name, "balance": ln.balance}
+                for ln in bs_response.equity.lines
+            ],
+        },
+    }
+
+    # Fetch Cash Flow data
+    cf_response = await cash_flow_endpoint(
+        db, tenant_id, from_date=period_start, to_date=period_end
+    )
+    cf_data = {
+        "from_date": str(period_start),
+        "to_date": str(period_end),
+        "operating_activities": [
+            {"label": ln.label, "amount": ln.amount} for ln in cf_response.operating_activities
+        ],
+        "investing_activities": [
+            {"label": ln.label, "amount": ln.amount} for ln in cf_response.investing_activities
+        ],
+        "financing_activities": [
+            {"label": ln.label, "amount": ln.amount} for ln in cf_response.financing_activities
+        ],
+        "net_change": cf_response.net_change,
+        "opening_cash": cf_response.opening_cash,
+        "closing_cash": cf_response.closing_cash,
+    }
+
+    # Look up tenant name
+    tenant_row = await db.execute(
+        text("SELECT name FROM tenants WHERE id = :tid"),
+        {"tid": tenant_id},
+    )
+    tenant_name_row = tenant_row.first()
+    company_name = tenant_name_row[0] if tenant_name_row else "Company"
+
+    pdf_bytes = build_management_accounts_pdf(
+        company_name=company_name,
+        period_label=f"{period.name} ({period_start} to {period_end})",
+        pl_data=pl_data,
+        bs_data=bs_data,
+        cf_data=cf_data,
+    )
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="management-accounts-{period.name}.pdf"'
+        },
     )
 
 

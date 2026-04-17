@@ -15,6 +15,7 @@ from decimal import ROUND_HALF_EVEN, Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.emitter import emit
 from app.core.logging import get_logger
 from app.infra.models import (
     Account,
@@ -226,6 +227,17 @@ async def create_invoice(
 
     await db.flush()
     await db.refresh(inv)
+
+    await emit(
+        db,
+        action="invoice.created",
+        entity_type="invoice",
+        entity_id=inv.id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        after={"number": inv.number, "status": inv.status, "total": str(inv.total)},
+    )
     log.info("invoice.created", tenant_id=tenant_id, invoice_id=inv.id)
     return inv
 
@@ -437,6 +449,18 @@ async def authorise_invoice(
         inv.version += 1
         await db.flush()
         await db.refresh(inv)
+
+        await emit(
+            db,
+            action="invoice.awaiting_approval",
+            entity_type="invoice",
+            entity_id=invoice_id,
+            actor_type="user",
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+            before={"status": "draft"},
+            after={"status": "awaiting_approval", "number": inv.number},
+        )
         log.info(
             "invoice.awaiting_approval",
             tenant_id=tenant_id,
@@ -454,6 +478,18 @@ async def authorise_invoice(
 
     await db.flush()
     await db.refresh(inv)
+
+    await emit(
+        db,
+        action="invoice.authorised",
+        entity_type="invoice",
+        entity_id=invoice_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before={"status": "draft"},
+        after={"status": "authorised", "number": inv.number},
+    )
     log.info("invoice.authorised", tenant_id=tenant_id, invoice_id=invoice_id, number=inv.number)
     return inv
 
@@ -486,6 +522,18 @@ async def approve_invoice(
 
     await db.flush()
     await db.refresh(inv)
+
+    await emit(
+        db,
+        action="invoice.approved",
+        entity_type="invoice",
+        entity_id=invoice_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before={"status": "awaiting_approval"},
+        after={"status": "authorised", "number": inv.number},
+    )
     log.info("invoice.approved", tenant_id=tenant_id, invoice_id=invoice_id, number=inv.number)
     return inv
 
@@ -655,6 +703,8 @@ async def void_invoice(
     if inv.status == "paid":
         raise InvoiceTransitionError("Cannot void a fully paid invoice — issue a credit note")
 
+    before_status = inv.status
+
     # For invoices that have a posted JE (authorised/sent/partial),
     # create a credit note with a reversing journal entry
     if inv.journal_entry_id is not None:
@@ -668,6 +718,18 @@ async def void_invoice(
 
     await db.flush()
     await db.refresh(inv)
+
+    await emit(
+        db,
+        action="invoice.voided",
+        entity_type="invoice",
+        entity_id=invoice_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before={"status": before_status},
+        after={"status": "void"},
+    )
     log.info("invoice.voided", tenant_id=tenant_id, invoice_id=invoice_id)
     return inv
 

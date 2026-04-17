@@ -13,6 +13,7 @@ from decimal import ROUND_HALF_EVEN, Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.emitter import emit
 from app.core.logging import get_logger
 from app.infra.models import Account, Bill, BillLine, Contact, JournalEntry, JournalLine
 
@@ -156,6 +157,17 @@ async def create_bill(
 
     await db.flush()
     await db.refresh(bill)
+
+    await emit(
+        db,
+        action="bill.created",
+        entity_type="bill",
+        entity_id=bill.id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        after={"number": bill.number, "status": bill.status, "total": str(bill.total)},
+    )
     log.info("bill.created", tenant_id=tenant_id, bill_id=bill.id)
     return bill
 
@@ -222,6 +234,8 @@ async def approve_bill(
     bill = await get_bill(db, tenant_id, bill_id)
     if bill.status not in ("draft", "awaiting_approval"):
         raise BillTransitionError(f"Cannot approve bill with status '{bill.status}'")
+
+    before_status = bill.status
 
     lines = await get_bill_lines(db, bill_id)
     now = datetime.now(tz=UTC)
@@ -314,6 +328,18 @@ async def approve_bill(
 
     await db.flush()
     await db.refresh(bill)
+
+    await emit(
+        db,
+        action="bill.approved",
+        entity_type="bill",
+        entity_id=bill_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before={"status": before_status},
+        after={"status": "approved"},
+    )
     log.info("bill.approved", tenant_id=tenant_id, bill_id=bill_id)
     return bill
 
@@ -324,10 +350,24 @@ async def void_bill(db: AsyncSession, tenant_id: str, bill_id: str, actor_id: st
         raise BillTransitionError("Bill is already void")
     if bill.status == "paid":
         raise BillTransitionError("Cannot void a fully paid bill")
+
+    before_status = bill.status
     bill.status = "void"
     bill.updated_by = actor_id
     bill.version += 1
     await db.flush()
     await db.refresh(bill)
+
+    await emit(
+        db,
+        action="bill.voided",
+        entity_type="bill",
+        entity_id=bill_id,
+        actor_type="user",
+        actor_id=actor_id,
+        tenant_id=tenant_id,
+        before={"status": before_status},
+        after={"status": "void"},
+    )
     log.info("bill.voided", tenant_id=tenant_id, bill_id=bill_id)
     return bill
