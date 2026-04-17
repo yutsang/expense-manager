@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json as _json
 import xml.etree.ElementTree as ET  # noqa: S405 — parsing trusted government XML, not user input
 from datetime import UTC, datetime
 from typing import Any
@@ -36,6 +37,7 @@ _UN_URL = "https://scsanctions.un.org/resources/xml/en/consolidated.xml"
 _UK_OFSI_URL = "https://ofsistorage.blob.core.windows.net/publishlive/2022format/ConList.csv"
 _EU_URL = "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content"
 _EU_URL_FALLBACK = "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList/content"
+_OPENSANCTIONS_PEP_URL = "https://data.opensanctions.org/datasets/latest/peps/entities.ftm.json"
 _POTENTIAL_MATCH_THRESHOLD = 80
 _CONFIRMED_MATCH_THRESHOLD = 95
 
@@ -507,7 +509,7 @@ def _parse_eu_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
                 (
                     na,
                     (
-                        na.get("wholeName") or f"{na.get('firstName','')} {na.get('lastName','')}"
+                        na.get("wholeName") or f"{na.get('firstName', '')} {na.get('lastName', '')}"
                     ).strip(),
                 )
                 for na in name_aliases[1:]
@@ -574,13 +576,82 @@ async def _fetch_and_parse_eu() -> tuple[list[dict[str, Any]], str]:
     return _parse_eu_xml(xml_bytes), raw_hash
 
 
+# ── OpenSanctions PEP list ─────────────────────────────────────────────────
+
+
+async def _fetch_opensanctions_pep_json() -> bytes:
+    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+        resp = await client.get(_OPENSANCTIONS_PEP_URL)
+        resp.raise_for_status()
+        return resp.content
+
+
+def _parse_opensanctions_pep_json(raw_bytes: bytes) -> list[dict[str, Any]]:
+    """Parse the OpenSanctions PEP JSON feed (FtM entities format).
+
+    Expected structure:
+        {"datasets": {...}, "entities": [{"id": ..., "caption": ..., "schema": ...,
+         "properties": {"name": [...], "alias": [...], ...}}, ...]}
+    """
+    data = _json.loads(raw_bytes)
+    entities: list[dict[str, Any]] = data.get("entities", [])
+    entries: list[dict[str, Any]] = []
+
+    for entity in entities:
+        props = entity.get("properties", {})
+        names: list[str] = props.get("name", [])
+        caption: str = (entity.get("caption") or "").strip()
+
+        # Determine primary name: first entry in name list, else caption
+        primary_name = names[0].strip() if names else caption
+        if not primary_name:
+            continue
+
+        aliases_raw: list[str] = props.get("alias", [])
+        aliases = [{"type": "a.k.a.", "name": a} for a in aliases_raw if a]
+        countries: list[str] = props.get("country", [])
+        positions: list[str] = props.get("position", [])
+        notes_list: list[str] = props.get("notes", [])
+        remarks: str | None = notes_list[0] if notes_list else None
+
+        entries.append(
+            {
+                "ref_id": entity.get("id", ""),
+                "entity_type": "individual",
+                "primary_name": primary_name,
+                "aliases": aliases,
+                "countries": countries,
+                "programs": positions,
+                "remarks": remarks,
+                "source": "opensanctions_pep",
+            }
+        )
+
+    return entries
+
+
+async def _fetch_and_parse_opensanctions_pep() -> tuple[list[dict[str, Any]], str]:
+    raw_bytes = await _fetch_opensanctions_pep_json()
+    raw_hash = _sha256(raw_bytes)
+    return _parse_opensanctions_pep_json(raw_bytes), raw_hash
+
+
+async def refresh_pep(db: AsyncSession) -> tuple[SanctionsListSnapshot, bool]:
+    """Fetch OpenSanctions PEP list, store snapshot, return (snapshot, changed)."""
+    raw_bytes = await _fetch_opensanctions_pep_json()
+    raw_hash = _sha256(raw_bytes)
+    entries = _parse_opensanctions_pep_json(raw_bytes)
+    return await _store_snapshot(db, "opensanctions_pep", entries, raw_hash)
+
+
 async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
-    """Fetch UN, UK OFSI, and EU lists. Returns list of (source, changed) tuples."""
+    """Fetch UN, UK OFSI, EU, and PEP lists. Returns list of (source, changed) tuples."""
     results = []
     for fetch_fn, source_name in [
         (_fetch_and_parse_un, "un_consolidated"),
         (_fetch_and_parse_uk_ofsi, "uk_ofsi"),
         (_fetch_and_parse_eu, "eu_consolidated"),
+        (_fetch_and_parse_opensanctions_pep, "opensanctions_pep"),
     ]:
         try:
             entries, raw_hash = await fetch_fn()
