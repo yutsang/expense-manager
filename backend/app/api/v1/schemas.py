@@ -371,6 +371,13 @@ class ContactResponse(BaseModel):
     country: str | None
     is_archived: bool
     credit_limit: str | None
+    risk_rating: str | None = None
+    risk_rating_rationale: str | None = None
+    risk_rated_by: str | None = None
+    risk_rated_at: datetime | None = None
+    edd_required: bool = False
+    edd_approved_by: str | None = None
+    edd_approved_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -380,6 +387,13 @@ class ContactResponse(BaseModel):
     @classmethod
     def decimal_to_str_or_none(cls, v: Any) -> str | None:
         return str(v) if v is not None else None
+
+
+class RiskRatingUpdate(BaseModel):
+    """Set AMLO Cap 615 risk rating for a contact."""
+
+    risk_rating: str = Field(..., pattern="^(low|medium|high|unacceptable)$")
+    risk_rating_rationale: str = Field(..., min_length=1, max_length=2000)
 
 
 class ContactListResponse(BaseModel):
@@ -1265,6 +1279,7 @@ class KycDashboardAlerts(BaseModel):
     poa_stale: int
     pending_kyc: int
     flagged: int
+    unrated_contacts: int = 0
 
 
 # ── Sanctions ─────────────────────────────────────────────────────────────────

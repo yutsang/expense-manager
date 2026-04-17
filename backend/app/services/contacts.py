@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +18,18 @@ class ContactNotFoundError(ValueError):
 
 
 class ContactCodeConflictError(ValueError):
+    pass
+
+
+class ComplianceRestrictionError(ValueError):
+    """Raised when a compliance policy blocks an operation."""
+
+    pass
+
+
+class EddNotRequiredError(ValueError):
+    """Raised when EDD approval is attempted on a contact that does not require it."""
+
     pass
 
 
@@ -153,4 +167,74 @@ async def archive_contact(
     contact.updated_by = actor_id
     contact.version += 1
     await db.flush()
+    return contact
+
+
+async def set_risk_rating(
+    db: AsyncSession,
+    tenant_id: str,
+    contact_id: str,
+    actor_id: str | None,
+    *,
+    risk_rating: str,
+    risk_rating_rationale: str,
+) -> Contact:
+    """Set AMLO Cap 615 risk rating for a contact.
+
+    High and unacceptable ratings automatically set edd_required=True.
+    Low and medium ratings set edd_required=False and clear EDD approval.
+    """
+    contact = await get_contact(db, tenant_id, contact_id)
+    contact.risk_rating = risk_rating
+    contact.risk_rating_rationale = risk_rating_rationale
+    contact.risk_rated_by = actor_id
+    contact.risk_rated_at = datetime.now(tz=UTC)
+
+    if risk_rating in ("high", "unacceptable"):
+        contact.edd_required = True
+    else:
+        contact.edd_required = False
+        contact.edd_approved_by = None
+        contact.edd_approved_at = None
+
+    contact.updated_by = actor_id
+    contact.version += 1
+    await db.flush()
+    await db.refresh(contact)
+    log.info(
+        "contact.risk_rating_set",
+        tenant_id=tenant_id,
+        contact_id=contact_id,
+        risk_rating=risk_rating,
+    )
+    return contact
+
+
+async def approve_edd(
+    db: AsyncSession,
+    tenant_id: str,
+    contact_id: str,
+    actor_id: str | None,
+) -> Contact:
+    """Approve Enhanced Due Diligence for a contact.
+
+    Only valid when edd_required=True. Records the approving senior user
+    and timestamp.
+    """
+    contact = await get_contact(db, tenant_id, contact_id)
+    if not contact.edd_required:
+        raise EddNotRequiredError(
+            f"Contact {contact_id} does not require Enhanced Due Diligence approval"
+        )
+    contact.edd_approved_by = actor_id
+    contact.edd_approved_at = datetime.now(tz=UTC)
+    contact.updated_by = actor_id
+    contact.version += 1
+    await db.flush()
+    await db.refresh(contact)
+    log.info(
+        "contact.edd_approved",
+        tenant_id=tenant_id,
+        contact_id=contact_id,
+    )
     return contact

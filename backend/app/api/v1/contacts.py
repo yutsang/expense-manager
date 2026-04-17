@@ -1,4 +1,4 @@
-"""Contacts API — CRUD."""
+"""Contacts API — CRUD + AMLO Cap 615 risk rating."""
 
 from __future__ import annotations
 
@@ -10,14 +10,18 @@ from app.api.v1.schemas import (
     ContactListResponse,
     ContactResponse,
     ContactUpdate,
+    RiskRatingUpdate,
 )
 from app.services.contacts import (
     ContactCodeConflictError,
     ContactNotFoundError,
+    EddNotRequiredError,
+    approve_edd,
     archive_contact,
     create_contact,
     get_contact,
     list_contacts,
+    set_risk_rating,
     update_contact,
 )
 
@@ -91,3 +95,45 @@ async def archive(contact_id: str, db: DbSession, tenant_id: TenantId, actor_id:
         await db.commit()
     except ContactNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Contact not found")
+
+
+@router.post("/{contact_id}/risk-rating", response_model=ContactResponse)
+async def update_risk_rating(
+    contact_id: str,
+    body: RiskRatingUpdate,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+):
+    """Set AMLO Cap 615 risk rating for a contact (accountant+ role)."""
+    try:
+        contact = await set_risk_rating(
+            db,
+            tenant_id,
+            contact_id,
+            actor_id,
+            risk_rating=body.risk_rating,
+            risk_rating_rationale=body.risk_rating_rationale,
+        )
+        await db.commit()
+        return contact
+    except ContactNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Contact not found")
+
+
+@router.post("/{contact_id}/edd-approve", response_model=ContactResponse)
+async def edd_approve(
+    contact_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+):
+    """Approve Enhanced Due Diligence for a high-risk contact."""
+    try:
+        contact = await approve_edd(db, tenant_id, contact_id, actor_id)
+        await db.commit()
+        return contact
+    except ContactNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Contact not found")
+    except EddNotRequiredError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc))

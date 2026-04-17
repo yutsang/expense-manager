@@ -52,6 +52,12 @@ class CreditLimitExceededError(ValueError):
     pass
 
 
+class ComplianceRestrictionError(ValueError):
+    """Raised when AMLO Cap 615 compliance policy blocks an operation."""
+
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -340,19 +346,31 @@ async def authorise_invoice(
 
     lines = await get_invoice_lines(db, invoice_id)
 
+    # AMLO Cap 615 risk rating compliance check (cannot be overridden with force)
+    contact = await get_contact(db, tenant_id, inv.contact_id)
+    if contact.risk_rating == "unacceptable":
+        raise ComplianceRestrictionError(
+            "Business relationship restricted by compliance policy — "
+            f"contact {inv.contact_id} has risk rating 'unacceptable'"
+        )
+    if contact.edd_required and not contact.edd_approved_by:
+        raise ComplianceRestrictionError(
+            "Enhanced Due Diligence (EDD) approval required before invoicing — "
+            f"contact {inv.contact_id} has risk rating '{contact.risk_rating}' "
+            "and EDD has not been approved by a senior user"
+        )
+
     # Credit limit check
-    if not force:
-        contact = await get_contact(db, tenant_id, inv.contact_id)
-        if contact.credit_limit is not None:
-            credit_limit = Decimal(str(contact.credit_limit))
-            outstanding = await _get_outstanding_invoice_total(db, tenant_id, inv.contact_id)
-            invoice_total_for_check = Decimal(str(inv.total))
-            if outstanding + invoice_total_for_check > credit_limit:
-                raise CreditLimitExceededError(
-                    f"Invoice total {invoice_total_for_check} would bring outstanding AR "
-                    f"to {outstanding + invoice_total_for_check}, exceeding credit limit "
-                    f"of {credit_limit} for contact {inv.contact_id}"
-                )
+    if not force and contact.credit_limit is not None:
+        credit_limit = Decimal(str(contact.credit_limit))
+        outstanding = await _get_outstanding_invoice_total(db, tenant_id, inv.contact_id)
+        invoice_total_for_check = Decimal(str(inv.total))
+        if outstanding + invoice_total_for_check > credit_limit:
+            raise CreditLimitExceededError(
+                f"Invoice total {invoice_total_for_check} would bring outstanding AR "
+                f"to {outstanding + invoice_total_for_check}, exceeding credit limit "
+                f"of {credit_limit} for contact {inv.contact_id}"
+            )
 
     # Generate sequential invoice number — atomic increment to avoid race conditions
     seq_result = await db.execute(

@@ -176,10 +176,21 @@ async def get_dashboard_alerts(
         if kyc.sanctions_status == "flagged" or kyc.kyc_status == "flagged":
             flagged += 1
 
+    # Count contacts with no risk rating
+    unrated_result = await db.execute(
+        select(Contact).where(
+            Contact.tenant_id == tenant_id,
+            Contact.is_archived.is_(False),
+            Contact.risk_rating.is_(None),
+        )
+    )
+    unrated_contacts = len(list(unrated_result.scalars()))
+
     return {
         "id_expiring_soon": id_expiring_soon,
         "id_expired": id_expired,
         "poa_stale": poa_stale,
         "pending_kyc": pending_kyc,
         "flagged": flagged,
+        "unrated_contacts": unrated_contacts,
     }

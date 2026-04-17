@@ -444,6 +444,18 @@ class Contact(Base):
     country: Mapped[str | None] = mapped_column(String(10), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     credit_limit: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
+    # AMLO Cap 615 — DNFBP risk classification
+    risk_rating: Mapped[str | None] = mapped_column(
+        String(16), nullable=True
+    )  # low|medium|high|unacceptable
+    risk_rating_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risk_rated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    risk_rated_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    edd_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    edd_approved_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    edd_approved_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
     )
@@ -459,6 +471,10 @@ class Contact(Base):
         CheckConstraint(
             "contact_type IN ('customer','supplier','both','employee')",
             name="ck_contacts_type",
+        ),
+        CheckConstraint(
+            "risk_rating IN ('low','medium','high','unacceptable') OR risk_rating IS NULL",
+            name="ck_contacts_risk_rating",
         ),
     )
 
