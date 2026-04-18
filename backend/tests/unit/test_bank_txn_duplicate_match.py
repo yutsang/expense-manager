@@ -130,15 +130,15 @@ class TestBankTransactionModelAuditColumns:
 # ── Migration tests ───────────────────────────────────────────────────────
 
 
-class TestMigration0036:
-    """Migration 0036 must add unreconcile audit columns."""
+class TestUnreconcileAuditMigration:
+    """A migration must add unreconcile audit columns to bank_transactions."""
 
     def _get_migration_source(self) -> str:
         import pathlib
 
         migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
-        candidates = list(migrations_dir.glob("0036*"))
-        assert len(candidates) >= 1, "Migration 0036 not found"
+        candidates = list(migrations_dir.glob("*unreconcile*"))
+        assert len(candidates) >= 1, "Unreconcile audit columns migration not found"
         return candidates[0].read_text()
 
     def test_migration_exists(self) -> None:

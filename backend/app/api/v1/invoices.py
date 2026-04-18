@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
+    ApproveRejectRequest,
     BulkActionFailure,
     BulkActionRequest,
     BulkActionResponse,
@@ -193,9 +194,16 @@ async def authorise(
 
 
 @router.post("/{invoice_id}/approve", response_model=InvoiceResponse)
-async def approve(invoice_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def approve(
+    invoice_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+    body: ApproveRejectRequest | None = None,
+):
     try:
-        inv = await approve_invoice(db, tenant_id, invoice_id, actor_id)
+        comment = body.comment if body else None
+        inv = await approve_invoice(db, tenant_id, invoice_id, actor_id, comment=comment)
         await db.commit()
         await db.refresh(inv)
         return await _invoice_response(db, inv)

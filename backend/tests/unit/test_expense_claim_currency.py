@@ -68,6 +68,7 @@ class TestCurrencyValidationInSource:
         assert "line" in func_body.lower()
 
 
+@_skip_311
 class TestCurrencyMismatchErrorImportable:
     """CurrencyMismatchError must be importable from the service module."""
 

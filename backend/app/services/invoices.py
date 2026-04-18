@@ -474,11 +474,24 @@ async def authorise_invoice(
     inv.number = f"INV-{seq:05d}"
 
     # Check threshold: does this invoice require second-user approval?
-    tenant = await get_tenant(db, tenant_id)
-    threshold = tenant.invoice_approval_threshold
+    # First check configurable approval rules (Issue #61), then fall back
+    # to legacy tenant-level threshold.
     invoice_total = Decimal(str(inv.total))
+    needs_approval = False
 
-    if threshold is not None and invoice_total >= Decimal(str(threshold)):
+    from app.services.approval_rules import evaluate_rules
+
+    matched_rules = await evaluate_rules(db, tenant_id, "invoice", invoice_total)
+    if matched_rules:
+        needs_approval = True
+    else:
+        # Legacy fallback: tenant-level threshold
+        tenant = await get_tenant(db, tenant_id)
+        threshold = tenant.invoice_approval_threshold
+        if threshold is not None and invoice_total >= Decimal(str(threshold)):
+            needs_approval = True
+
+    if needs_approval:
         # Large invoice: park in awaiting_approval, do NOT post JE yet
         inv.status = "awaiting_approval"
         inv.authorised_by = actor_id
@@ -532,11 +545,17 @@ async def authorise_invoice(
 
 
 async def approve_invoice(
-    db: AsyncSession, tenant_id: str, invoice_id: str, actor_id: str | None
+    db: AsyncSession,
+    tenant_id: str,
+    invoice_id: str,
+    actor_id: str | None,
+    *,
+    comment: str | None = None,
 ) -> Invoice:
     """Second-step approval for large invoices that exceeded the approval threshold.
 
     The approver must NOT be the same user who initiated the authorise action.
+    An optional comment is stored in the audit event metadata.
     """
     inv = await get_invoice(db, tenant_id, invoice_id)
     if inv.status != "awaiting_approval":
@@ -560,6 +579,10 @@ async def approve_invoice(
     await db.flush()
     await db.refresh(inv)
 
+    metadata: dict[str, object] = {}
+    if comment:
+        metadata["comment"] = comment
+
     await emit(
         db,
         action="invoice.approved",
@@ -570,6 +593,7 @@ async def approve_invoice(
         tenant_id=tenant_id,
         before={"status": "awaiting_approval"},
         after={"status": "authorised", "number": inv.number},
+        metadata=metadata,
     )
     log.info("invoice.approved", tenant_id=tenant_id, invoice_id=invoice_id, number=inv.number)
     return inv

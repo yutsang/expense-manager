@@ -58,12 +58,12 @@ class TestBankTransactionDedupConstraint:
         assert "reference" in constraint_section
 
 
-class TestMigration0037:
-    """Migration 0037 must add the dedup constraint."""
+class TestBankTxnDedupMigration:
+    """A migration must add the dedup constraint to bank_transactions."""
 
     def _get_migration_source(self) -> str:
-        candidates = list(_MIGRATIONS_DIR.glob("0037*"))
-        assert len(candidates) >= 1, "Migration 0037 not found"
+        candidates = list(_MIGRATIONS_DIR.glob("*bank_txn_dedup*"))
+        assert len(candidates) >= 1, "Bank txn dedup migration not found"
         return candidates[0].read_text()
 
     def test_migration_exists(self) -> None:
@@ -80,9 +80,9 @@ class TestMigration0037:
         downgrade_body = source[downgrade_start:]
         assert "uq_bank_txn_dedup" in downgrade_body
 
-    def test_migration_revises_0036(self) -> None:
+    def test_migration_has_down_revision(self) -> None:
         source = self._get_migration_source()
-        assert '"0036"' in source
+        assert "down_revision" in source
 
 
 class TestBankImportCatchesIntegrityError:

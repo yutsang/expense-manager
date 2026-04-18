@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
+    ApproveRejectRequest,
     BillCreate,
     BillListResponse,
     BillResponse,
@@ -173,9 +174,16 @@ async def submit(bill_id: str, db: DbSession, tenant_id: TenantId, actor_id: Act
 
 
 @router.post("/{bill_id}/approve", response_model=BillResponse)
-async def approve(bill_id: str, db: DbSession, tenant_id: TenantId, actor_id: ActorId):
+async def approve(
+    bill_id: str,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+    body: ApproveRejectRequest | None = None,
+):
     try:
-        bill = await approve_bill(db, tenant_id, bill_id, actor_id)
+        comment = body.comment if body else None
+        bill = await approve_bill(db, tenant_id, bill_id, actor_id, comment=comment)
         await db.commit()
         await db.refresh(bill)
         return await _bill_response(db, bill)

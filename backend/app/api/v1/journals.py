@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
+    ApproveRejectRequest,
     JournalCreate,
     JournalListResponse,
     JournalResponse,
@@ -240,16 +241,19 @@ async def approve_journal_endpoint(
     tenant_id: TenantId,
     actor_id: ActorId,
     admin_override: bool = Query(default=False),
+    body: ApproveRejectRequest | None = None,
 ) -> JournalResponse:
     if not actor_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="X-Actor-ID required")
     try:
+        comment = body.comment if body else None
         je = await approve_journal(
             db,
             journal_id=journal_id,
             tenant_id=tenant_id,
             actor_id=actor_id,
             admin_override=admin_override,
+            comment=comment,
         )
         await db.commit()
     except JournalNotFoundError as exc:

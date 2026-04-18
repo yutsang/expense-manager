@@ -1,7 +1,7 @@
 """invoices: add invoice_templates table for recurring invoices
 
-Revision ID: 0037
-Revises: 0036
+Revision ID: 0046
+Revises: 0045
 Create Date: 2026-04-18
 """
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
-revision: str = "0037"
-down_revision: str | None = "0036"
+revision: str = "0046"
+down_revision: str | None = "0045"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

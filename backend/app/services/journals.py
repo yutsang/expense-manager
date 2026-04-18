@@ -356,11 +356,13 @@ async def approve_journal(
     tenant_id: str,
     actor_id: str,
     admin_override: bool = False,
+    comment: str | None = None,
 ) -> JournalEntry:
     """Approve a journal entry awaiting approval. Moves awaiting_approval -> posted.
 
     The approver must NOT be the same person who submitted the journal
-    (segregation of duties / maker-checker).
+    (segregation of duties / maker-checker). An optional comment is stored
+    in the audit event metadata.
     """
     je = await _get_je(db, journal_id=journal_id, tenant_id=tenant_id)
     if je.status != "awaiting_approval":
@@ -418,6 +420,10 @@ async def approve_journal(
     # DB trigger (layer 3) fires here when SQLAlchemy flushes
     await db.flush()
 
+    metadata: dict[str, object] = {}
+    if comment:
+        metadata["comment"] = comment
+
     await emit(
         db,
         action="journal.approve",
@@ -428,6 +434,7 @@ async def approve_journal(
         tenant_id=tenant_id,
         before=before,
         after={"status": "posted", "number": number},
+        metadata=metadata,
     )
     log.info("journal_approved", number=number, tenant_id=tenant_id)
     return je

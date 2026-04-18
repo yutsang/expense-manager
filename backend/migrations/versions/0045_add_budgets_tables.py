@@ -1,7 +1,7 @@
 """budgets: add budgets and budget_lines tables
 
-Revision ID: 0036
-Revises: 0035
+Revision ID: 0045
+Revises: 0044
 Create Date: 2026-04-18
 """
 
@@ -12,8 +12,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0036"
-down_revision: str | None = "0035"
+revision: str = "0045"
+down_revision: str | None = "0044"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

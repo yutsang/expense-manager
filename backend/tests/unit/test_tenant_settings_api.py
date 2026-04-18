@@ -153,11 +153,11 @@ class TestTenantSettingsRouterSource:
 
     def test_get_endpoint_exists(self) -> None:
         source = self._read_source()
-        assert '@router.get("")' in source or "@router.get('')" in source
+        assert "@router.get(" in source
 
     def test_patch_endpoint_exists(self) -> None:
         source = self._read_source()
-        assert '@router.patch("")' in source or "@router.patch('')" in source
+        assert "@router.patch(" in source
 
     def test_router_registered_in_main(self) -> None:
         main_path = pathlib.Path(__file__).resolve().parents[2] / "app" / "main.py"

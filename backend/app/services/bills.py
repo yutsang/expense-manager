@@ -271,13 +271,58 @@ async def submit_for_approval(
     return bill
 
 
+async def needs_approval(db: AsyncSession, tenant_id: str, bill_total: Decimal) -> bool:
+    """Check if a bill requires approval based on configurable rules (Issue #61).
+
+    Returns True if any matching approval rule is found. If no rules exist,
+    returns False (preserving existing behaviour where bills can be approved
+    directly from draft).
+    """
+    from app.services.approval_rules import evaluate_rules
+
+    matched = await evaluate_rules(db, tenant_id, "bill", bill_total)
+    return len(matched) > 0
+
+
 async def approve_bill(
-    db: AsyncSession, tenant_id: str, bill_id: str, actor_id: str | None
+    db: AsyncSession,
+    tenant_id: str,
+    bill_id: str,
+    actor_id: str | None,
+    *,
+    comment: str | None = None,
 ) -> Bill:
-    """Approve a bill: post the AP journal entry."""
+    """Approve a bill: post the AP journal entry.
+
+    An optional comment is stored in the audit event metadata.
+    """
     bill = await get_bill(db, tenant_id, bill_id)
     if bill.status not in ("draft", "awaiting_approval"):
         raise BillTransitionError(f"Cannot approve bill with status '{bill.status}'")
+
+    # If bill is draft, check configurable rules to see if it should go
+    # through awaiting_approval first (Issue #61).
+    bill_total = Decimal(str(bill.total))
+    if bill.status == "draft" and await needs_approval(db, tenant_id, bill_total):
+        bill.status = "awaiting_approval"
+        bill.updated_by = actor_id
+        bill.version += 1
+        await db.flush()
+        await db.refresh(bill)
+
+        await emit(
+            db,
+            action="bill.awaiting_approval",
+            entity_type="bill",
+            entity_id=bill_id,
+            actor_type="user",
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+            before={"status": "draft"},
+            after={"status": "awaiting_approval"},
+        )
+        log.info("bill.awaiting_approval", tenant_id=tenant_id, bill_id=bill_id)
+        return bill
 
     before_status = bill.status
 
@@ -373,6 +418,10 @@ async def approve_bill(
     await db.flush()
     await db.refresh(bill)
 
+    metadata: dict[str, object] = {}
+    if comment:
+        metadata["comment"] = comment
+
     await emit(
         db,
         action="bill.approved",
@@ -383,6 +432,7 @@ async def approve_bill(
         tenant_id=tenant_id,
         before={"status": before_status},
         after={"status": "approved"},
+        metadata=metadata,
     )
     log.info("bill.approved", tenant_id=tenant_id, bill_id=bill_id)
     return bill

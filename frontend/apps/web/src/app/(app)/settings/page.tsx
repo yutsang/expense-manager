@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/page-header";
-import { Settings, User, Bell, Check } from "lucide-react";
+import { Settings, User, Bell, Check, AlertCircle } from "lucide-react";
+import { settingsApi } from "@/lib/api";
+import type { TenantSettings } from "@/lib/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +58,7 @@ const DEFAULT_NOTIF: NotificationSettings = {
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+function Toast({ message, variant = "success", onDismiss }: { message: string; variant?: "success" | "error"; onDismiss: () => void }) {
   useEffect(() => {
     const t = setTimeout(onDismiss, 3000);
     return () => clearTimeout(t);
@@ -64,7 +66,11 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-gray-100 dark:text-gray-900">
-      <Check className="h-4 w-4 shrink-0 text-green-400 dark:text-green-600" />
+      {variant === "success" ? (
+        <Check className="h-4 w-4 shrink-0 text-green-400 dark:text-green-600" />
+      ) : (
+        <AlertCircle className="h-4 w-4 shrink-0 text-red-400 dark:text-red-600" />
+      )}
       {message}
     </div>
   );
@@ -141,30 +147,80 @@ function SaveButton({ loading, onClick }: { loading?: boolean; onClick: () => vo
 
 // ── Organisation tab ──────────────────────────────────────────────────────────
 
-function OrganisationTab({ onSaved }: { onSaved: () => void }) {
+function OrganisationTab({ onSaved, onError }: { onSaved: () => void; onError: (msg: string) => void }) {
   const [form, setForm] = useState<OrgSettings>(DEFAULT_ORG);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_ORG);
-      if (raw) setForm(JSON.parse(raw) as OrgSettings);
-    } catch {
-      // use defaults
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await settingsApi.get();
+        if (!cancelled) {
+          setForm({
+            org_name: data.org_name,
+            country: data.country,
+            functional_currency: data.functional_currency,
+            fiscal_year_start_month: data.fiscal_year_start_month,
+          });
+          // Write-through cache
+          localStorage.setItem(LS_ORG, JSON.stringify({
+            org_name: data.org_name,
+            country: data.country,
+            functional_currency: data.functional_currency,
+            fiscal_year_start_month: data.fiscal_year_start_month,
+          }));
+        }
+      } catch {
+        // Fall back to localStorage
+        try {
+          const raw = localStorage.getItem(LS_ORG);
+          if (raw && !cancelled) setForm(JSON.parse(raw) as OrgSettings);
+        } catch {
+          // use defaults
+        }
+      } finally {
+        if (!cancelled) setFetching(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   function patch<K extends keyof OrgSettings>(key: K, value: OrgSettings[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleSave() {
+  async function handleSave() {
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem(LS_ORG, JSON.stringify(form));
-      setLoading(false);
+    try {
+      const updated = await settingsApi.update({
+        org_name: form.org_name,
+        country: form.country,
+        functional_currency: form.functional_currency,
+        fiscal_year_start_month: form.fiscal_year_start_month,
+      });
+      // Write-through cache
+      localStorage.setItem(LS_ORG, JSON.stringify({
+        org_name: updated.org_name,
+        country: updated.country,
+        functional_currency: updated.functional_currency,
+        fiscal_year_start_month: updated.fiscal_year_start_month,
+      }));
       onSaved();
-    }, 300);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to save settings");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (fetching) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <span className="h-5 w-5 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -398,30 +454,68 @@ function Toggle({ checked, onChange, label, description }: ToggleProps) {
   );
 }
 
-function NotificationsTab({ onSaved }: { onSaved: () => void }) {
+function NotificationsTab({ onSaved, onError }: { onSaved: () => void; onError: (msg: string) => void }) {
   const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_NOTIF);
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_NOTIF);
-      if (raw) setSettings(JSON.parse(raw) as NotificationSettings);
-    } catch {
-      // use defaults
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await settingsApi.get();
+        if (!cancelled) {
+          const prefs = data.notification_prefs || {};
+          setSettings({
+            email_overdue_invoices: prefs.email_overdue_invoices ?? DEFAULT_NOTIF.email_overdue_invoices,
+            daily_sanctions_scan: prefs.daily_sanctions_scan ?? DEFAULT_NOTIF.daily_sanctions_scan,
+            period_close_reminders: prefs.period_close_reminders ?? DEFAULT_NOTIF.period_close_reminders,
+            kyc_expiry_alerts: prefs.kyc_expiry_alerts ?? DEFAULT_NOTIF.kyc_expiry_alerts,
+          });
+          // Write-through cache
+          localStorage.setItem(LS_NOTIF, JSON.stringify(prefs));
+        }
+      } catch {
+        // Fall back to localStorage
+        try {
+          const raw = localStorage.getItem(LS_NOTIF);
+          if (raw && !cancelled) setSettings(JSON.parse(raw) as NotificationSettings);
+        } catch {
+          // use defaults
+        }
+      } finally {
+        if (!cancelled) setFetching(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   function patch<K extends keyof NotificationSettings>(key: K, value: NotificationSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleSave() {
+  async function handleSave() {
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem(LS_NOTIF, JSON.stringify(settings));
-      setLoading(false);
+    try {
+      const updated = await settingsApi.update({
+        notification_prefs: settings as unknown as Record<string, boolean>,
+      });
+      // Write-through cache
+      localStorage.setItem(LS_NOTIF, JSON.stringify(updated.notification_prefs));
       onSaved();
-    }, 200);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Failed to save notification settings");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (fetching) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <span className="h-5 w-5 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -471,9 +565,10 @@ function NotificationsTab({ onSaved }: { onSaved: () => void }) {
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("organisation");
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(null);
 
-  const showToast = useCallback(() => setToast("Saved"), []);
+  const showSaved = useCallback(() => setToast({ message: "Settings saved", variant: "success" }), []);
+  const showError = useCallback((msg: string) => setToast({ message: msg, variant: "error" }), []);
   const dismissToast = useCallback(() => setToast(null), []);
 
   return (
@@ -500,12 +595,12 @@ export default function SettingsPage() {
           ))}
         </div>
 
-        {activeTab === "organisation" && <OrganisationTab onSaved={showToast} />}
-        {activeTab === "profile" && <ProfileTab onSaved={showToast} />}
-        {activeTab === "notifications" && <NotificationsTab onSaved={showToast} />}
+        {activeTab === "organisation" && <OrganisationTab onSaved={showSaved} onError={showError} />}
+        {activeTab === "profile" && <ProfileTab onSaved={showSaved} />}
+        {activeTab === "notifications" && <NotificationsTab onSaved={showSaved} onError={showError} />}
       </div>
 
-      {toast && <Toast message={toast} onDismiss={dismissToast} />}
+      {toast && <Toast message={toast.message} variant={toast.variant} onDismiss={dismissToast} />}
     </>
   );
 }
