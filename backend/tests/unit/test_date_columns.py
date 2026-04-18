@@ -8,9 +8,7 @@ accept datetime.date objects.
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
 
-import pytest
 import sqlalchemy as sa
 
 from app.infra.models import Bill, Invoice, Payment
@@ -88,8 +86,8 @@ class TestPydanticSchemaDateTypes:
             "sent_at": None,
             "last_reminder_sent_at": None,
             "reminder_count": 0,
-            "created_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-            "updated_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
+            "created_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+            "updated_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
             "lines": [],
         }
         resp = InvoiceResponse.model_validate(data)
@@ -119,8 +117,8 @@ class TestPydanticSchemaDateTypes:
             "notes": None,
             "approved_by": None,
             "approved_at": None,
-            "created_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-            "updated_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
+            "created_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+            "updated_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
             "lines": [],
         }
         resp = BillResponse.model_validate(data)
@@ -141,8 +139,8 @@ class TestPydanticSchemaDateTypes:
             "reference": None,
             "status": "pending",
             "idempotency_key": None,
-            "created_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
-            "updated_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
+            "created_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+            "updated_at": datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         }
         resp = PaymentResponse.model_validate(data)
         assert "2025-03-01" in str(resp.payment_date)

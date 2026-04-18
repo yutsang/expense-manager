@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import pathlib
 
-
 _MODELS_PATH = pathlib.Path(__file__).resolve().parents[2] / "app" / "infra" / "models.py"
 _MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
 _BANK_IMPORT_PATH = (

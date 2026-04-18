@@ -21,7 +21,6 @@ from app.services.consolidation import (
     get_group,
     list_groups,
     list_members,
-    remove_member,
 )
 
 router = APIRouter(prefix="/consolidation", tags=["consolidation"])

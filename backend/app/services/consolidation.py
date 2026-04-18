@@ -11,16 +11,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.infra.models import (
-    Account,
     EntityGroup,
     EntityGroupMember,
-    JournalEntry,
-    JournalLine,
     Tenant,
 )
 
@@ -394,10 +391,7 @@ async def get_consolidated_bs(
             td = Decimal(str(row.total_debit))
             tc = Decimal(str(row.total_credit))
 
-            if row.type == "asset":
-                balance = (td - tc) * pct_factor
-            else:  # liability, equity
-                balance = (tc - td) * pct_factor
+            balance = (td - tc) * pct_factor if row.type == "asset" else (tc - td) * pct_factor
 
             line.per_entity[tenant_id] = balance
             line.total += balance

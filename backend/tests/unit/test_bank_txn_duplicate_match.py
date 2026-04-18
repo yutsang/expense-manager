@@ -14,12 +14,12 @@ Tests cover:
 from __future__ import annotations
 
 import sys
-from datetime import timezone
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-_UTC = timezone.utc
+_UTC = UTC
 _NEEDS_311 = sys.version_info < (3, 11)
 _skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
 

@@ -19,7 +19,6 @@ import pytest
 
 from app.domain.ledger.journal import JournalBalanceError, JournalLineInput
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

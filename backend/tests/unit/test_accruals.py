@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import pathlib
 import sys
-from datetime import date
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -298,21 +297,20 @@ class TestCreateAccrualService:
             patch(
                 "app.services.accruals.assert_can_post",
                 side_effect=PeriodPostingError("Period is hard_closed"),
-            ),
+            ),pytest.raises(PeriodPostingError)
         ):
-            with pytest.raises(PeriodPostingError):
-                await create_accrual(
-                    mock_db,
-                    tenant_id="t1",
-                    actor_id="actor-1",
-                    accrual_type="accrual",
-                    description="December rent",
-                    amount=Decimal("5000.0000"),
-                    currency="USD",
-                    debit_account_id="acct-1",
-                    credit_account_id="acct-2",
-                    period_id="period-1",
-                )
+            await create_accrual(
+                mock_db,
+                tenant_id="t1",
+                actor_id="actor-1",
+                accrual_type="accrual",
+                description="December rent",
+                amount=Decimal("5000.0000"),
+                currency="USD",
+                debit_account_id="acct-1",
+                credit_account_id="acct-2",
+                period_id="period-1",
+            )
 
 
 @_skip_311

@@ -329,7 +329,7 @@ class TestMigrationSource:
             pathlib.Path(__file__).resolve().parents[2]
             / "migrations"
             / "versions"
-            / "0043_add_approval_rules_tables.py"
+            / "0045_add_approval_rules_tables.py"
         )
         assert migration_path.exists()
 
@@ -340,7 +340,7 @@ class TestMigrationSource:
             pathlib.Path(__file__).resolve().parents[2]
             / "migrations"
             / "versions"
-            / "0043_add_approval_rules_tables.py"
+            / "0045_add_approval_rules_tables.py"
         )
         source = migration_path.read_text()
         assert '"approval_rules"' in source
@@ -353,7 +353,7 @@ class TestMigrationSource:
             pathlib.Path(__file__).resolve().parents[2]
             / "migrations"
             / "versions"
-            / "0043_add_approval_rules_tables.py"
+            / "0045_add_approval_rules_tables.py"
         )
         source = migration_path.read_text()
         assert "def downgrade()" in source
@@ -366,7 +366,7 @@ class TestMigrationSource:
             pathlib.Path(__file__).resolve().parents[2]
             / "migrations"
             / "versions"
-            / "0043_add_approval_rules_tables.py"
+            / "0045_add_approval_rules_tables.py"
         )
         source = migration_path.read_text()
         assert "ENABLE ROW LEVEL SECURITY" in source

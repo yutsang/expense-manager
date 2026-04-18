@@ -9,15 +9,15 @@ Tests cover:
 
 from __future__ import annotations
 
+import contextlib
 import pathlib
 import sys
-from datetime import date, timezone
-from decimal import Decimal
+from datetime import UTC, date
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-_UTC = timezone.utc
+_UTC = UTC
 _NEEDS_311 = sys.version_info < (3, 11)
 _skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
 
@@ -104,13 +104,12 @@ class TestCreateExpenseClaimCurrencyValidation:
     async def test_raises_on_mismatched_line_currency(
         self, mock_db: AsyncMock, mock_period: MagicMock
     ) -> None:
+        # Patch get_period_for_date to return mock_period
+        import app.services.expense_claims as svc
         from app.services.expense_claims import (
             CurrencyMismatchError,
             create_expense_claim,
         )
-
-        # Patch get_period_for_date to return mock_period
-        import app.services.expense_claims as svc
 
         original = svc.get_period_for_date
         svc.get_period_for_date = AsyncMock(return_value=mock_period)
@@ -144,9 +143,8 @@ class TestCreateExpenseClaimCurrencyValidation:
     async def test_accepts_matching_currencies(
         self, mock_db: AsyncMock, mock_period: MagicMock
     ) -> None:
-        from app.services.expense_claims import create_expense_claim
-
         import app.services.expense_claims as svc
+        from app.services.expense_claims import create_expense_claim
 
         original = svc.get_period_for_date
         svc.get_period_for_date = AsyncMock(return_value=mock_period)
@@ -177,12 +175,8 @@ class TestCreateExpenseClaimCurrencyValidation:
             }
 
             # Should not raise - may fail on DB operations but not on currency check
-            try:
+            with contextlib.suppress(AttributeError, TypeError):
                 await create_expense_claim(mock_db, "t1", "actor-1", data)
-            except (AttributeError, TypeError):
-                # Expected - mock DB won't fully support the flow, but currency
-                # validation should have passed by this point
-                pass
         finally:
             svc.get_period_for_date = original
 
@@ -191,9 +185,8 @@ class TestCreateExpenseClaimCurrencyValidation:
         self, mock_db: AsyncMock, mock_period: MagicMock
     ) -> None:
         """Lines without explicit currency should default to header currency."""
-        from app.services.expense_claims import create_expense_claim
-
         import app.services.expense_claims as svc
+        from app.services.expense_claims import create_expense_claim
 
         original = svc.get_period_for_date
         svc.get_period_for_date = AsyncMock(return_value=mock_period)
@@ -218,9 +211,7 @@ class TestCreateExpenseClaimCurrencyValidation:
             }
 
             # Should not raise CurrencyMismatchError
-            try:
+            with contextlib.suppress(AttributeError, TypeError):
                 await create_expense_claim(mock_db, "t1", "actor-1", data)
-            except (AttributeError, TypeError):
-                pass  # Expected - mock limitations
         finally:
             svc.get_period_for_date = original

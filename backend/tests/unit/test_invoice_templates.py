@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -26,7 +26,6 @@ from app.infra.models import (
     Tenant,
 )
 from app.services.invoice_templates import _advance_date
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

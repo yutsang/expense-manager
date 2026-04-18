@@ -17,12 +17,12 @@ Tests cover:
 from __future__ import annotations
 
 import sys
-from datetime import timezone
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-_UTC = timezone.utc
+_UTC = UTC
 _NEEDS_311 = sys.version_info < (3, 11)
 _skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
 
@@ -228,7 +228,7 @@ class TestCreateConnectionDuplicateCheck:
         # First scalar call: no existing connection
         mock_db.scalar = AsyncMock(return_value=None)
 
-        conn = await create_connection(
+        await create_connection(
             mock_db,
             tenant_id="t1",
             actor_id="actor-1",

@@ -276,7 +276,7 @@ async def post_journal(
     validate_balance(domain_lines)  # Layer 2 check
 
     # Write back any FX-adjusted functional amounts to the DB lines
-    for db_ln, domain_ln in zip(db_lines, domain_lines):
+    for db_ln, domain_ln in zip(db_lines, domain_lines, strict=True):
         db_ln.functional_debit = domain_ln.functional_debit
         db_ln.functional_credit = domain_ln.functional_credit
 
@@ -400,7 +400,7 @@ async def approve_journal(
     validate_balance(domain_lines)  # Layer 2 check
 
     # Write back any FX-adjusted functional amounts to the DB lines
-    for db_ln, domain_ln in zip(db_lines, domain_lines):
+    for db_ln, domain_ln in zip(db_lines, domain_lines, strict=True):
         db_ln.functional_debit = domain_ln.functional_debit
         db_ln.functional_credit = domain_ln.functional_credit
 

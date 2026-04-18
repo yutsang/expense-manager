@@ -179,6 +179,7 @@ class TestPartialMonthDepreciation:
     def test_full_month_when_acquired_on_first(self) -> None:
         """Asset acquired on the 1st gets a full month of depreciation."""
         from datetime import date
+
         from app.domain.assets.depreciation import calculate_depreciation
 
         result = calculate_depreciation(
@@ -194,6 +195,7 @@ class TestPartialMonthDepreciation:
     def test_half_month_when_acquired_mid_month(self) -> None:
         """Asset acquired on the 16th of a 30-day month gets ~50% depreciation."""
         from datetime import date
+
         from app.domain.assets.depreciation import calculate_depreciation
 
         # June has 30 days. Acquired on 16th = 15 days remaining (16..30).
@@ -211,6 +213,7 @@ class TestPartialMonthDepreciation:
     def test_last_day_acquisition_gives_one_day(self) -> None:
         """Asset acquired on the last day gets 1/days_in_month depreciation."""
         from datetime import date
+
         from app.domain.assets.depreciation import calculate_depreciation
 
         # January has 31 days, acquired on 31st = 1 day remaining.
@@ -230,6 +233,7 @@ class TestPartialMonthDepreciation:
     def test_second_month_is_full_regardless_of_acquisition_date(self) -> None:
         """Only the first month is pro-rated."""
         from datetime import date
+
         from app.domain.assets.depreciation import calculate_depreciation
 
         result = calculate_depreciation(
@@ -258,6 +262,7 @@ class TestPartialMonthDepreciation:
     def test_declining_balance_first_month_prorate(self) -> None:
         """Declining balance method also pro-rates the first month."""
         from datetime import date
+
         from app.domain.assets.depreciation import calculate_depreciation
 
         # Full first month: 10000 * (2/60) = 333.3333
@@ -285,6 +290,7 @@ class TestPartialMonthDepreciation:
     def test_depreciation_never_exceeds_depreciable(self) -> None:
         """Total accumulated depreciation must not exceed cost - residual."""
         from datetime import date
+
         from app.domain.assets.depreciation import calculate_depreciation
 
         result = calculate_depreciation(

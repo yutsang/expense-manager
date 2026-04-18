@@ -12,8 +12,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -209,7 +208,7 @@ class TestTenantSettingsService:
         tenant = self._make_tenant()
         mock_db.scalar = AsyncMock(return_value=tenant)
 
-        result = await update_settings(
+        await update_settings(
             mock_db, "t1", "actor-1", {"org_name": "New Name"}
         )
         assert tenant.name == "New Name"

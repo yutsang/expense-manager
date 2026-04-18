@@ -17,7 +17,6 @@ from app.services.invoice_templates import (
     TemplateNotFoundError,
     create_template,
     generate_single_invoice,
-    get_template,
     list_templates,
     save_invoice_as_template,
     update_template,

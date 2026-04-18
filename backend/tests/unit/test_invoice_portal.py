@@ -13,8 +13,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -291,7 +290,7 @@ class TestAcknowledgeInvoice:
         inv = MagicMock()
         inv.id = "inv-1"
         inv.share_token = "valid-token"
-        inv.acknowledged_at = datetime.now(tz=timezone.utc)
+        inv.acknowledged_at = datetime.now(tz=UTC)
         inv.acknowledged_by_name = "Jane"
         inv.status = "sent"
 

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import pathlib
 import sys
-from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest

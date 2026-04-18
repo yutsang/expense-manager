@@ -51,7 +51,7 @@ class TestParseEcbXml:
 </gesmes:Envelope>"""
         try:
             parse_ecb_xml(xml)
-            assert False, "Should have raised"
+            raise AssertionError("Should have raised")
         except ValueError as exc:
             assert "Could not find" in str(exc)
 

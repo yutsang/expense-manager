@@ -98,8 +98,8 @@ class TestVoidPartiallyPaidInvoice:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch.object(mock_db, "execute", return_value=alloc_result),
+            pytest.raises(InvoiceTransitionError, match="reverse payments first"),
         ):
-            with pytest.raises(InvoiceTransitionError, match="reverse payments first"):
                 await void_invoice(mock_db, "t1", "inv-1", "actor-2")
 
     @pytest.mark.anyio

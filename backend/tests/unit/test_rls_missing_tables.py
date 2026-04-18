@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import pathlib
 
-
 _MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
 _TABLES = ["accruals", "fixed_assets", "salary_records"]
 

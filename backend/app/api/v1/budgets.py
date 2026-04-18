@@ -13,15 +13,12 @@ from app.api.v1.schemas import (
     BudgetListResponse,
     BudgetResponse,
     BudgetUpdate,
-    BudgetVsActualResponse,
-    BudgetVsActualRow,
 )
 from app.services.budgets import (
     BudgetNotFoundError,
     create_budget,
     create_budget_line,
     get_budget,
-    get_budget_vs_actual,
     list_budget_lines,
     list_budgets,
     update_budget,
