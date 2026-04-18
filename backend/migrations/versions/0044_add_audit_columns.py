@@ -28,7 +28,7 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 # (table, column_name, column_type, nullable, server_default)
-_COLUMNS: list[tuple[str, str, "sa.types.TypeEngine[object]", bool, str | None]] = [
+_COLUMNS: list[tuple[str, str, sa.types.TypeEngine[object], bool, str | None]] = [
     # expense_claim_lines
     ("expense_claim_lines", "created_at", sa.TIMESTAMP(timezone=True), False, "now()"),
     ("expense_claim_lines", "updated_at", sa.TIMESTAMP(timezone=True), False, "now()"),

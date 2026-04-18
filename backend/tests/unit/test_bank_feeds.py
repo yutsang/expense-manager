@@ -3,7 +3,7 @@
 Tests cover:
   - BankFeedConnection model exists with the correct columns
   - BankTransaction model has institution_transaction_id column
-  - Migration 0036 exists with upgrade() and downgrade()
+  - Migration 0037 exists with upgrade() and downgrade()
   - Service functions are defined (create_connection, sync_transactions, etc.)
   - Service raises BankFeedAlreadyConnectedError on duplicate active connection
   - Service raises BankFeedConnectionNotFoundError when connection is missing
@@ -97,15 +97,15 @@ class TestBankTransactionInstitutionId:
 # ── Migration tests ──────────────────────────────────────────────────────────
 
 
-class TestMigration0036:
-    """Migration 0036 must exist and create bank_feed_connections + add column."""
+class TestMigration0037:
+    """Migration 0037 must exist and create bank_feed_connections + add column."""
 
     def _get_migration_source(self) -> str:
         import pathlib
 
         migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
-        candidates = [f for f in migrations_dir.glob("0036*")]
-        assert len(candidates) >= 1, "Migration 0036 not found"
+        candidates = [f for f in migrations_dir.glob("0037*")]
+        assert len(candidates) >= 1, "Migration 0037 not found"
         return candidates[0].read_text()
 
     def test_migration_file_exists(self) -> None:
@@ -131,9 +131,9 @@ class TestMigration0036:
         assert "ENABLE ROW LEVEL SECURITY" in source
         assert "tenant_isolation" in source
 
-    def test_migration_revises_0035(self) -> None:
+    def test_migration_revises_0036(self) -> None:
         source = self._get_migration_source()
-        assert '"0035"' in source
+        assert '"0036"' in source
 
     def test_migration_downgrade_drops_table(self) -> None:
         source = self._get_migration_source()
