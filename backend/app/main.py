@@ -79,17 +79,21 @@ from app.api.v1 import (  # noqa: E402
     accounts,
     accruals,
     ai,
+    approval_rules,
     attachments,
     audit,
     auth,
     bank_feeds,
     bank_reconciliation,
     bills,
+    budgets,
+    consolidation,
     contacts,
     expense_claims,
     fixed_assets,
     fx,
     invoice_portal,
+    invoice_templates,
     invoices,
     items,
     journals,
@@ -98,6 +102,7 @@ from app.api.v1 import (  # noqa: E402
     payments,
     payroll,
     periods,
+    projects,
     purchase_orders,
     receipts,
     reports,
@@ -105,10 +110,12 @@ from app.api.v1 import (  # noqa: E402
     sanctions,
     search,
     sync,
+    tenant_settings,
 )
 
 _API_PREFIX = "/v1"
 app.include_router(accounts.router, prefix=_API_PREFIX)
+app.include_router(tenant_settings.router, prefix=_API_PREFIX)
 app.include_router(periods.router, prefix=_API_PREFIX)
 app.include_router(fx.router, prefix=_API_PREFIX)
 app.include_router(journals.router, prefix=_API_PREFIX)
@@ -138,6 +145,13 @@ app.include_router(search.router, prefix=_API_PREFIX)
 app.include_router(accruals.router, prefix=_API_PREFIX)
 app.include_router(fixed_assets.router, prefix=_API_PREFIX)
 app.include_router(payroll.router, prefix=_API_PREFIX)
+app.include_router(budgets.router, prefix=_API_PREFIX)
+app.include_router(invoice_templates.router, prefix=_API_PREFIX)
+app.include_router(consolidation.router, prefix=_API_PREFIX)
+app.include_router(approval_rules.router, prefix=_API_PREFIX)
+app.include_router(projects.router, prefix=_API_PREFIX)
+app.include_router(projects.time_entries_router, prefix=_API_PREFIX)
+app.include_router(projects.billing_rates_router, prefix=_API_PREFIX)
 
 
 @app.get("/health", tags=["meta"], summary="Health check")

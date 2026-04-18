@@ -1021,3 +1021,22 @@ async def anomalies_endpoint(
     amount, and detail message.
     """
     return await scan_anomalies(db, tenant_id)
+
+
+@router.get("/budget-vs-actual")
+async def budget_vs_actual_endpoint(
+    db: DbSession,
+    tenant_id: TenantId,
+    budget_id: str = Query(..., description="Budget ID"),
+    month: int = Query(..., ge=1, le=12, description="Month number (1-12)"),
+) -> dict:
+    """Budget vs actual report for a specific budget and month."""
+    from app.services.budgets import BudgetNotFoundError, get_budget_vs_actual
+
+    try:
+        rows = await get_budget_vs_actual(db, tenant_id, budget_id, month)
+    except BudgetNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Budget not found")
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    return {"budget_id": budget_id, "month": month, "rows": rows}

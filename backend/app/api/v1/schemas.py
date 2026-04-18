@@ -671,6 +671,12 @@ class InvoiceListResponse(BaseModel):
 
 class TenantSettingsUpdate(BaseModel):
     invoice_approval_threshold: str | None = None
+    org_name: str | None = None
+    country: str | None = None
+    functional_currency: str | None = None
+    fiscal_year_start_month: int | None = None
+    tax_rounding_policy: str | None = None
+    notification_prefs: dict[str, bool] | None = None
 
     @field_validator("invoice_approval_threshold")
     @classmethod
@@ -680,6 +686,32 @@ class TenantSettingsUpdate(BaseModel):
             if d < 0:
                 raise ValueError("invoice_approval_threshold must be non-negative")
         return v
+
+    @field_validator("fiscal_year_start_month")
+    @classmethod
+    def month_must_be_valid(cls, v: int | None) -> int | None:
+        if v is not None and (v < 1 or v > 12):
+            raise ValueError("fiscal_year_start_month must be between 1 and 12")
+        return v
+
+    @field_validator("tax_rounding_policy")
+    @classmethod
+    def policy_must_be_valid(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("per_line", "per_invoice"):
+            raise ValueError("tax_rounding_policy must be 'per_line' or 'per_invoice'")
+        return v
+
+
+class TenantSettingsResponse(BaseModel):
+    org_name: str
+    country: str
+    functional_currency: str
+    fiscal_year_start_month: int
+    tax_rounding_policy: str
+    invoice_approval_threshold: str | None = None
+    notification_prefs: dict[str, bool]
+
+    model_config = {"from_attributes": True}
 
 
 # ── Bills ─────────────────────────────────────────────────────────────────────
@@ -1886,3 +1918,329 @@ class SaveAsTemplateRequest(BaseModel):
     )
     next_generation_date: date | None = None
     end_date: date | None = None
+
+
+# ── Approval Rules (Issue #61) ─────────────────────────────────────────────
+
+
+class ApprovalRuleCreate(BaseModel):
+    """Request body for creating an approval rule."""
+
+    entity_type: str = Field(
+        ..., pattern="^(invoice|bill|journal|expense_claim)$"
+    )
+    condition_field: str = Field(..., pattern="^(total|amount)$")
+    condition_operator: str = Field(..., pattern="^(gte|lte|gt|lt|eq)$")
+    condition_value: str = Field(..., description="Threshold value as decimal string")
+    required_role: str = Field(..., min_length=1, max_length=50)
+    approval_order: int = Field(default=1, ge=1)
+    description: str | None = None
+
+    @field_validator("condition_value")
+    @classmethod
+    def condition_value_must_be_non_negative_decimal(cls, v: str) -> str:
+        d = Decimal(v)
+        if d < 0:
+            raise ValueError("condition_value must be non-negative")
+        return v
+
+
+class ApprovalRuleUpdate(BaseModel):
+    """Request body for updating an approval rule."""
+
+    entity_type: str | None = Field(
+        default=None, pattern="^(invoice|bill|journal|expense_claim)$"
+    )
+    condition_field: str | None = Field(default=None, pattern="^(total|amount)$")
+    condition_operator: str | None = Field(
+        default=None, pattern="^(gte|lte|gt|lt|eq)$"
+    )
+    condition_value: str | None = None
+    required_role: str | None = Field(default=None, min_length=1, max_length=50)
+    approval_order: int | None = Field(default=None, ge=1)
+    description: str | None = None
+    is_active: bool | None = None
+
+    @field_validator("condition_value")
+    @classmethod
+    def condition_value_must_be_non_negative_decimal(cls, v: str | None) -> str | None:
+        if v is not None:
+            d = Decimal(v)
+            if d < 0:
+                raise ValueError("condition_value must be non-negative")
+        return v
+
+
+class ApprovalRuleResponse(BaseModel):
+    """Response for an approval rule."""
+
+    id: str
+    tenant_id: str
+    entity_type: str
+    condition_field: str
+    condition_operator: str
+    condition_value: str
+    required_role: str
+    approval_order: int
+    is_active: bool
+    description: str | None
+    created_at: datetime
+    updated_at: datetime
+    version: int
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("condition_value", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class ApprovalRuleListResponse(BaseModel):
+    """List of approval rules."""
+
+    items: list[ApprovalRuleResponse]
+
+
+class ApprovalDelegationCreate(BaseModel):
+    """Request body for creating an approval delegation."""
+
+    delegator_id: str
+    delegate_id: str
+    start_date: date
+    end_date: date
+
+    @model_validator(mode="after")
+    def end_not_before_start(self) -> ApprovalDelegationCreate:
+        if self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date")
+        return self
+
+    @model_validator(mode="after")
+    def no_self_delegation(self) -> ApprovalDelegationCreate:
+        if self.delegator_id == self.delegate_id:
+            raise ValueError("Cannot delegate to yourself")
+        return self
+
+
+class ApprovalDelegationResponse(BaseModel):
+    """Response for an approval delegation."""
+
+    id: str
+    tenant_id: str
+    delegator_id: str
+    delegate_id: str
+    start_date: date
+    end_date: date
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    version: int
+
+    model_config = {"from_attributes": True}
+
+
+class ApprovalDelegationListResponse(BaseModel):
+    """List of approval delegations."""
+
+    items: list[ApprovalDelegationResponse]
+
+
+class ApproveRejectRequest(BaseModel):
+    """Optional comment when approving or rejecting."""
+
+    comment: str | None = Field(default=None, max_length=1000)
+
+
+# ── Projects & Time Tracking (Issue #67) ─────────────────────────────────
+
+
+class ProjectCreate(BaseModel):
+    contact_id: str
+    name: str = Field(..., min_length=1, max_length=200)
+    code: str | None = Field(default=None, max_length=50)
+    description: str | None = None
+    status: str = Field(default="active", pattern="^(active|completed|archived)$")
+    budget_hours: str | None = None
+    budget_amount: str | None = None
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+
+    @field_validator("budget_hours")
+    @classmethod
+    def budget_hours_non_negative(cls, v: str | None) -> str | None:
+        if v is not None and Decimal(v) < 0:
+            raise ValueError("budget_hours must be non-negative")
+        return v
+
+    @field_validator("budget_amount")
+    @classmethod
+    def budget_amount_non_negative(cls, v: str | None) -> str | None:
+        if v is not None and Decimal(v) < 0:
+            raise ValueError("budget_amount must be non-negative")
+        return v
+
+
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    code: str | None = None
+    description: str | None = None
+    status: str | None = Field(default=None, pattern="^(active|completed|archived)$")
+    budget_hours: str | None = None
+    budget_amount: str | None = None
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+
+
+class ProjectResponse(BaseModel):
+    id: str
+    contact_id: str
+    name: str
+    code: str | None
+    description: str | None
+    status: str
+    budget_hours: str | None
+    budget_amount: str | None
+    currency: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("budget_hours", "budget_amount", mode="before")
+    @classmethod
+    def decimal_to_str_or_none(cls, v: Any) -> str | None:
+        return str(v) if v is not None else None
+
+
+class ProjectListResponse(BaseModel):
+    items: list[ProjectResponse]
+    next_cursor: str | None
+
+
+class TimeEntryCreate(BaseModel):
+    project_id: str
+    user_id: str
+    entry_date: date
+    hours: str = Field(..., description="Hours as decimal string")
+    description: str | None = None
+    is_billable: bool = True
+
+    @field_validator("hours")
+    @classmethod
+    def hours_positive(cls, v: str) -> str:
+        if Decimal(v) <= 0:
+            raise ValueError("hours must be positive")
+        return v
+
+
+class TimeEntryUpdate(BaseModel):
+    hours: str | None = None
+    description: str | None = None
+    is_billable: bool | None = None
+    approval_status: str | None = Field(
+        default=None, pattern="^(pending|approved|rejected)$"
+    )
+    entry_date: date | None = None
+
+    @field_validator("hours")
+    @classmethod
+    def hours_positive(cls, v: str | None) -> str | None:
+        if v is not None and Decimal(v) <= 0:
+            raise ValueError("hours must be positive")
+        return v
+
+
+class TimeEntryResponse(BaseModel):
+    id: str
+    project_id: str
+    user_id: str
+    entry_date: date
+    hours: str
+    description: str | None
+    is_billable: bool
+    approval_status: str
+    billed_invoice_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("hours", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class TimeEntryListResponse(BaseModel):
+    items: list[TimeEntryResponse]
+    next_cursor: str | None
+
+
+class BillingRateCreate(BaseModel):
+    rate: str = Field(..., description="Rate as decimal string")
+    effective_from: date
+    effective_to: date | None = None
+    project_id: str | None = None
+    user_id: str | None = None
+    role: str | None = Field(default=None, max_length=50)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+
+    @field_validator("rate")
+    @classmethod
+    def rate_non_negative(cls, v: str) -> str:
+        if Decimal(v) < 0:
+            raise ValueError("rate must be non-negative")
+        return v
+
+
+class BillingRateResponse(BaseModel):
+    id: str
+    project_id: str | None
+    user_id: str | None
+    role: str | None
+    rate: str
+    currency: str
+    effective_from: date
+    effective_to: date | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("rate", mode="before")
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class BillingRateListResponse(BaseModel):
+    items: list[BillingRateResponse]
+    next_cursor: str | None
+
+
+class GenerateInvoiceRequest(BaseModel):
+    from_date: date
+    to_date: date
+
+    @model_validator(mode="after")
+    def dates_ordered(self) -> GenerateInvoiceRequest:
+        if self.to_date < self.from_date:
+            raise ValueError("to_date must be on or after from_date")
+        return self
+
+
+class WipEntryResponse(BaseModel):
+    id: str
+    entry_date: str
+    user_id: str
+    hours: str
+    rate: str
+    amount: str
+    description: str | None
+
+
+class WipResponse(BaseModel):
+    project_id: str
+    entries: list[WipEntryResponse]
+    total_hours: str
+    total_amount: str
+    currency: str

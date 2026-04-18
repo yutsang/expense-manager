@@ -1344,3 +1344,24 @@ export const auditApi = {
       body: JSON.stringify({ from_date, to_date }),
     }),
 };
+
+// ── Tenant Settings ─────────────────────────────────────────────────────────
+
+export interface TenantSettings {
+  org_name: string;
+  country: string;
+  functional_currency: string;
+  fiscal_year_start_month: number;
+  tax_rounding_policy: string;
+  invoice_approval_threshold: string | null;
+  notification_prefs: Record<string, boolean>;
+}
+
+export type TenantSettingsUpdate = Partial<Omit<TenantSettings, "invoice_approval_threshold">> & {
+  invoice_approval_threshold?: string | null;
+};
+
+export const settingsApi = {
+  get: () => request<TenantSettings>("GET", "/v1/settings"),
+  update: (body: TenantSettingsUpdate) => request<TenantSettings>("PATCH", "/v1/settings", body),
+};
