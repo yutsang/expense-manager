@@ -21,6 +21,7 @@ from app.domain.ledger.journal import (
     JournalBalanceError,
     JournalLineInput,
     JournalStatusError,
+    reconcile_fx_rounding,
     validate_balance,
 )
 from app.infra.models import Account, JournalEntry, JournalLine
@@ -175,6 +176,9 @@ async def create_draft(
                 f"Manual journal entries cannot target control accounts: {names}"
             )
 
+    # Reconcile FX rounding differences before computing totals (Bug #47)
+    lines = reconcile_fx_rounding(lines)
+
     now = datetime.now(tz=UTC)
     je_id = str(uuid.uuid4())
     total_d = sum(ln.functional_debit for ln in lines)
@@ -267,7 +271,14 @@ async def post_journal(
         )
         for ln in db_lines
     ]
+    # Reconcile FX rounding before balance validation (Bug #47)
+    domain_lines = reconcile_fx_rounding(domain_lines)
     validate_balance(domain_lines)  # Layer 2 check
+
+    # Write back any FX-adjusted functional amounts to the DB lines
+    for db_ln, domain_ln in zip(db_lines, domain_lines):
+        db_ln.functional_debit = domain_ln.functional_debit
+        db_ln.functional_credit = domain_ln.functional_credit
 
     now = datetime.now(tz=UTC)
     number = await _next_number(db, tenant_id, je.date.year)  # type: ignore[attr-defined]
@@ -382,7 +393,14 @@ async def approve_journal(
         )
         for ln in db_lines
     ]
+    # Reconcile FX rounding before balance validation (Bug #47)
+    domain_lines = reconcile_fx_rounding(domain_lines)
     validate_balance(domain_lines)  # Layer 2 check
+
+    # Write back any FX-adjusted functional amounts to the DB lines
+    for db_ln, domain_ln in zip(db_lines, domain_lines):
+        db_ln.functional_debit = domain_ln.functional_debit
+        db_ln.functional_credit = domain_ln.functional_credit
 
     now = datetime.now(tz=UTC)
     number = await _next_number(db, tenant_id, je.date.year)  # type: ignore[attr-defined]

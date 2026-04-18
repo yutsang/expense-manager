@@ -24,6 +24,7 @@ from app.infra.models import (
     InvoiceLine,
     JournalEntry,
     JournalLine,
+    PaymentAllocation,
     Tenant,
 )
 
@@ -702,6 +703,20 @@ async def void_invoice(
         raise InvoiceTransitionError("Invoice is already void")
     if inv.status == "paid":
         raise InvoiceTransitionError("Cannot void a fully paid invoice — issue a credit note")
+
+    # Bug #48: Block voiding when payment allocations exist (partially-paid).
+    # Leaving allocations pointing at a voided doc corrupts AR.
+    alloc_result = await db.execute(
+        select(PaymentAllocation).where(
+            PaymentAllocation.invoice_id == invoice_id,
+            PaymentAllocation.amount > 0,
+        )
+    )
+    live_allocs = list(alloc_result.scalars().all())
+    if live_allocs:
+        raise InvoiceTransitionError(
+            "Cannot void a partially-paid invoice — reverse payments first or issue a credit note"
+        )
 
     before_status = inv.status
 

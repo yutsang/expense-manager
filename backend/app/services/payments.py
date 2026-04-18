@@ -35,6 +35,10 @@ class AllocationError(ValueError):
     pass
 
 
+class OverAllocationError(ValueError):
+    pass
+
+
 async def create_payment(
     db: AsyncSession,
     tenant_id: str,
@@ -233,6 +237,21 @@ async def allocate_payment(
                 f"amount_applied {amount_q} exceeds bill amount_due {doc_amount_due}"
             )
 
+    # Bug #49: Check aggregate allocation BEFORE adding — prevent over-allocation
+    existing_allocs_result = await db.execute(
+        select(func.coalesce(func.sum(PaymentAllocation.amount), Decimal("0"))).where(
+            PaymentAllocation.payment_id == payment_id
+        )
+    )
+    existing_total = Decimal(str(existing_allocs_result.scalar() or "0"))
+    payment_amount = Decimal(str(payment.amount))
+
+    if existing_total + amount_q > payment_amount:
+        raise OverAllocationError(
+            f"Allocation of {amount_q} would bring total allocated to "
+            f"{existing_total + amount_q}, exceeding payment amount {payment_amount}"
+        )
+
     allocation = PaymentAllocation(
         tenant_id=tenant_id,
         payment_id=payment_id,
@@ -249,14 +268,7 @@ async def allocate_payment(
     doc.amount_due = new_due  # type: ignore[assignment]
 
     # Check if payment is now fully allocated
-    existing_allocs_result = await db.execute(
-        select(func.coalesce(func.sum(PaymentAllocation.amount), Decimal("0"))).where(
-            PaymentAllocation.payment_id == payment_id
-        )
-    )
-    existing_total = Decimal(str(existing_allocs_result.scalar() or "0"))
     new_total_allocated = existing_total + amount_q
-    payment_amount = Decimal(str(payment.amount))
 
     if new_total_allocated >= payment_amount:
         payment.status = "applied"
