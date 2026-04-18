@@ -109,10 +109,31 @@ def _compute_line(
     unit_price: Decimal,
     discount_pct: Decimal,
     tax_rate: Decimal,
+    *,
+    is_tax_inclusive: bool = False,
+    quantize_tax: bool = True,
 ) -> tuple[Decimal, Decimal]:
-    """Returns (line_amount_ex_tax, tax_amount)."""
-    net = (quantity * unit_price * (1 - discount_pct)).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
-    tax = (net * tax_rate).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+    """Returns (line_amount_ex_tax, tax_amount).
+
+    If *is_tax_inclusive* is True, ``unit_price`` is treated as gross
+    (tax-included). Net is back-calculated as ``gross / (1 + tax_rate)``.
+
+    If *quantize_tax* is False the per-line tax is returned without
+    quantization so the caller can accumulate raw values and round once
+    at the invoice level (``per_invoice`` rounding policy).
+    """
+    gross = (quantity * unit_price * (1 - discount_pct)).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+
+    if is_tax_inclusive and tax_rate != 0:
+        net = (gross / (1 + tax_rate)).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+        tax = gross - net
+    else:
+        net = gross
+        tax = net * tax_rate
+
+    if quantize_tax:
+        tax = tax.quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+
     return net, tax
 
 
@@ -135,6 +156,7 @@ async def create_invoice(
     reference: str | None = None,
     notes: str | None = None,
     lines: list[dict],
+    is_tax_inclusive: bool = False,
 ) -> Invoice:
     """Create a draft invoice with computed totals."""
     # Validate date order
@@ -161,6 +183,11 @@ async def create_invoice(
             f"Invalid account IDs for this tenant: {', '.join(sorted(missing_ids))}"
         )
 
+    # ── Tax rounding policy (Issue #76) ───────────────────────────────────
+    tenant = await get_tenant(db, tenant_id)
+    tax_rounding_policy = getattr(tenant, "tax_rounding_policy", "per_line")
+    quantize_tax = tax_rounding_policy != "per_invoice"
+
     # Compute totals
     subtotal = Decimal("0")
     tax_total = Decimal("0")
@@ -172,7 +199,11 @@ async def create_invoice(
         disc = Decimal(str(line.get("discount_pct", "0")))
         tax_rate = Decimal(str(line.get("_tax_rate", "0")))  # resolved by caller
 
-        net, tax = _compute_line(qty, price, disc, tax_rate)
+        net, tax = _compute_line(
+            qty, price, disc, tax_rate,
+            is_tax_inclusive=is_tax_inclusive,
+            quantize_tax=quantize_tax,
+        )
         subtotal += net
         tax_total += tax
 
@@ -192,6 +223,10 @@ async def create_invoice(
             )
         )
 
+    # Final quantization for per-invoice rounding
+    if not quantize_tax:
+        tax_total = tax_total.quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+
     total = subtotal + tax_total
 
     if total <= Decimal("0"):
@@ -210,6 +245,7 @@ async def create_invoice(
         reference=reference,
         currency=currency,
         fx_rate=fx_rate,
+        is_tax_inclusive=is_tax_inclusive,
         subtotal=subtotal,
         tax_total=tax_total,
         total=total,
