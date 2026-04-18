@@ -351,8 +351,7 @@ export default function BalanceSheetPage() {
               total={report.assets.total}
               colorClass="bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-400"
               asOf={queryDate}
-              priorLines={comparing ? priorReport.assets.lines : undefined}
-              priorTotal={comparing ? priorReport.assets.total : undefined}
+              {...(comparing ? { priorLines: priorReport.assets.lines, priorTotal: priorReport.assets.total } : {})}
             />
 
             <div className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">

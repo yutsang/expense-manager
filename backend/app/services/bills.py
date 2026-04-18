@@ -39,10 +39,31 @@ class ArchivedContactError(ValueError):
 
 
 def _compute_line(
-    quantity: Decimal, unit_price: Decimal, discount_pct: Decimal, tax_rate: Decimal
+    quantity: Decimal,
+    unit_price: Decimal,
+    discount_pct: Decimal,
+    tax_rate: Decimal,
+    *,
+    is_tax_inclusive: bool = False,
+    quantize_tax: bool = True,
 ) -> tuple[Decimal, Decimal]:
-    net = (quantity * unit_price * (1 - discount_pct)).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
-    tax = (net * tax_rate).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+    """Returns (line_amount_ex_tax, tax_amount).
+
+    Mirrors invoices._compute_line — see that docstring for details on
+    *is_tax_inclusive* and *quantize_tax*.
+    """
+    gross = (quantity * unit_price * (1 - discount_pct)).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+
+    if is_tax_inclusive and tax_rate != 0:
+        net = (gross / (1 + tax_rate)).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+        tax = gross - net
+    else:
+        net = gross
+        tax = net * tax_rate
+
+    if quantize_tax:
+        tax = tax.quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+
     return net, tax
 
 

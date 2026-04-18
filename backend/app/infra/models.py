@@ -2363,3 +2363,106 @@ class BillingRate(Base):
     __table_args__ = (
         CheckConstraint("rate >= 0", name="ck_billing_rates_rate_non_negative"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #61 — Configurable Approval Workflow Engine
+# ---------------------------------------------------------------------------
+
+
+class ApprovalRule(Base):
+    """Configurable approval rule for entity types (invoice, bill, journal, expense_claim)."""
+
+    __tablename__ = "approval_rules"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    # "invoice", "bill", "journal", "expense_claim"
+    condition_field: Mapped[str] = mapped_column(String(50), nullable=False)
+    # "total", "amount"
+    condition_operator: Mapped[str] = mapped_column(String(10), nullable=False)
+    # "gte", "lte", "gt", "lt", "eq"
+    condition_value: Mapped[object] = mapped_column(Numeric(19, 4), nullable=False)
+    required_role: Mapped[str] = mapped_column(String(50), nullable=False)
+    # "admin", "accountant", etc.
+    approval_order: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('invoice','bill','journal','expense_claim')",
+            name="ck_approval_rules_entity_type",
+        ),
+        CheckConstraint(
+            "condition_operator IN ('gte','lte','gt','lt','eq')",
+            name="ck_approval_rules_operator",
+        ),
+        CheckConstraint(
+            "condition_field IN ('total','amount')",
+            name="ck_approval_rules_field",
+        ),
+        CheckConstraint("approval_order > 0", name="ck_approval_rules_order_positive"),
+    )
+
+
+class ApprovalDelegation(Base):
+    """Delegation of approval authority from one user to another for a date range."""
+
+    __tablename__ = "approval_delegations"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    delegator_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    delegate_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    __table_args__ = (
+        CheckConstraint(
+            "start_date <= end_date", name="ck_approval_delegations_date_range"
+        ),
+        CheckConstraint(
+            "delegator_id != delegate_id", name="ck_approval_delegations_no_self"
+        ),
+    )
