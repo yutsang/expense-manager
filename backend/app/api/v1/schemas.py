@@ -1689,3 +1689,36 @@ class AccrualListResponse(BaseModel):
     """List of accruals."""
 
     items: list[AccrualResponse]
+
+
+# ── Bank Feed Connections ────────────────────────────────────────────────────
+
+
+class BankFeedConnectRequest(BaseModel):
+    provider: str = Field(default="plaid", max_length=50)
+    access_token: str | None = Field(default=None, description="Encrypted provider token")
+    item_id: str | None = Field(default=None, max_length=100)
+    institution_id: str | None = Field(default=None, max_length=100)
+    institution_name: str | None = Field(default=None, max_length=200)
+
+
+class BankFeedStatusResponse(BaseModel):
+    id: str
+    bank_account_id: str
+    provider: str
+    institution_id: str | None
+    institution_name: str | None
+    status: str
+    last_sync_at: datetime | None
+    last_error: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class BankFeedSyncResponse(BaseModel):
+    connection_id: str
+    status: str
+    transactions_synced: int
+    last_sync_at: datetime | None

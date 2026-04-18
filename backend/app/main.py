@@ -82,6 +82,7 @@ from app.api.v1 import (  # noqa: E402
     attachments,
     audit,
     auth,
+    bank_feeds,
     bank_reconciliation,
     bills,
     contacts,
@@ -118,6 +119,7 @@ app.include_router(invoices.router, prefix=_API_PREFIX)
 app.include_router(bills.router, prefix=_API_PREFIX)
 app.include_router(auth.router, prefix=_API_PREFIX)
 app.include_router(payments.router, prefix=_API_PREFIX)
+app.include_router(bank_feeds.router, prefix=_API_PREFIX)
 app.include_router(bank_reconciliation.router, prefix=_API_PREFIX)
 app.include_router(expense_claims.router, prefix=_API_PREFIX)
 app.include_router(ai.router, prefix=_API_PREFIX)

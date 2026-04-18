@@ -137,6 +137,56 @@ async def upsert_rate(
     return result.scalar_one()
 
 
+async def get_rate_at(
+    db: AsyncSession,
+    *,
+    from_currency: str,
+    to_currency: str,
+    at_datetime: datetime,
+) -> dict[str, object]:
+    """Return the FX rate effective at a specific timestamp.
+
+    Falls back to the nearest prior rate if no exact match exists.
+    Returns a dict with rate, source, rate_timestamp, staleness_seconds.
+    """
+    if from_currency.upper() == to_currency.upper():
+        return {
+            "rate": Decimal("1"),
+            "source": "identity",
+            "rate_timestamp": at_datetime,
+            "staleness_seconds": 0,
+        }
+
+    # Try to find rate with rate_timestamp <= at_datetime first (intra-day precision)
+    result = await db.execute(
+        select(FxRate)
+        .where(
+            FxRate.from_currency == from_currency.upper(),
+            FxRate.to_currency == to_currency.upper(),
+            FxRate.rate_date <= at_datetime,
+        )
+        .order_by(FxRate.rate_date.desc())
+        .limit(1)
+    )
+    row = result.scalar_one_or_none()
+    if not row:
+        raise FxRateNotFoundError(
+            f"No FX rate found for {from_currency}->{to_currency} at or before {at_datetime}"
+        )
+
+    rate_ts = row.rate_timestamp or row.rate_date
+    staleness = int((at_datetime - rate_ts).total_seconds()) if rate_ts <= at_datetime else 0
+
+    return {
+        "rate": Decimal(str(row.rate)),
+        "source": row.source,
+        "rate_timestamp": rate_ts,
+        "staleness_seconds": staleness,
+        "bid_rate": Decimal(str(row.bid_rate)) if row.bid_rate is not None else None,
+        "ask_rate": Decimal(str(row.ask_rate)) if row.ask_rate is not None else None,
+    }
+
+
 async def convert_amount(
     db: AsyncSession,
     *,
