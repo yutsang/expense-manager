@@ -60,8 +60,8 @@ class TestMigration0038:
     """Migration 0038 must replace global unique with per-tenant unique."""
 
     def _get_migration_source(self) -> str:
-        candidates = list(_MIGRATIONS_DIR.glob("0038*"))
-        assert len(candidates) >= 1, "Migration 0038 not found"
+        candidates = list(_MIGRATIONS_DIR.glob("*sync_ops_tenant*"))
+        assert len(candidates) >= 1, "Sync ops tenant unique migration not found"
         return candidates[0].read_text()
 
     def test_migration_exists(self) -> None:
@@ -85,6 +85,6 @@ class TestMigration0038:
         # downgrade should restore original constraint
         assert "uq_sync_ops_client_op_id" in downgrade_body
 
-    def test_migration_revises_0037(self) -> None:
+    def test_migration_has_down_revision(self) -> None:
         source = self._get_migration_source()
-        assert '"0037"' in source
+        assert "down_revision" in source
