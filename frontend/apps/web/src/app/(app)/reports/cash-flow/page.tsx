@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
 import { getCashFlow, type CashFlowReport } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function fmtAmount(amount: string) {
   const n = parseFloat(amount);
@@ -56,32 +56,6 @@ function ActivitySection({
   );
 }
 
-function exportCsv(report: CashFlowReport) {
-  const rows: string[][] = [["Section", "Label", "Amount"]];
-
-  for (const line of report.operating_activities) {
-    rows.push(["Operating Activities", line.label, line.amount]);
-  }
-  for (const line of report.investing_activities) {
-    rows.push(["Investing Activities", line.label, line.amount]);
-  }
-  for (const line of report.financing_activities) {
-    rows.push(["Financing Activities", line.label, line.amount]);
-  }
-  rows.push(["Summary", "Net Change in Cash", report.net_change]);
-  rows.push(["Summary", "Beginning Cash", report.opening_cash]);
-  rows.push(["Summary", "Ending Cash", report.closing_cash]);
-
-  const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `cash-flow-${report.from_date}-to-${report.to_date}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export default function CashFlowPage() {
   const today = new Date().toISOString().slice(0, 10);
   const firstOfMonth = today.slice(0, 7) + "-01";
@@ -94,22 +68,38 @@ export default function CashFlowPage() {
     queryFn: () => getCashFlow(fromDate, toDate),
   });
 
-  const exportButton = report ? (
-    <button
-      onClick={() => exportCsv(report)}
-      className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-    >
-      <Download className="h-4 w-4" />
-      Export CSV
-    </button>
-  ) : undefined;
+  const exportColumns = [
+    { key: "section", header: "Section" },
+    { key: "label", header: "Label" },
+    { key: "amount", header: "Amount" },
+  ];
+
+  const exportData = useMemo(() => {
+    if (!report) return [];
+    return [
+      ...report.operating_activities.map((l) => ({ section: "Operating Activities", ...l })),
+      ...report.investing_activities.map((l) => ({ section: "Investing Activities", ...l })),
+      ...report.financing_activities.map((l) => ({ section: "Financing Activities", ...l })),
+      { section: "Summary", label: "Net Change in Cash", amount: report.net_change },
+      { section: "Summary", label: "Beginning Cash", amount: report.opening_cash },
+      { section: "Summary", label: "Ending Cash", amount: report.closing_cash },
+    ];
+  }, [report]);
 
   return (
     <>
       <PageHeader
         title="Cash Flow Statement"
         subtitle="Indirect method — operating, investing, financing"
-        actions={exportButton}
+        actions={
+          report ? (
+            <ExportDropdown
+              data={exportData}
+              filename={`cash-flow-${fromDate}-to-${toDate}`}
+              columns={exportColumns}
+            />
+          ) : undefined
+        }
       />
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
         {/* Date range picker — refetches automatically when dates change */}

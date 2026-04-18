@@ -867,6 +867,27 @@ export function getAiCostSummary(): Promise<CostSummary> {
   return request<CostSummary>("GET", "/v1/ai/cost-summary");
 }
 
+// ── Global Search ────────────────────────────────────────────────────────────
+
+export interface SearchResultItem {
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  subtitle: string | null;
+  url: string | null;
+}
+
+export interface SearchResponse {
+  query: string;
+  items: SearchResultItem[];
+  total: number;
+}
+
+export const searchApi = {
+  search: (q: string, limit = 10) =>
+    request<SearchResponse>("GET", `/v1/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+};
+
 // ── Anomalies ─────────────────────────────────────────────────────────────────
 
 export interface Anomaly {

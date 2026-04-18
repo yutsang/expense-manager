@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import { reportsApi, type TrialBalanceReport } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function fmt(s: string) {
   const n = parseFloat(s);
@@ -30,6 +32,20 @@ export default function TrialBalancePage() {
     }
   }
 
+  const exportColumns = [
+    { key: "code", header: "Code" },
+    { key: "name", header: "Account" },
+    { key: "type", header: "Type" },
+    { key: "total_debit", header: "Debit" },
+    { key: "total_credit", header: "Credit" },
+    { key: "balance", header: "Balance" },
+  ];
+
+  const exportData = useMemo(
+    () => (report?.rows ?? []).map((r) => ({ ...r })),
+    [report],
+  );
+
   // Group rows by account type
   const grouped = report
     ? TYPE_GROUP_ORDER.map((type) => ({
@@ -43,6 +59,15 @@ export default function TrialBalancePage() {
       <PageHeader
         title="Trial Balance"
         subtitle="Summarised debit/credit totals for all accounts as of a date"
+        actions={
+          report ? (
+            <ExportDropdown
+              data={exportData}
+              filename={`trial-balance-${asOf}`}
+              columns={exportColumns}
+            />
+          ) : undefined
+        }
       />
     <div className="mx-auto max-w-7xl px-6 py-6">
 
@@ -112,7 +137,14 @@ export default function TrialBalancePage() {
                         <td className="px-4 py-2 font-mono text-sm text-muted-foreground">
                           {row.code}
                         </td>
-                        <td className="px-4 py-2 text-sm">{row.name}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <Link
+                            href={`/reports/general-ledger?account_id=${row.account_id}&from=${asOf.slice(0, 4)}-01-01&to=${asOf}`}
+                            className="text-indigo-600 hover:text-indigo-800 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                          >
+                            {row.name}
+                          </Link>
+                        </td>
                         <td className="px-4 py-2 text-right font-mono text-sm">
                           {fmt(row.total_debit)}
                         </td>

@@ -46,3 +46,38 @@
   * { @apply border-border; }
   body { @apply bg-background text-foreground; }
 }
+
+/* Print styles — hides navigation/chrome so report content fills the page */
+@media print {
+  /* Hide sidebar, top nav, and any element marked print:hidden */
+  nav,
+  aside,
+  header,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+
+  /* Remove max-width constraints so tables fill the page */
+  .mx-auto {
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Ensure tables don't break across pages awkwardly */
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+}

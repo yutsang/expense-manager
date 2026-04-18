@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BASE, type Account, type Contact, type Invoice, accountsApi, contactsApi, invoicesApi } from "@/lib/api";
+import { BASE, type Account, type Contact, type Invoice, type TaxCode, accountsApi, contactsApi, invoicesApi, taxCodesApi } from "@/lib/api";
 import { getTenantIdOrRedirect } from "@/lib/get-tenant-id";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { safeFmt, safeLineTotal, safeGrandTotal } from "@/lib/money-safe";
+import { safeFmt, safeLineTotal, safeGrandTotal, safeSum } from "@/lib/money-safe";
+import { safeLineTax, safeInvoiceTotals } from "@/lib/invoice-tax";
 import { showToast } from "@/lib/toast";
 
 function fmt(amount: string, currency = "USD") {
@@ -18,6 +19,7 @@ interface LineInput {
   description: string;
   quantity: string;
   unit_price: string;
+  tax_code_id: string;
 }
 
 export default function InvoicesPage() {
@@ -25,32 +27,37 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [taxCodes, setTaxCodes] = useState<TaxCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   const [form, setForm] = useState({
     contact_id: "",
     issue_date: new Date().toISOString().slice(0, 10),
     due_date: "",
     currency: "USD",
-    lines: [{ account_id: "", description: "", quantity: "1", unit_price: "0" }] as LineInput[],
+    lines: [{ account_id: "", description: "", quantity: "1", unit_price: "0", tax_code_id: "" }] as LineInput[],
   });
 
   const load = async () => {
     setError(null);
     try {
       setLoading(true);
-      const [invRes, contRes, accRes] = await Promise.all([
+      const [invRes, contRes, accRes, tcRes] = await Promise.all([
         invoicesApi.list(filterStatus ? { status: filterStatus } : {}),
         contactsApi.list({ contact_type: "customer" }),
         accountsApi.list(),
+        taxCodesApi.list({ active_only: true }),
       ]);
       setInvoices(invRes.items);
       setContacts(contRes.items);
       setAccounts(accRes.items.filter((a) => a.type === "revenue"));
+      setTaxCodes(tcRes.items);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load invoices");
     } finally {
@@ -61,7 +68,7 @@ export default function InvoicesPage() {
   useEffect(() => { void load(); }, [filterStatus]);
 
   const addLine = () =>
-    setForm((f) => ({ ...f, lines: [...f.lines, { account_id: "", description: "", quantity: "1", unit_price: "0" }] }));
+    setForm((f) => ({ ...f, lines: [...f.lines, { account_id: "", description: "", quantity: "1", unit_price: "0", tax_code_id: "" }] }));
 
   const removeLine = (i: number) =>
     setForm((f) => ({ ...f, lines: f.lines.filter((_, idx) => idx !== i) }));
@@ -70,13 +77,24 @@ export default function InvoicesPage() {
     setForm((f) => {
       const lines = [...f.lines];
       const prev = lines[i] as LineInput;
-      lines[i] = { account_id: prev.account_id, description: prev.description, quantity: prev.quantity, unit_price: prev.unit_price, [field]: val };
+      lines[i] = { account_id: prev.account_id, description: prev.description, quantity: prev.quantity, unit_price: prev.unit_price, tax_code_id: prev.tax_code_id, [field]: val };
       return { ...f, lines };
     });
 
   const lineTotal = (l: LineInput) => safeLineTotal(l.quantity, l.unit_price);
 
-  const grandTotal = safeGrandTotal(form.lines);
+  const lineTax = (l: LineInput): string => {
+    const tc = taxCodes.find((t) => t.id === l.tax_code_id);
+    return safeLineTax(l.quantity, l.unit_price, tc?.rate ?? "0");
+  };
+
+  const { subtotal, taxTotal, grandTotal } = safeInvoiceTotals(
+    form.lines.map((l) => ({
+      quantity: l.quantity,
+      unit_price: l.unit_price,
+      tax_rate: taxCodes.find((t) => t.id === l.tax_code_id)?.rate ?? "0",
+    })),
+  );
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +112,7 @@ export default function InvoicesPage() {
           quantity: l.quantity,
           unit_price: l.unit_price,
           discount_pct: "0",
+          tax_code_id: l.tax_code_id || null,
         })),
       });
       setShowForm(false);
@@ -102,7 +121,7 @@ export default function InvoicesPage() {
         issue_date: new Date().toISOString().slice(0, 10),
         due_date: "",
         currency: "USD",
-        lines: [{ account_id: "", description: "", quantity: "1", unit_price: "0" }],
+        lines: [{ account_id: "", description: "", quantity: "1", unit_price: "0", tax_code_id: "" }],
       });
       await load();
     } catch (e) {
@@ -185,6 +204,61 @@ export default function InvoicesPage() {
 
   const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === invoices.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(invoices.map((inv) => inv.id)));
+    }
+  }
+
+  const selectedInvoices = invoices.filter((inv) => selectedIds.has(inv.id));
+  const allSelectedDraft = selectedInvoices.length > 0 && selectedInvoices.every((inv) => inv.status === "draft");
+  const anySelectedVoidable = selectedInvoices.length > 0 && selectedInvoices.every((inv) => inv.status !== "void" && inv.status !== "paid");
+
+  async function handleBulkAuthorise() {
+    if (!allSelectedDraft) return;
+    setBulkProcessing(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(ids.map((id) => invoicesApi.authorise(id)));
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      showToast("warning", `${succeeded} authorised, ${failed} failed`);
+    } else {
+      showToast("success", `${succeeded} invoice(s) authorised`);
+    }
+    setSelectedIds(new Set());
+    setBulkProcessing(false);
+    await load();
+  }
+
+  async function handleBulkVoid() {
+    if (!anySelectedVoidable) return;
+    if (!confirm(`Void ${selectedIds.size} selected invoice(s)?`)) return;
+    setBulkProcessing(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(ids.map((id) => invoicesApi.void(id)));
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      showToast("warning", `${succeeded} voided, ${failed} failed`);
+    } else {
+      showToast("success", `${succeeded} invoice(s) voided`);
+    }
+    setSelectedIds(new Set());
+    setBulkProcessing(false);
+    await load();
+  }
+
   const headerActions = (
     <button
       onClick={() => setShowForm(true)}
@@ -231,6 +305,15 @@ export default function InvoicesPage() {
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/40">
                 <tr>
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={invoices.length > 0 && selectedIds.size === invoices.length}
+                      onChange={toggleSelectAll}
+                      disabled={bulkProcessing || invoices.length === 0}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left font-medium">Number</th>
                   <th className="px-4 py-3 text-left font-medium">Customer</th>
                   <th className="px-4 py-3 text-left font-medium">Issue Date</th>
@@ -243,7 +326,16 @@ export default function InvoicesPage() {
               </thead>
               <tbody className="divide-y">
                 {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/20">
+                  <tr key={inv.id} className={`hover:bg-muted/20 ${selectedIds.has(inv.id) ? "bg-indigo-50 dark:bg-indigo-950/20" : ""}`}>
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(inv.id)}
+                        onChange={() => toggleSelect(inv.id)}
+                        disabled={bulkProcessing}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    </td>
                     <td className="px-4 py-3 font-mono text-xs font-medium">{inv.number}</td>
                     <td className="px-4 py-3">{contactName(inv.contact_id)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{inv.issue_date}</td>
@@ -304,6 +396,41 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+
+      {/* Floating bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-6 py-3 shadow-xl">
+          <div className="flex items-center gap-4 text-sm text-white">
+            <span className="font-medium">{selectedIds.size} selected</span>
+            <div className="h-4 w-px bg-gray-600" />
+            {allSelectedDraft && (
+              <button
+                onClick={() => { void handleBulkAuthorise(); }}
+                disabled={bulkProcessing}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {bulkProcessing ? "Processing..." : "Authorise Selected"}
+              </button>
+            )}
+            {anySelectedVoidable && (
+              <button
+                onClick={() => { void handleBulkVoid(); }}
+                disabled={bulkProcessing}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {bulkProcessing ? "Processing..." : "Void Selected"}
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkProcessing}
+              className="text-xs text-gray-400 hover:text-white disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Slide-over panel */}
       {showForm && (
@@ -406,10 +533,28 @@ export default function InvoicesPage() {
                           className="w-full rounded-lg border px-2 py-1.5 text-sm bg-background"
                         />
                       </div>
+                      <div className="col-span-2">
+                        <label className="text-xs text-muted-foreground">Tax Code</label>
+                        <select
+                          value={line.tax_code_id}
+                          onChange={(e) => updateLine(i, "tax_code_id", e.target.value)}
+                          className="w-full rounded-lg border px-2 py-1.5 text-sm bg-background"
+                        >
+                          <option value="">No tax</option>
+                          {taxCodes.map((tc) => (
+                            <option key={tc.id} value={tc.id}>
+                              {tc.code} - {tc.name} ({(parseFloat(tc.rate) * 100).toFixed(1)}%)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
                         Line total: <span className="font-mono font-medium">{lineTotal(line)}</span>
+                        {line.tax_code_id && (
+                          <> + tax <span className="font-mono font-medium">{lineTax(line)}</span></>
+                        )}
                       </span>
                       {form.lines.length > 1 && (
                         <button
@@ -428,11 +573,22 @@ export default function InvoicesPage() {
                 </button>
               </div>
 
-              <div className="border-t pt-4 flex items-center justify-between">
-                <div>
-                  <span className="text-sm text-muted-foreground">Total: </span>
-                  <span className="text-lg font-bold">{fmt(grandTotal, form.currency)}</span>
+              <div className="border-t pt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-mono">{fmt(subtotal, form.currency)}</span>
                 </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax</span>
+                  <span className="font-mono">{fmt(taxTotal, form.currency)}</span>
+                </div>
+                <div className="flex justify-between text-base font-bold">
+                  <span>Total</span>
+                  <span className="font-mono">{fmt(grandTotal, form.currency)}</span>
+                </div>
+              </div>
+              <div className="pt-4 flex items-center justify-end">
+
                 <div className="flex gap-2">
                   <button
                     type="submit"

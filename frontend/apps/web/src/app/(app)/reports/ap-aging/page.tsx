@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { type AgingReport, reportsApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
+import { ExportDropdown } from "@/components/export-dropdown";
 import {
   BarChart,
   Bar,
@@ -75,6 +76,22 @@ export default function APAgingPage() {
     queryFn: () => reportsApi.apAging(queryDate),
   });
 
+  const exportColumns = [
+    { key: "contact_name", header: "Supplier" },
+    { key: "invoice_number", header: "Bill #" },
+    { key: "issue_date", header: "Issue Date" },
+    { key: "due_date", header: "Due Date" },
+    { key: "total", header: "Total" },
+    { key: "amount_due", header: "Amount Due" },
+    { key: "days_overdue", header: "Days Overdue" },
+    { key: "bucket", header: "Bucket" },
+  ];
+
+  const exportData = useMemo(
+    () => (report?.rows ?? []).map((r) => ({ ...r, due_date: r.due_date ?? "" })),
+    [report],
+  );
+
   const run = () => {
     setQueryDate(asOf);
     void refetch();
@@ -82,7 +99,19 @@ export default function APAgingPage() {
 
   return (
     <>
-      <PageHeader title="AP Aging" subtitle="Outstanding payables by age as of a date" />
+      <PageHeader
+        title="AP Aging"
+        subtitle="Outstanding payables by age as of a date"
+        actions={
+          report ? (
+            <ExportDropdown
+              data={exportData}
+              filename={`ap-aging-${queryDate}`}
+              columns={exportColumns}
+            />
+          ) : undefined
+        }
+      />
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
         <div className="flex items-end gap-4">

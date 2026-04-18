@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -42,8 +42,10 @@ import {
   Upload,
   ClipboardList,
   ShoppingCart,
+  Search,
 } from "lucide-react";
 import { authApi } from "@/lib/api";
+import { SearchPalette } from "@/components/search-palette";
 
 const NAV_ITEMS = [
   { group: "AI",       href: "/assistant",              label: "AI Assistant",     icon: Sparkles },
@@ -311,6 +313,22 @@ function SidebarContent({ onNavClick }: { onNavClick?: (() => void) | undefined 
 
 export function AppShell({ children }: { readonly children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+
+  // Global Cmd+K / Ctrl+K listener
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -351,11 +369,28 @@ export function AppShell({ children }: { readonly children: ReactNode }) {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1" />
+          {/* Search hint button */}
+          <button
+            onClick={openSearch}
+            className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-300"
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Search</span>
+            <kbd className="hidden rounded border border-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 sm:inline-block dark:border-gray-600">
+              {typeof navigator !== "undefined" &&
+              /Mac|iPhone|iPad/.test(navigator.userAgent)
+                ? "\u2318K"
+                : "Ctrl+K"}
+            </kbd>
+          </button>
         </header>
 
         {/* Page content */}
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
+
+      {/* Search palette */}
+      <SearchPalette open={searchOpen} onClose={closeSearch} />
     </div>
   );
 }

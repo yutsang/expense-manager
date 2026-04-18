@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { type PLReport, reportsApi } from "@/lib/api";
+import { type PLReport, type PLLine, reportsApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
+import { ExportDropdown } from "@/components/export-dropdown";
 import {
   BarChart,
   Bar,
@@ -61,6 +63,48 @@ function PLChart({ report }: { report: PLReport }) {
   );
 }
 
+type CompareOption = "none" | "prior_month" | "same_month_last_year";
+
+function computeComparisonDates(
+  from: string,
+  to: string,
+  mode: CompareOption
+): { from: string; to: string } | null {
+  if (mode === "none") return null;
+  const fromD = new Date(from + "T00:00:00");
+  const toD = new Date(to + "T00:00:00");
+  if (mode === "prior_month") {
+    const pFrom = new Date(fromD);
+    pFrom.setMonth(pFrom.getMonth() - 1);
+    const pTo = new Date(toD);
+    pTo.setMonth(pTo.getMonth() - 1);
+    return { from: pFrom.toISOString().slice(0, 10), to: pTo.toISOString().slice(0, 10) };
+  }
+  // same_month_last_year
+  const pFrom = new Date(fromD);
+  pFrom.setFullYear(pFrom.getFullYear() - 1);
+  const pTo = new Date(toD);
+  pTo.setFullYear(pTo.getFullYear() - 1);
+  return { from: pFrom.toISOString().slice(0, 10), to: pTo.toISOString().slice(0, 10) };
+}
+
+function fmtVariance(current: string, prior: string): { dollar: string; pct: string; isPositive: boolean } {
+  const c = parseFloat(current);
+  const p = parseFloat(prior);
+  const diff = c - p;
+  const pct = Math.abs(p) > 0.001 ? (diff / Math.abs(p)) * 100 : 0;
+  return {
+    dollar: new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(diff),
+    pct: Math.abs(p) > 0.001 ? `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%` : "N/A",
+    isPositive: diff >= 0,
+  };
+}
+
+function findPriorBalance(lines: PLLine[], accountId: string): string {
+  const match = lines.find((l) => l.account_id === accountId);
+  return match ? match.balance : "0";
+}
+
 export default function PLPage() {
   const today = new Date().toISOString().slice(0, 10);
   const firstOfMonth = today.slice(0, 7) + "-01";
@@ -68,11 +112,41 @@ export default function PLPage() {
   const [fromDate, setFromDate] = useState(firstOfMonth);
   const [toDate, setToDate] = useState(today);
   const [queryDates, setQueryDates] = useState({ from: firstOfMonth, to: today });
+  const [compareMode, setCompareMode] = useState<CompareOption>("none");
 
   const { data: report, isLoading, error, refetch } = useQuery<PLReport>({
     queryKey: ["pl", queryDates.from, queryDates.to],
     queryFn: () => reportsApi.pl(queryDates.from, queryDates.to),
   });
+
+  const compDates = computeComparisonDates(queryDates.from, queryDates.to, compareMode);
+
+  const { data: priorReport } = useQuery<PLReport>({
+    queryKey: ["pl-compare", compDates?.from, compDates?.to],
+    queryFn: () => reportsApi.pl(compDates!.from, compDates!.to),
+    enabled: compDates !== null,
+  });
+
+  const comparing = compareMode !== "none" && priorReport != null;
+  const colSpan = comparing ? 6 : 3;
+
+  const exportColumns = [
+    { key: "section", header: "Section" },
+    { key: "code", header: "Code" },
+    { key: "name", header: "Account" },
+    { key: "balance", header: "Amount" },
+  ];
+
+  const exportData = useMemo(() => {
+    if (!report) return [];
+    return [
+      ...report.revenue_lines.map((r) => ({ section: "Revenue", ...r })),
+      { section: "Revenue", code: "", name: "Total Revenue", balance: report.total_revenue },
+      ...report.expense_lines.map((r) => ({ section: "Expense", ...r })),
+      { section: "Expense", code: "", name: "Total Expenses", balance: report.total_expenses },
+      { section: "Net", code: "", name: "Net Profit", balance: report.net_profit },
+    ];
+  }, [report]);
 
   const run = () => {
     setQueryDates({ from: fromDate, to: toDate });
@@ -81,7 +155,19 @@ export default function PLPage() {
 
   return (
     <>
-      <PageHeader title="Profit & Loss" subtitle="Income statement for a date range" />
+      <PageHeader
+        title="Profit & Loss"
+        subtitle="Income statement for a date range"
+        actions={
+          report ? (
+            <ExportDropdown
+              data={exportData}
+              filename={`profit-and-loss-${queryDates.from}-to-${queryDates.to}`}
+              columns={exportColumns}
+            />
+          ) : undefined
+        }
+      />
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">
 
         {/* Controls */}
@@ -103,6 +189,18 @@ export default function PLPage() {
               onChange={(e) => setToDate(e.target.value)}
               className="rounded-lg border px-3 py-2 text-sm bg-background"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Compare to</label>
+            <select
+              value={compareMode}
+              onChange={(e) => setCompareMode(e.target.value as CompareOption)}
+              className="rounded-lg border px-3 py-2 text-sm bg-background"
+            >
+              <option value="none">None</option>
+              <option value="prior_month">Prior Month</option>
+              <option value="same_month_last_year">Same Month Last Year</option>
+            </select>
           </div>
           <button
             onClick={run}
@@ -179,23 +277,48 @@ export default function PLPage() {
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">Code</th>
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">Account</th>
                     <th className="px-4 py-2 text-right font-medium text-muted-foreground">Amount</th>
+                    {comparing && (
+                      <>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Prior Period</th>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Variance ($)</th>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Variance (%)</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {report.revenue_lines.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-4 py-4 text-center text-muted-foreground text-xs">
+                      <td colSpan={colSpan} className="px-4 py-4 text-center text-muted-foreground text-xs">
                         No revenue recorded in this period
                       </td>
                     </tr>
                   ) : (
-                    report.revenue_lines.map((r) => (
-                      <tr key={r.account_id} className="hover:bg-muted/20">
-                        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{r.code}</td>
-                        <td className="px-4 py-2.5">{r.name}</td>
-                        <td className="px-4 py-2.5 text-right font-mono">{fmt(r.balance)}</td>
-                      </tr>
-                    ))
+                    report.revenue_lines.map((r) => {
+                      const prior = comparing ? findPriorBalance(priorReport!.revenue_lines, r.account_id) : "0";
+                      const v = comparing ? fmtVariance(r.balance, prior) : null;
+                      return (
+                        <tr key={r.account_id} className="hover:bg-muted/20">
+                          <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{r.code}</td>
+                          <td className="px-4 py-2.5">
+                            <Link
+                              href={`/reports/general-ledger?account_id=${r.account_id}&from=${queryDates.from}&to=${queryDates.to}`}
+                              className="text-indigo-600 hover:text-indigo-800 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                            >
+                              {r.name}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono">{fmt(r.balance)}</td>
+                          {comparing && v && (
+                            <>
+                              <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{fmt(prior)}</td>
+                              <td className={`px-4 py-2.5 text-right font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.dollar}</td>
+                              <td className={`px-4 py-2.5 text-right font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.pct}</td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
                 <tfoot className="border-t bg-green-50 dark:bg-green-950/30">
@@ -206,6 +329,16 @@ export default function PLPage() {
                     <td className="px-4 py-2.5 text-right font-bold font-mono text-green-800 dark:text-green-400">
                       {fmt(report.total_revenue)}
                     </td>
+                    {comparing && (() => {
+                      const v = fmtVariance(report.total_revenue, priorReport!.total_revenue);
+                      return (
+                        <>
+                          <td className="px-4 py-2.5 text-right font-bold font-mono text-muted-foreground">{fmt(priorReport!.total_revenue)}</td>
+                          <td className={`px-4 py-2.5 text-right font-bold font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.dollar}</td>
+                          <td className={`px-4 py-2.5 text-right font-bold font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.pct}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 </tfoot>
               </table>
@@ -222,23 +355,48 @@ export default function PLPage() {
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">Code</th>
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">Account</th>
                     <th className="px-4 py-2 text-right font-medium text-muted-foreground">Amount</th>
+                    {comparing && (
+                      <>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Prior Period</th>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Variance ($)</th>
+                        <th className="px-4 py-2 text-right font-medium text-muted-foreground">Variance (%)</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {report.expense_lines.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-4 py-4 text-center text-muted-foreground text-xs">
+                      <td colSpan={colSpan} className="px-4 py-4 text-center text-muted-foreground text-xs">
                         No expenses recorded in this period
                       </td>
                     </tr>
                   ) : (
-                    report.expense_lines.map((r) => (
-                      <tr key={r.account_id} className="hover:bg-muted/20">
-                        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{r.code}</td>
-                        <td className="px-4 py-2.5">{r.name}</td>
-                        <td className="px-4 py-2.5 text-right font-mono">{fmt(r.balance)}</td>
-                      </tr>
-                    ))
+                    report.expense_lines.map((r) => {
+                      const prior = comparing ? findPriorBalance(priorReport!.expense_lines, r.account_id) : "0";
+                      const v = comparing ? fmtVariance(r.balance, prior) : null;
+                      return (
+                        <tr key={r.account_id} className="hover:bg-muted/20">
+                          <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{r.code}</td>
+                          <td className="px-4 py-2.5">
+                            <Link
+                              href={`/reports/general-ledger?account_id=${r.account_id}&from=${queryDates.from}&to=${queryDates.to}`}
+                              className="text-indigo-600 hover:text-indigo-800 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300"
+                            >
+                              {r.name}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-mono">{fmt(r.balance)}</td>
+                          {comparing && v && (
+                            <>
+                              <td className="px-4 py-2.5 text-right font-mono text-muted-foreground">{fmt(prior)}</td>
+                              <td className={`px-4 py-2.5 text-right font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.dollar}</td>
+                              <td className={`px-4 py-2.5 text-right font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.pct}</td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
                 <tfoot className="border-t bg-red-50 dark:bg-red-950/30">
@@ -249,6 +407,16 @@ export default function PLPage() {
                     <td className="px-4 py-2.5 text-right font-bold font-mono text-red-800 dark:text-red-400">
                       {fmt(report.total_expenses)}
                     </td>
+                    {comparing && (() => {
+                      const v = fmtVariance(report.total_expenses, priorReport!.total_expenses);
+                      return (
+                        <>
+                          <td className="px-4 py-2.5 text-right font-bold font-mono text-muted-foreground">{fmt(priorReport!.total_expenses)}</td>
+                          <td className={`px-4 py-2.5 text-right font-bold font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.dollar}</td>
+                          <td className={`px-4 py-2.5 text-right font-bold font-mono ${v.isPositive ? "text-green-600" : "text-red-600"}`}>{v.pct}</td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 </tfoot>
               </table>
@@ -256,24 +424,37 @@ export default function PLPage() {
 
             {/* Net */}
             <div
-              className={`rounded-xl border p-4 text-right ${
+              className={`rounded-xl border p-4 ${
                 report.is_profitable
                   ? "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-950/30"
                   : "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
               }`}
             >
-              <span className="text-sm font-medium text-muted-foreground mr-4">Net Profit / (Loss)</span>
-              <span
-                className={`text-xl font-bold ${
-                  report.is_profitable
-                    ? "text-green-700 dark:text-green-400"
-                    : "text-red-700 dark:text-red-400"
-                }`}
-              >
-                {report.is_profitable ? "" : "("}
-                {fmt(report.net_profit)}
-                {report.is_profitable ? "" : ")"}
-              </span>
+              <div className="flex items-center justify-end gap-6">
+                <span className="text-sm font-medium text-muted-foreground">Net Profit / (Loss)</span>
+                <span
+                  className={`text-xl font-bold ${
+                    report.is_profitable
+                      ? "text-green-700 dark:text-green-400"
+                      : "text-red-700 dark:text-red-400"
+                  }`}
+                >
+                  {report.is_profitable ? "" : "("}
+                  {fmt(report.net_profit)}
+                  {report.is_profitable ? "" : ")"}
+                </span>
+                {comparing && (() => {
+                  const v = fmtVariance(report.net_profit, priorReport!.net_profit);
+                  return (
+                    <>
+                      <span className="text-sm font-mono text-muted-foreground">Prior: {fmt(priorReport!.net_profit)}</span>
+                      <span className={`text-sm font-mono font-semibold ${v.isPositive ? "text-green-600" : "text-red-600"}`}>
+                        {v.dollar} ({v.pct})
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground text-right">

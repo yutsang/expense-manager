@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { journalsApi, periodsApi, accountsApi, type JournalEntry, type Period, type Account } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { safeFmt, safeSum } from "@/lib/money-safe";
 
 type LineInput = {
   account_id: string;
@@ -15,15 +16,14 @@ type LineInput = {
 };
 
 function formatAmount(s: string) {
-  const n = parseFloat(s);
-  return isNaN(n) ? s : n.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return safeFmt(s, "AUD");
 }
 
-function totalDebit(lines: LineInput[]) {
-  return lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0);
+function totalDebit(lines: LineInput[]): string {
+  return safeSum(lines.map((l) => l.debit));
 }
-function totalCredit(lines: LineInput[]) {
-  return lines.reduce((sum, l) => sum + (parseFloat(l.credit) || 0), 0);
+function totalCredit(lines: LineInput[]): string {
+  return safeSum(lines.map((l) => l.credit));
 }
 
 export default function JournalsPage() {
@@ -33,6 +33,8 @@ export default function JournalsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   // Create form state
   const [formDate, setFormDate] = useState(new Date().toISOString().slice(0, 10));
@@ -93,10 +95,10 @@ export default function JournalsPage() {
 
   async function handleCreate() {
     if (!formPeriodId) { showToast("warning", "Select a period"); return; }
-    const dr = totalDebit(formLines);
-    const cr = totalCredit(formLines);
-    if (Math.abs(dr - cr) > 0.0001) {
-      showToast("error", "Entry is unbalanced", `Debit ${dr.toFixed(2)} does not equal credit ${cr.toFixed(2)}`);
+    const drStr = totalDebit(formLines);
+    const crStr = totalCredit(formLines);
+    if (drStr !== crStr) {
+      showToast("error", "Entry is unbalanced", `Debit ${drStr} does not equal credit ${crStr}`);
       return;
     }
     setCreating(true);
@@ -148,9 +150,65 @@ export default function JournalsPage() {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIds.size === journals.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(journals.map((j) => j.id)));
+    }
+  }
+
+  const selectedJournals = journals.filter((j) => selectedIds.has(j.id));
+  const allSelectedDraft = selectedJournals.length > 0 && selectedJournals.every((j) => j.status === "draft");
+  const allSelectedPosted = selectedJournals.length > 0 && selectedJournals.every((j) => j.status === "posted");
+
+  async function handleBulkPost() {
+    if (!allSelectedDraft) return;
+    setBulkProcessing(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(ids.map((id) => journalsApi.post(id)));
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      showToast("warning", `${succeeded} posted, ${failed} failed`);
+    } else {
+      showToast("success", `${succeeded} journal(s) posted`);
+    }
+    setSelectedIds(new Set());
+    setBulkProcessing(false);
+    await load();
+  }
+
+  async function handleBulkVoid() {
+    if (!allSelectedPosted) return;
+    const reason = prompt("Reason for voiding selected entries:");
+    if (reason === null) return;
+    setBulkProcessing(true);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(ids.map((id) => journalsApi.void(id, reason)));
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      showToast("warning", `${succeeded} voided, ${failed} failed`);
+    } else {
+      showToast("success", `${succeeded} journal(s) voided`);
+    }
+    setSelectedIds(new Set());
+    setBulkProcessing(false);
+    await load();
+  }
+
   const dr = totalDebit(formLines);
   const cr = totalCredit(formLines);
-  const isBalanced = Math.abs(dr - cr) < 0.0001;
+  const isBalanced = dr === cr;
 
   const headerActions = (
     <button
@@ -288,8 +346,8 @@ export default function JournalsPage() {
                   <td colSpan={2} className="px-3 py-2 text-muted-foreground">
                     Totals
                   </td>
-                  <td className="px-3 py-2 text-right">{dr.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-right">{cr.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right">{dr}</td>
+                  <td className="px-3 py-2 text-right">{cr}</td>
                   <td />
                 </tr>
               </tfoot>
@@ -298,7 +356,7 @@ export default function JournalsPage() {
 
           {/* Balance indicator */}
           <div className={`mb-3 text-xs font-medium ${isBalanced ? "text-green-600" : "text-red-500"}`}>
-            {isBalanced ? "✓ Balanced" : `✗ Out of balance by ${Math.abs(dr - cr).toFixed(2)}`}
+            {isBalanced ? "✓ Balanced" : "✗ Out of balance"}
           </div>
 
           <div className="flex items-center gap-2">
@@ -336,6 +394,15 @@ export default function JournalsPage() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={journals.length > 0 && selectedIds.size === journals.length}
+                    onChange={toggleSelectAll}
+                    disabled={bulkProcessing || journals.length === 0}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                </th>
                 <th className="px-4 py-3">Number</th>
                 <th className="px-4 py-3">Date</th>
                 <th className="px-4 py-3">Description</th>
@@ -348,13 +415,22 @@ export default function JournalsPage() {
             <tbody className="divide-y">
               {journals.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground">
                     No journal entries yet.
                   </td>
                 </tr>
               ) : (
                 journals.map((je) => (
-                  <tr key={je.id} className="hover:bg-muted/30">
+                  <tr key={je.id} className={`hover:bg-muted/30 ${selectedIds.has(je.id) ? "bg-primary/5" : ""}`}>
+                    <td className="px-4 py-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(je.id)}
+                        onChange={() => toggleSelect(je.id)}
+                        disabled={bulkProcessing}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    </td>
                     <td className="px-4 py-2 font-mono text-sm">{je.number}</td>
                     <td className="px-4 py-2 text-sm">{je.date.slice(0, 10)}</td>
                     <td className="px-4 py-2 text-sm max-w-xs truncate">{je.description}</td>
@@ -395,6 +471,41 @@ export default function JournalsPage() {
         </div>
       )}
     </div>
+
+      {/* Floating bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-gray-900 px-6 py-3 shadow-xl">
+          <div className="flex items-center gap-4 text-sm text-white">
+            <span className="font-medium">{selectedIds.size} selected</span>
+            <div className="h-4 w-px bg-gray-600" />
+            {allSelectedDraft && (
+              <button
+                onClick={() => { void handleBulkPost(); }}
+                disabled={bulkProcessing}
+                className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {bulkProcessing ? "Processing..." : "Post Selected"}
+              </button>
+            )}
+            {allSelectedPosted && (
+              <button
+                onClick={() => { void handleBulkVoid(); }}
+                disabled={bulkProcessing}
+                className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {bulkProcessing ? "Processing..." : "Void Selected"}
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkProcessing}
+              className="text-xs text-gray-400 hover:text-white disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

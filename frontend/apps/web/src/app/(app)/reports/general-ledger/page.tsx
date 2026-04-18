@@ -1,9 +1,11 @@
 "use client";
 
 import { showToast } from "@/lib/toast";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { accountsApi, reportsApi, type Account, type GLReport } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
+import { ExportDropdown } from "@/components/export-dropdown";
 
 function fmt(s: string) {
   const n = parseFloat(s);
@@ -20,22 +22,63 @@ function fmtSigned(s: string) {
 }
 
 export default function GeneralLedgerPage() {
+  const searchParams = useSearchParams();
+  const paramAccountId = searchParams.get("account_id");
+  const paramFrom = searchParams.get("from");
+  const paramTo = searchParams.get("to");
+
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId] = useState("");
+  const [accountId, setAccountId] = useState(paramAccountId ?? "");
   const today = new Date().toISOString().slice(0, 10);
   const firstOfMonth = today.slice(0, 8) + "01";
-  const [fromDate, setFromDate] = useState(firstOfMonth);
-  const [toDate, setToDate] = useState(today);
+  const [fromDate, setFromDate] = useState(paramFrom ?? firstOfMonth);
+  const [toDate, setToDate] = useState(paramTo ?? today);
   const [report, setReport] = useState<GLReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const autoFetchDone = useRef(false);
 
   useEffect(() => {
     accountsApi.list().then((r) => {
       setAccounts(r.items);
-      if (r.items.length > 0) setAccountId(r.items[0]!.id);
+      if (paramAccountId) {
+        // URL param takes priority — keep it
+        setAccountId(paramAccountId);
+      } else if (r.items.length > 0) {
+        setAccountId(r.items[0]!.id);
+      }
     });
-  }, []);
+  }, [paramAccountId]);
+
+  // Auto-fetch when navigating from another report with URL params
+  useEffect(() => {
+    if (paramAccountId && paramFrom && paramTo && !autoFetchDone.current) {
+      autoFetchDone.current = true;
+      setLoading(true);
+      setError(null);
+      reportsApi
+        .generalLedger(paramAccountId, paramFrom, paramTo)
+        .then((r) => setReport(r))
+        .catch((e: unknown) =>
+          setError(e instanceof Error ? e.message : "Failed to load report")
+        )
+        .finally(() => setLoading(false));
+    }
+  }, [paramAccountId, paramFrom, paramTo]);
+
+  const exportColumns = [
+    { key: "date", header: "Date" },
+    { key: "journal_number", header: "Journal" },
+    { key: "description", header: "Description" },
+    { key: "debit", header: "Debit" },
+    { key: "credit", header: "Credit" },
+    { key: "running_balance", header: "Balance" },
+  ];
+
+  const exportData = useMemo(
+    () => (report?.lines ?? []).map((ln) => ({ ...ln })),
+    [report],
+  );
 
   async function run() {
     if (!accountId) { showToast("warning", "Select an account"); return; }
@@ -56,6 +99,15 @@ export default function GeneralLedgerPage() {
       <PageHeader
         title="General Ledger"
         subtitle="Detailed transaction history for a single account with running balance"
+        actions={
+          report ? (
+            <ExportDropdown
+              data={exportData}
+              filename={`general-ledger-${report.account_code}-${fromDate}-to-${toDate}`}
+              columns={exportColumns}
+            />
+          ) : undefined
+        }
       />
     <div className="mx-auto max-w-7xl px-6 py-6">
 
