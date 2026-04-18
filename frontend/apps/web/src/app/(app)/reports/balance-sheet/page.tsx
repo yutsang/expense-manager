@@ -260,6 +260,18 @@ export default function BalanceSheetPage() {
               className="rounded-lg border px-3 py-2 text-sm bg-background"
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Compare to</label>
+            <select
+              value={compareMode}
+              onChange={(e) => setCompareMode(e.target.value as CompareOption)}
+              className="rounded-lg border px-3 py-2 text-sm bg-background"
+            >
+              <option value="none">None</option>
+              <option value="prior_month">Prior Month</option>
+              <option value="same_month_last_year">Same Month Last Year</option>
+            </select>
+          </div>
           <button
             onClick={run}
             disabled={isLoading}
@@ -320,6 +332,7 @@ export default function BalanceSheetPage() {
                   total={report.liabilities.total}
                   colorClass="bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-400"
                   asOf={queryDate}
+                  {...(comparing ? { priorLines: priorReport.liabilities.lines, priorTotal: priorReport.liabilities.total } : {})}
                 />
                 <Section
                   title="Equity"
@@ -327,6 +340,7 @@ export default function BalanceSheetPage() {
                   total={report.equity.total}
                   colorClass="bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400"
                   asOf={queryDate}
+                  {...(comparing ? { priorLines: priorReport.equity.lines, priorTotal: priorReport.equity.total } : {})}
                 />
               </div>
             </div>
@@ -337,15 +351,30 @@ export default function BalanceSheetPage() {
               total={report.assets.total}
               colorClass="bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-400"
               asOf={queryDate}
+              priorLines={comparing ? priorReport.assets.lines : undefined}
+              priorTotal={comparing ? priorReport.assets.total : undefined}
             />
 
-            <div className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4 text-right">
-              <span className="text-sm font-medium text-muted-foreground mr-4">
-                Total Liabilities + Equity
-              </span>
-              <span className="text-xl font-bold text-blue-700 dark:text-blue-400">
-                {fmt(report.total_liabilities_and_equity)}
-              </span>
+            <div className="rounded-xl border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-4">
+              <div className="flex items-center justify-end gap-6">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Total Liabilities + Equity
+                </span>
+                <span className="text-xl font-bold text-blue-700 dark:text-blue-400">
+                  {fmt(report.total_liabilities_and_equity)}
+                </span>
+                {comparing && (() => {
+                  const v = fmtVariance(report.total_liabilities_and_equity, priorReport.total_liabilities_and_equity);
+                  return (
+                    <>
+                      <span className="text-sm font-mono text-muted-foreground">Prior: {fmt(priorReport.total_liabilities_and_equity)}</span>
+                      <span className={`text-sm font-mono font-semibold ${v.isPositive ? "text-green-600" : "text-red-600"}`}>
+                        {v.dollar} ({v.pct})
+                      </span>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
 
             <p className="text-xs text-muted-foreground text-right">
