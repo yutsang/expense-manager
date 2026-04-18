@@ -78,11 +78,11 @@ def engine() -> sa.engine.Engine:
 
     _orig_uuid = getattr(SQLiteTypeCompiler, "visit_UUID", None)
     if _orig_uuid is None:
-        SQLiteTypeCompiler.visit_UUID = lambda self, type_, **kw: "VARCHAR(36)"  # type: ignore[attr-defined, method-assign]
+        SQLiteTypeCompiler.visit_UUID = lambda self, type_, **kw: "VARCHAR(36)"  # type: ignore[method-assign]
 
     _orig_ts = getattr(SQLiteTypeCompiler, "visit_TIMESTAMP", None)
     if _orig_ts is None:
-        SQLiteTypeCompiler.visit_TIMESTAMP = lambda self, type_, **kw: "TIMESTAMP"  # type: ignore[attr-defined, method-assign]
+        SQLiteTypeCompiler.visit_TIMESTAMP = lambda self, type_, **kw: "TIMESTAMP"  # type: ignore[method-assign]
 
     Base.metadata.create_all(eng)
     return eng
