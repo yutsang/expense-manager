@@ -8,7 +8,7 @@
  * - Known float-failure cases produce exact results
  */
 import { describe, expect, it } from "vitest";
-import { safeLineTotal, safeGrandTotal, safeFmt } from "@/lib/money-safe";
+import { safeLineTotal, safeGrandTotal, safeFmt, safeSum } from "@/lib/money-safe";
 
 describe("safeLineTotal", () => {
   it("computes basic multiplication correctly", () => {
@@ -59,6 +59,29 @@ describe("safeGrandTotal", () => {
     ];
     // 3 * 19.99 = 59.97; 2 * 5.50 = 11.00; total = 70.97
     expect(safeGrandTotal(lines)).toBe("70.97");
+  });
+});
+
+describe("safeSum", () => {
+  it("sums an array of decimal strings exactly", () => {
+    // 0.1 + 0.2 + 0.3 = 0.6, but float gives 0.6000000000000001
+    expect(safeSum(["0.10", "0.20", "0.30"])).toBe("0.60");
+  });
+
+  it("handles empty strings as zero", () => {
+    expect(safeSum(["", "10.00", ""])).toBe("10.00");
+  });
+
+  it("handles empty array", () => {
+    expect(safeSum([])).toBe("0.00");
+  });
+
+  it("handles single value", () => {
+    expect(safeSum(["42.50"])).toBe("42.50");
+  });
+
+  it("handles values with different decimal places", () => {
+    expect(safeSum(["1.1", "2.22", "3.333"])).toBe("6.653");
   });
 });
 

@@ -173,6 +173,132 @@ class TestDepreciationCalculation:
             )
 
 
+class TestPartialMonthDepreciation:
+    """Tests for partial first-month pro-rating (Bug #63)."""
+
+    def test_full_month_when_acquired_on_first(self) -> None:
+        """Asset acquired on the 1st gets a full month of depreciation."""
+        from datetime import date
+        from app.domain.assets.depreciation import calculate_depreciation
+
+        result = calculate_depreciation(
+            cost=Decimal("12000.0000"),
+            residual_value=Decimal("0.0000"),
+            useful_life_months=12,
+            method="straight_line",
+            months_elapsed=1,
+            acquisition_date=date(2025, 1, 1),
+        )
+        assert result == Decimal("1000.0000")
+
+    def test_half_month_when_acquired_mid_month(self) -> None:
+        """Asset acquired on the 16th of a 30-day month gets ~50% depreciation."""
+        from datetime import date
+        from app.domain.assets.depreciation import calculate_depreciation
+
+        # June has 30 days. Acquired on 16th = 15 days remaining (16..30).
+        result = calculate_depreciation(
+            cost=Decimal("12000.0000"),
+            residual_value=Decimal("0.0000"),
+            useful_life_months=12,
+            method="straight_line",
+            months_elapsed=1,
+            acquisition_date=date(2025, 6, 16),
+        )
+        # monthly = 1000.0000, factor = 15/30 = 0.5, result = 500.0000
+        assert result == Decimal("500.0000")
+
+    def test_last_day_acquisition_gives_one_day(self) -> None:
+        """Asset acquired on the last day gets 1/days_in_month depreciation."""
+        from datetime import date
+        from app.domain.assets.depreciation import calculate_depreciation
+
+        # January has 31 days, acquired on 31st = 1 day remaining.
+        result = calculate_depreciation(
+            cost=Decimal("31000.0000"),
+            residual_value=Decimal("0.0000"),
+            useful_life_months=31,
+            method="straight_line",
+            months_elapsed=1,
+            acquisition_date=date(2025, 1, 31),
+        )
+        # monthly = 1000.0000, factor = 1/31 = 0.0323 (ROUND_HALF_EVEN)
+        # 1000 * 0.0323 = 32.3000 (quantized to 4dp)
+        expected = Decimal("32.3000")
+        assert result == expected
+
+    def test_second_month_is_full_regardless_of_acquisition_date(self) -> None:
+        """Only the first month is pro-rated."""
+        from datetime import date
+        from app.domain.assets.depreciation import calculate_depreciation
+
+        result = calculate_depreciation(
+            cost=Decimal("12000.0000"),
+            residual_value=Decimal("0.0000"),
+            useful_life_months=12,
+            method="straight_line",
+            months_elapsed=2,
+            acquisition_date=date(2025, 6, 16),
+        )
+        assert result == Decimal("1000.0000")
+
+    def test_no_prorate_without_acquisition_date(self) -> None:
+        """Without acquisition_date, first month is full (backward compat)."""
+        from app.domain.assets.depreciation import calculate_depreciation
+
+        result = calculate_depreciation(
+            cost=Decimal("12000.0000"),
+            residual_value=Decimal("0.0000"),
+            useful_life_months=12,
+            method="straight_line",
+            months_elapsed=1,
+        )
+        assert result == Decimal("1000.0000")
+
+    def test_declining_balance_first_month_prorate(self) -> None:
+        """Declining balance method also pro-rates the first month."""
+        from datetime import date
+        from app.domain.assets.depreciation import calculate_depreciation
+
+        # Full first month: 10000 * (2/60) = 333.3333
+        full = calculate_depreciation(
+            cost=Decimal("10000.0000"),
+            residual_value=Decimal("1000.0000"),
+            useful_life_months=60,
+            method="declining_balance",
+            months_elapsed=1,
+        )
+        assert full == Decimal("333.3333")
+
+        # Acquired on 16th of June (30 days), factor = 15/30 = 0.5
+        prorated = calculate_depreciation(
+            cost=Decimal("10000.0000"),
+            residual_value=Decimal("1000.0000"),
+            useful_life_months=60,
+            method="declining_balance",
+            months_elapsed=1,
+            acquisition_date=date(2025, 6, 16),
+        )
+        # 333.3333 * 0.5 = 166.6666 (ROUND_HALF_EVEN: 5 rounds to even)
+        assert prorated == Decimal("166.6666")
+
+    def test_depreciation_never_exceeds_depreciable(self) -> None:
+        """Total accumulated depreciation must not exceed cost - residual."""
+        from datetime import date
+        from app.domain.assets.depreciation import calculate_depreciation
+
+        result = calculate_depreciation(
+            cost=Decimal("100.0000"),
+            residual_value=Decimal("99.0000"),
+            useful_life_months=1,
+            method="straight_line",
+            months_elapsed=1,
+            acquisition_date=date(2025, 1, 1),
+        )
+        # Depreciable = 1.0000, monthly = 1.0000, result should be clamped
+        assert result <= Decimal("1.0000")
+
+
 class TestFixedAssetServiceSource:
     """Verify service source structure."""
 
@@ -215,17 +341,47 @@ class TestFixedAssetApiSource:
         assert "depreciate" in source
 
 
+class TestFixedAssetAcquisitionDateColumn:
+    """Verify acquisition_date uses proper Date type (Bug #64)."""
+
+    def test_acquisition_date_is_date_type_in_source(self) -> None:
+        """Verify the model source uses Date type (avoids Python 3.10 import issue)."""
+        source = _MODELS_PATH.read_text()
+        idx = source.index("class FixedAsset")
+        block = source[idx : idx + 2000]
+        # Should use Date, not String(10)
+        assert "mapped_column(Date" in block or "mapped_column(sa.Date" in block, (
+            "FixedAsset.acquisition_date should use Date type, not String(10)"
+        )
+        assert "Mapped[date]" in block or "Mapped[str]" not in block.split("acquisition_date")[1][:50], (
+            "acquisition_date should be Mapped[date], not Mapped[str]"
+        )
+
+    def test_date_migration_file_exists(self) -> None:
+        migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
+        files = list(migrations_dir.glob("0033_*"))
+        assert len(files) >= 1, "No 0033_* migration for fixed_assets date column found"
+
+    def test_date_migration_has_downgrade(self) -> None:
+        migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
+        files = list(migrations_dir.glob("0033_*"))
+        assert files, "No 0033_* migration found"
+        source = files[0].read_text()
+        assert "def downgrade()" in source
+        assert "def upgrade()" in source
+
+
 class TestFixedAssetMigration:
     """Verify migration exists."""
 
     def test_migration_file_exists(self) -> None:
         migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
-        files = list(migrations_dir.glob("*fixed_assets*"))
+        files = list(migrations_dir.glob("0030_*fixed_assets*"))
         assert len(files) >= 1, "No fixed_assets migration found"
 
     def test_migration_has_downgrade(self) -> None:
         migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
-        files = list(migrations_dir.glob("*fixed_assets*"))
+        files = list(migrations_dir.glob("0030_*fixed_assets*"))
         source = files[0].read_text()
         assert "def downgrade()" in source
         assert "drop_table" in source

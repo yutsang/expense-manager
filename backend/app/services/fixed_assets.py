@@ -8,7 +8,7 @@ Depreciation methods:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -146,12 +146,21 @@ async def depreciate_asset(
     months_elapsed = await _count_existing_depreciation_entries(db, tenant_id, asset_id)
     months_elapsed += 1  # this will be the next month
 
+    # Parse acquisition_date for first-month pro-rating
+    acq_date: date | None = None
+    raw_acq = asset.acquisition_date
+    if isinstance(raw_acq, date):
+        acq_date = raw_acq
+    elif isinstance(raw_acq, str):
+        acq_date = date.fromisoformat(raw_acq)
+
     depr_amount = calculate_depreciation(
         cost=Decimal(str(asset.cost)),
         residual_value=Decimal(str(asset.residual_value)),
         useful_life_months=asset.useful_life_months,
         method=asset.depreciation_method,
         months_elapsed=months_elapsed,
+        acquisition_date=acq_date,
     )
 
     if depr_amount <= Decimal("0"):

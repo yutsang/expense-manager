@@ -70,6 +70,19 @@ function decimalAdd(a: string, b: string): string {
 }
 
 /**
+ * Sum an array of decimal strings and return the result as a decimal string.
+ * Uses integer arithmetic internally (4dp precision) to avoid IEEE 754 errors.
+ */
+export function safeSum(values: string[]): string {
+  let total = "0.00";
+  for (const v of values) {
+    const s = v === "" ? "0" : v;
+    total = decimalAdd(total, s);
+  }
+  return total;
+}
+
+/**
  * Compute a line total from quantity and unit_price strings.
  * Returns a decimal string (e.g. "21.00").
  */
