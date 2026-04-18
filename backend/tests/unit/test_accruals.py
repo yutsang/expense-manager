@@ -272,7 +272,7 @@ class TestCreateAccrualService:
             patch("app.services.accruals.get_period", return_value=period),
             patch("app.services.accruals.assert_can_post", return_value=period),
         ):
-            result = await create_accrual(
+            await create_accrual(
                 mock_db,
                 tenant_id="t1",
                 actor_id="actor-1",

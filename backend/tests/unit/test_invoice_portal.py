@@ -241,7 +241,7 @@ class TestGetPublicInvoice:
 
         mock_db.scalar.return_value = inv
 
-        result = await get_public_invoice(mock_db, share_token="valid-token")
+        await get_public_invoice(mock_db, share_token="valid-token")
         assert inv.viewed_at is not None
 
     @pytest.mark.anyio
@@ -277,7 +277,7 @@ class TestAcknowledgeInvoice:
 
         mock_db.scalar.return_value = inv
 
-        result = await acknowledge_invoice(
+        await acknowledge_invoice(
             mock_db, share_token="valid-token", customer_name="Jane"
         )
         assert inv.acknowledged_at is not None

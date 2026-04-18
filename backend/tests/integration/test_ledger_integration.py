@@ -12,7 +12,7 @@ and domain logic (the real Postgres triggers are tested separately).
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -40,7 +40,6 @@ from app.infra.models import (
     Tenant,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -54,7 +53,6 @@ def engine() -> sa.engine.Engine:
     SQLite-compatible equivalents so the ORM layer can be tested
     without a Postgres instance.
     """
-    from sqlalchemy.dialects.postgresql import JSONB, TIMESTAMP, UUID
 
     eng = create_engine("sqlite:///:memory:", echo=False)
 
@@ -65,8 +63,6 @@ def engine() -> sa.engine.Engine:
         cursor.close()
 
     # Register type adapters so SQLite can render Postgres types
-    from sqlalchemy import Text as SaText
-    from sqlalchemy import String as SaString
 
     @sa.event.listens_for(sa.Table, "column_reflect")
     def _column_reflect(inspector, table, column_info):  # type: ignore[no-untyped-def]
@@ -201,8 +197,8 @@ class TestTenantIsolation:
     ) -> None:
         """Journal entries from tenant A are not visible to tenant B."""
         period_a = _make_period(session, tenant_a.id, "2025-01")
-        cash = _make_account(session, tenant_a.id, "1000", "Cash", "asset")
-        revenue = _make_account(session, tenant_a.id, "4000", "Revenue", "revenue")
+        _make_account(session, tenant_a.id, "1000", "Cash", "asset")
+        _make_account(session, tenant_a.id, "4000", "Revenue", "revenue")
 
         je = JournalEntry(
             id=str(uuid.uuid4()),
