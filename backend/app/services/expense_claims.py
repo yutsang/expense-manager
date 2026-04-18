@@ -49,6 +49,12 @@ class FutureDateError(ValueError):
     pass
 
 
+class CurrencyMismatchError(ValueError):
+    """Raised when expense claim line currencies do not match the claim header currency."""
+
+    pass
+
+
 # ---------------------------------------------------------------------------
 # CRUD
 # ---------------------------------------------------------------------------
@@ -141,11 +147,19 @@ async def create_expense_claim(
             claim_date=str(claim_date_val),
         )
 
+    claim_currency = data.get("currency", "USD")
+
     total_amount = Decimal("0")
     tax_total = Decimal("0")
     line_models: list[ExpenseClaimLine] = []
 
-    for line in lines_data:
+    for idx, line in enumerate(lines_data):
+        line_currency = line.get("currency", claim_currency)
+        if line_currency != claim_currency:
+            raise CurrencyMismatchError(
+                f"Line {idx + 1} currency '{line_currency}' does not match "
+                f"claim header currency '{claim_currency}'"
+            )
         amt = Decimal(str(line["amount"]))
         tax = Decimal(str(line.get("tax_amount", "0")))
         total_amount += amt

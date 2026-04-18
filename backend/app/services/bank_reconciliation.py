@@ -171,6 +171,13 @@ async def match_transaction(
     """Link a bank transaction to a journal line and mark as reconciled."""
     txn = await _get_transaction(db, tenant_id, transaction_id)
 
+    # Check if this bank transaction is already matched to a different journal line
+    if txn.journal_line_id is not None and txn.journal_line_id != journal_line_id:
+        raise DuplicateReconciliationError(
+            f"Bank transaction {transaction_id} is already matched to "
+            f"journal line {txn.journal_line_id} — unreconcile first"
+        )
+
     # Check if journal_line_id is already used by another bank transaction
     existing = await db.scalar(
         select(BankTransaction).where(
@@ -276,9 +283,13 @@ async def unreconcile_transaction(
     if not txn.is_reconciled:
         raise ReconciledTransactionError(f"Bank transaction {txn.id} is not reconciled")
 
+    now = datetime.now(tz=UTC)
     txn.journal_line_id = None
     txn.is_reconciled = False
     txn.reconciled_at = None
+    txn.unreconciled_at = now
+    txn.unreconciled_by = actor_id
+    txn.unreconcile_reason = reason
     txn.updated_by = actor_id
     txn.version += 1
     await db.flush()

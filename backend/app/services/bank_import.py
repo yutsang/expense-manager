@@ -9,6 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
@@ -189,6 +190,7 @@ async def import_csv(
             bank_account_id=bank_account_id,
             transaction_date=parsed_date,
             description=description or None,
+            reference=None,
             amount=amount,
             currency=currency,
             is_reconciled=False,
@@ -196,12 +198,16 @@ async def import_csv(
             updated_by=actor_id,
         )
         db.add(txn)
+        try:
+            await db.flush()
+        except IntegrityError:
+            await db.rollback()
+            skipped_duplicates += 1
+            continue
         imported += 1
 
         if skip_duplicates:
             existing_keys.add((bank_account_id, str(parsed_date), str(amount), description[:50]))
-
-    await db.flush()
     log.info(
         "bank_import.complete",
         tenant_id=tenant_id,
