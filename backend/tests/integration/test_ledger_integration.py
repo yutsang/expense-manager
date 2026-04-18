@@ -12,6 +12,7 @@ and domain logic (the real Postgres triggers are tested separately).
 from __future__ import annotations
 
 import uuid
+from collections.abc import Generator
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -77,22 +78,22 @@ def engine() -> sa.engine.Engine:
 
     _orig_uuid = getattr(SQLiteTypeCompiler, "visit_UUID", None)
     if _orig_uuid is None:
-        SQLiteTypeCompiler.visit_UUID = lambda self, type_, **kw: "VARCHAR(36)"  # type: ignore[attr-defined]
+        SQLiteTypeCompiler.visit_UUID = lambda self, type_, **kw: "VARCHAR(36)"  # type: ignore[attr-defined, method-assign]
 
     _orig_ts = getattr(SQLiteTypeCompiler, "visit_TIMESTAMP", None)
     if _orig_ts is None:
-        SQLiteTypeCompiler.visit_TIMESTAMP = lambda self, type_, **kw: "TIMESTAMP"  # type: ignore[attr-defined]
+        SQLiteTypeCompiler.visit_TIMESTAMP = lambda self, type_, **kw: "TIMESTAMP"  # type: ignore[attr-defined, method-assign]
 
     Base.metadata.create_all(eng)
     return eng
 
 
 @pytest.fixture()
-def session(engine: sa.engine.Engine) -> Session:
+def session(engine: sa.engine.Engine) -> Generator[Session, None, None]:
     """Provide a SQLAlchemy session bound to the in-memory DB."""
     factory = sessionmaker(bind=engine)
     sess = factory()
-    yield sess  # type: ignore[misc]
+    yield sess
     sess.close()
 
 
