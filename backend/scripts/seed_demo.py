@@ -13,7 +13,6 @@ Run from backend/:
 from __future__ import annotations
 
 import asyncio
-import calendar
 import os
 import sys
 import uuid
@@ -39,8 +38,8 @@ from app.infra.models import (
     BankAccount,
     BankTransaction,
     Bill,
-    BillLine,
     BillingRate,
+    BillLine,
     Budget,
     BudgetLine,
     Contact,
@@ -98,57 +97,339 @@ def _d(iso: str) -> date:
 
 ACCOUNTS = [
     # Assets
-    {"code": "1000", "name": "Cash at Bank — HKD", "type": "asset", "subtype": "bank", "normal_balance": "debit"},
-    {"code": "1010", "name": "Cash at Bank — USD", "type": "asset", "subtype": "bank", "normal_balance": "debit"},
-    {"code": "1020", "name": "Petty Cash", "type": "asset", "subtype": "bank", "normal_balance": "debit"},
-    {"code": "1100", "name": "Accounts Receivable", "type": "asset", "subtype": "receivable", "normal_balance": "debit"},
-    {"code": "1200", "name": "Prepayments", "type": "asset", "subtype": "prepaid", "normal_balance": "debit"},
-    {"code": "1300", "name": "Staff Advances", "type": "asset", "subtype": "receivable", "normal_balance": "debit"},
-    {"code": "1500", "name": "Office Equipment", "type": "asset", "subtype": "fixed_asset", "normal_balance": "debit"},
-    {"code": "1510", "name": "Computer Equipment", "type": "asset", "subtype": "fixed_asset", "normal_balance": "debit"},
-    {"code": "1520", "name": "Leasehold Improvements", "type": "asset", "subtype": "fixed_asset", "normal_balance": "debit"},
-    {"code": "1550", "name": "Accumulated Depreciation — Office Equipment", "type": "asset", "subtype": "fixed_asset", "normal_balance": "credit"},
-    {"code": "1560", "name": "Accumulated Depreciation — Computer Equipment", "type": "asset", "subtype": "fixed_asset", "normal_balance": "credit"},
-    {"code": "1570", "name": "Accumulated Depreciation — Leasehold Improvements", "type": "asset", "subtype": "fixed_asset", "normal_balance": "credit"},
+    {
+        "code": "1000",
+        "name": "Cash at Bank — HKD",
+        "type": "asset",
+        "subtype": "bank",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1010",
+        "name": "Cash at Bank — USD",
+        "type": "asset",
+        "subtype": "bank",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1020",
+        "name": "Petty Cash",
+        "type": "asset",
+        "subtype": "bank",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1100",
+        "name": "Accounts Receivable",
+        "type": "asset",
+        "subtype": "receivable",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1200",
+        "name": "Prepayments",
+        "type": "asset",
+        "subtype": "prepaid",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1300",
+        "name": "Staff Advances",
+        "type": "asset",
+        "subtype": "receivable",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1500",
+        "name": "Office Equipment",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1510",
+        "name": "Computer Equipment",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1520",
+        "name": "Leasehold Improvements",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "1550",
+        "name": "Accumulated Depreciation — Office Equipment",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "1560",
+        "name": "Accumulated Depreciation — Computer Equipment",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "1570",
+        "name": "Accumulated Depreciation — Leasehold Improvements",
+        "type": "asset",
+        "subtype": "fixed_asset",
+        "normal_balance": "credit",
+    },
     # Liabilities
-    {"code": "2000", "name": "Accounts Payable", "type": "liability", "subtype": "payable", "normal_balance": "credit"},
-    {"code": "2100", "name": "Accrued Expenses", "type": "liability", "subtype": "payable", "normal_balance": "credit"},
-    {"code": "2200", "name": "Profits Tax Payable", "type": "liability", "subtype": "tax", "normal_balance": "credit"},
-    {"code": "2300", "name": "MPF Payable", "type": "liability", "subtype": "payroll", "normal_balance": "credit"},
-    {"code": "2400", "name": "Unearned Revenue", "type": "liability", "subtype": "payable", "normal_balance": "credit"},
-    {"code": "2500", "name": "Provision for Audit Fee", "type": "liability", "subtype": "payable", "normal_balance": "credit"},
+    {
+        "code": "2000",
+        "name": "Accounts Payable",
+        "type": "liability",
+        "subtype": "payable",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2100",
+        "name": "Accrued Expenses",
+        "type": "liability",
+        "subtype": "payable",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2200",
+        "name": "Profits Tax Payable",
+        "type": "liability",
+        "subtype": "tax",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2300",
+        "name": "MPF Payable",
+        "type": "liability",
+        "subtype": "payroll",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2400",
+        "name": "Unearned Revenue",
+        "type": "liability",
+        "subtype": "payable",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "2500",
+        "name": "Provision for Audit Fee",
+        "type": "liability",
+        "subtype": "payable",
+        "normal_balance": "credit",
+    },
     # Equity
-    {"code": "3000", "name": "Share Capital", "type": "equity", "subtype": "equity", "normal_balance": "credit"},
-    {"code": "3100", "name": "Retained Earnings", "type": "equity", "subtype": "retained", "normal_balance": "credit"},
-    {"code": "3200", "name": "Current Year Earnings", "type": "equity", "subtype": "retained", "normal_balance": "credit"},
+    {
+        "code": "3000",
+        "name": "Share Capital",
+        "type": "equity",
+        "subtype": "equity",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "3100",
+        "name": "Retained Earnings",
+        "type": "equity",
+        "subtype": "retained",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "3200",
+        "name": "Current Year Earnings",
+        "type": "equity",
+        "subtype": "retained",
+        "normal_balance": "credit",
+    },
     # Revenue
-    {"code": "4000", "name": "Consulting Fees", "type": "revenue", "subtype": "sales", "normal_balance": "credit"},
-    {"code": "4100", "name": "Audit Fees", "type": "revenue", "subtype": "sales", "normal_balance": "credit"},
-    {"code": "4200", "name": "Tax Advisory Fees", "type": "revenue", "subtype": "sales", "normal_balance": "credit"},
-    {"code": "4300", "name": "Training Revenue", "type": "revenue", "subtype": "sales", "normal_balance": "credit"},
-    {"code": "4400", "name": "Reimbursable Expenses", "type": "revenue", "subtype": "sales", "normal_balance": "credit"},
-    {"code": "4900", "name": "Other Income", "type": "revenue", "subtype": "other", "normal_balance": "credit"},
-    {"code": "4910", "name": "FX Gain", "type": "revenue", "subtype": "other", "normal_balance": "credit"},
+    {
+        "code": "4000",
+        "name": "Consulting Fees",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4100",
+        "name": "Audit Fees",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4200",
+        "name": "Tax Advisory Fees",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4300",
+        "name": "Training Revenue",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4400",
+        "name": "Reimbursable Expenses",
+        "type": "revenue",
+        "subtype": "sales",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4900",
+        "name": "Other Income",
+        "type": "revenue",
+        "subtype": "other",
+        "normal_balance": "credit",
+    },
+    {
+        "code": "4910",
+        "name": "FX Gain",
+        "type": "revenue",
+        "subtype": "other",
+        "normal_balance": "credit",
+    },
     # Expenses
-    {"code": "5000", "name": "Salaries & Wages", "type": "expense", "subtype": "payroll", "normal_balance": "debit"},
-    {"code": "5100", "name": "MPF — Employer Contribution", "type": "expense", "subtype": "payroll", "normal_balance": "debit"},
-    {"code": "5200", "name": "Staff Benefits", "type": "expense", "subtype": "payroll", "normal_balance": "debit"},
-    {"code": "6000", "name": "Rent", "type": "expense", "subtype": "facilities", "normal_balance": "debit"},
-    {"code": "6100", "name": "Utilities", "type": "expense", "subtype": "facilities", "normal_balance": "debit"},
-    {"code": "6200", "name": "Insurance", "type": "expense", "subtype": "operating", "normal_balance": "debit"},
-    {"code": "6300", "name": "Travel & Transport", "type": "expense", "subtype": "travel", "normal_balance": "debit"},
-    {"code": "6400", "name": "Entertainment", "type": "expense", "subtype": "travel", "normal_balance": "debit"},
-    {"code": "6500", "name": "Professional Development", "type": "expense", "subtype": "operating", "normal_balance": "debit"},
-    {"code": "6600", "name": "Software & Subscriptions", "type": "expense", "subtype": "software", "normal_balance": "debit"},
-    {"code": "6700", "name": "Depreciation", "type": "expense", "subtype": "operating", "normal_balance": "debit"},
-    {"code": "6800", "name": "Bank Charges", "type": "expense", "subtype": "operating", "normal_balance": "debit"},
-    {"code": "6900", "name": "Printing & Stationery", "type": "expense", "subtype": "operating", "normal_balance": "debit"},
-    {"code": "7000", "name": "Courier & Postage", "type": "expense", "subtype": "operating", "normal_balance": "debit"},
-    {"code": "7100", "name": "Legal & Professional Fees", "type": "expense", "subtype": "professional", "normal_balance": "debit"},
-    {"code": "7200", "name": "Telephone & Internet", "type": "expense", "subtype": "facilities", "normal_balance": "debit"},
-    {"code": "7300", "name": "Cleaning & Maintenance", "type": "expense", "subtype": "facilities", "normal_balance": "debit"},
-    {"code": "7900", "name": "FX Loss", "type": "expense", "subtype": "other", "normal_balance": "debit"},
-    {"code": "7910", "name": "Miscellaneous Expenses", "type": "expense", "subtype": "other", "normal_balance": "debit"},
+    {
+        "code": "5000",
+        "name": "Salaries & Wages",
+        "type": "expense",
+        "subtype": "payroll",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "5100",
+        "name": "MPF — Employer Contribution",
+        "type": "expense",
+        "subtype": "payroll",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "5200",
+        "name": "Staff Benefits",
+        "type": "expense",
+        "subtype": "payroll",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6000",
+        "name": "Rent",
+        "type": "expense",
+        "subtype": "facilities",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6100",
+        "name": "Utilities",
+        "type": "expense",
+        "subtype": "facilities",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6200",
+        "name": "Insurance",
+        "type": "expense",
+        "subtype": "operating",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6300",
+        "name": "Travel & Transport",
+        "type": "expense",
+        "subtype": "travel",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6400",
+        "name": "Entertainment",
+        "type": "expense",
+        "subtype": "travel",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6500",
+        "name": "Professional Development",
+        "type": "expense",
+        "subtype": "operating",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6600",
+        "name": "Software & Subscriptions",
+        "type": "expense",
+        "subtype": "software",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6700",
+        "name": "Depreciation",
+        "type": "expense",
+        "subtype": "operating",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6800",
+        "name": "Bank Charges",
+        "type": "expense",
+        "subtype": "operating",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "6900",
+        "name": "Printing & Stationery",
+        "type": "expense",
+        "subtype": "operating",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "7000",
+        "name": "Courier & Postage",
+        "type": "expense",
+        "subtype": "operating",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "7100",
+        "name": "Legal & Professional Fees",
+        "type": "expense",
+        "subtype": "professional",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "7200",
+        "name": "Telephone & Internet",
+        "type": "expense",
+        "subtype": "facilities",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "7300",
+        "name": "Cleaning & Maintenance",
+        "type": "expense",
+        "subtype": "facilities",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "7900",
+        "name": "FX Loss",
+        "type": "expense",
+        "subtype": "other",
+        "normal_balance": "debit",
+    },
+    {
+        "code": "7910",
+        "name": "Miscellaneous Expenses",
+        "type": "expense",
+        "subtype": "other",
+        "normal_balance": "debit",
+    },
 ]
 
 
@@ -214,38 +495,203 @@ async def seed_contacts(db: AsyncSession) -> dict[str, str]:
     """Create 15 contacts: 8 customers, 5 suppliers, 2 employees."""
     data = [
         # Customers
-        ("ABCHOLD", "ABC Holdings Ltd", "customer", "ap@abcholdings.com.hk", "HKD",
-         "Unit 1201, Tower 1", None, "Central", "Hong Kong", None, "HK"),
-        ("XYZCORP", "XYZ Corporation Ltd", "customer", "accounts@xyzcorp.com.hk", "HKD",
-         "Suite 2508, IFC Two", None, "Central", "Hong Kong", None, "HK"),
-        ("DEFGRP", "DEF Group Holdings Ltd", "customer", "finance@defgroup.com.hk", "HKD",
-         "38/F, Hopewell Centre", None, "Wan Chai", "Hong Kong", None, "HK"),
-        ("GHIEDU", "GHI Education Services Ltd", "customer", "billing@ghiedu.com.hk", "HKD",
-         "Unit 705, Mira Place", None, "Tsim Sha Tsui", "Kowloon", None, "HK"),
-        ("SUNPROP", "Sunrise Properties Ltd", "customer", "accounts@sunriseprop.com.hk", "HKD",
-         "Room 1802, China Resources Building", None, "Wan Chai", "Hong Kong", None, "HK"),
-        ("MKTTRAD", "MKT Trading Co Ltd", "customer", "invoices@mkttrad.com.hk", "HKD",
-         "Unit B, 15/F, Nan Fung Tower", None, "Tsuen Wan", "New Territories", None, "HK"),
-        ("GBLTECH", "Global Tech Solutions Inc", "customer", "ar@globaltechsol.com", "USD",
-         "350 Fifth Avenue, Suite 4500", None, "New York", "NY", "10118", "US"),
-        ("WLCHAN", "W.L. Chan", "customer", "wlchan@gmail.com", "HKD",
-         "Flat 12B, Tower 3, The Harbourside", None, "West Kowloon", "Kowloon", None, "HK"),
+        (
+            "ABCHOLD",
+            "ABC Holdings Ltd",
+            "customer",
+            "ap@abcholdings.com.hk",
+            "HKD",
+            "Unit 1201, Tower 1",
+            None,
+            "Central",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "XYZCORP",
+            "XYZ Corporation Ltd",
+            "customer",
+            "accounts@xyzcorp.com.hk",
+            "HKD",
+            "Suite 2508, IFC Two",
+            None,
+            "Central",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "DEFGRP",
+            "DEF Group Holdings Ltd",
+            "customer",
+            "finance@defgroup.com.hk",
+            "HKD",
+            "38/F, Hopewell Centre",
+            None,
+            "Wan Chai",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "GHIEDU",
+            "GHI Education Services Ltd",
+            "customer",
+            "billing@ghiedu.com.hk",
+            "HKD",
+            "Unit 705, Mira Place",
+            None,
+            "Tsim Sha Tsui",
+            "Kowloon",
+            None,
+            "HK",
+        ),
+        (
+            "SUNPROP",
+            "Sunrise Properties Ltd",
+            "customer",
+            "accounts@sunriseprop.com.hk",
+            "HKD",
+            "Room 1802, China Resources Building",
+            None,
+            "Wan Chai",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "MKTTRAD",
+            "MKT Trading Co Ltd",
+            "customer",
+            "invoices@mkttrad.com.hk",
+            "HKD",
+            "Unit B, 15/F, Nan Fung Tower",
+            None,
+            "Tsuen Wan",
+            "New Territories",
+            None,
+            "HK",
+        ),
+        (
+            "GBLTECH",
+            "Global Tech Solutions Inc",
+            "customer",
+            "ar@globaltechsol.com",
+            "USD",
+            "350 Fifth Avenue, Suite 4500",
+            None,
+            "New York",
+            "NY",
+            "10118",
+            "US",
+        ),
+        (
+            "WLCHAN",
+            "W.L. Chan",
+            "customer",
+            "wlchan@gmail.com",
+            "HKD",
+            "Flat 12B, Tower 3, The Harbourside",
+            None,
+            "West Kowloon",
+            "Kowloon",
+            None,
+            "HK",
+        ),
         # Suppliers
-        ("HKLAND", "Henderson Leasing Ltd", "supplier", "leasing@hendersonleasing.com.hk", "HKD",
-         "Henderson Centre, 18 Harbour Road", None, "Wan Chai", "Hong Kong", None, "HK"),
-        ("CLDSOFT", "CloudSoft Asia Ltd", "supplier", "billing@cloudsoft.asia", "USD",
-         "Unit 901, Cyberport 3", None, "Pok Fu Lam", "Hong Kong", None, "HK"),
-        ("HKGINS", "Hong Kong General Insurance Co", "supplier", "claims@hkgins.com.hk", "HKD",
-         "10/F, Dah Sing Financial Centre", None, "Wan Chai", "Hong Kong", None, "HK"),
-        ("OFFMART", "Office Mart Ltd", "supplier", "orders@officemart.com.hk", "HKD",
-         "G/F, 88 Des Voeux Road West", None, "Sheung Wan", "Hong Kong", None, "HK"),
-        ("WNGTRV", "Wing On Travel Ltd", "supplier", "corporate@wingontravel.com.hk", "HKD",
-         "Wing On Centre, 111 Connaught Road", None, "Sheung Wan", "Hong Kong", None, "HK"),
+        (
+            "HKLAND",
+            "Henderson Leasing Ltd",
+            "supplier",
+            "leasing@hendersonleasing.com.hk",
+            "HKD",
+            "Henderson Centre, 18 Harbour Road",
+            None,
+            "Wan Chai",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "CLDSOFT",
+            "CloudSoft Asia Ltd",
+            "supplier",
+            "billing@cloudsoft.asia",
+            "USD",
+            "Unit 901, Cyberport 3",
+            None,
+            "Pok Fu Lam",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "HKGINS",
+            "Hong Kong General Insurance Co",
+            "supplier",
+            "claims@hkgins.com.hk",
+            "HKD",
+            "10/F, Dah Sing Financial Centre",
+            None,
+            "Wan Chai",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "OFFMART",
+            "Office Mart Ltd",
+            "supplier",
+            "orders@officemart.com.hk",
+            "HKD",
+            "G/F, 88 Des Voeux Road West",
+            None,
+            "Sheung Wan",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
+        (
+            "WNGTRV",
+            "Wing On Travel Ltd",
+            "supplier",
+            "corporate@wingontravel.com.hk",
+            "HKD",
+            "Wing On Centre, 111 Connaught Road",
+            None,
+            "Sheung Wan",
+            "Hong Kong",
+            None,
+            "HK",
+        ),
         # Employees
-        ("EMPL01", "Kelvin Cheung", "employee", "kelvin.cheung@dragonadvisory.com.hk", "HKD",
-         None, None, None, None, None, "HK"),
-        ("EMPL02", "Sarah Wong", "employee", "sarah.wong@dragonadvisory.com.hk", "HKD",
-         None, None, None, None, None, "HK"),
+        (
+            "EMPL01",
+            "Kelvin Cheung",
+            "employee",
+            "kelvin.cheung@dragonadvisory.com.hk",
+            "HKD",
+            None,
+            None,
+            None,
+            None,
+            None,
+            "HK",
+        ),
+        (
+            "EMPL02",
+            "Sarah Wong",
+            "employee",
+            "sarah.wong@dragonadvisory.com.hk",
+            "HKD",
+            None,
+            None,
+            None,
+            None,
+            None,
+            "HK",
+        ),
     ]
     ids: dict[str, str] = {}
     for code, name, ctype, email, ccy, addr1, addr2, city, region, postal, country in data:
@@ -418,24 +864,28 @@ async def seed_fx_rates(db: AsyncSession) -> None:
     ]
     count = 0
     for rate_date, rate in usd_hkd_rates:
-        db.add(FxRate(
-            id=_uid(),
-            from_currency="USD",
-            to_currency="HKD",
-            rate_date=_dt(rate_date),
-            rate=rate,
-            source="manual",
-        ))
+        db.add(
+            FxRate(
+                id=_uid(),
+                from_currency="USD",
+                to_currency="HKD",
+                rate_date=_dt(rate_date),
+                rate=rate,
+                source="manual",
+            )
+        )
         count += 1
     for rate_date, rate in gbp_hkd_rates:
-        db.add(FxRate(
-            id=_uid(),
-            from_currency="GBP",
-            to_currency="HKD",
-            rate_date=_dt(rate_date),
-            rate=rate,
-            source="manual",
-        ))
+        db.add(
+            FxRate(
+                id=_uid(),
+                from_currency="GBP",
+                to_currency="HKD",
+                rate_date=_dt(rate_date),
+                rate=rate,
+                source="manual",
+            )
+        )
         count += 1
     await db.flush()
     print(f"  [ok] {count} FX rates (USD/HKD + GBP/HKD)")
@@ -503,136 +953,336 @@ async def seed_journals(
     """Create 20 posted journal entries across all periods."""
     entries = [
         # --- Nov 2025 ---
-        ("JE-00001", "Opening balances — initial capital injection",
-         "2025-11-01", "2025-11", [
-             {"account_id": accs["1000"], "debit": "2000000.0000", "credit": "0.0000", "desc": "Cash at Bank HKD"},
-             {"account_id": accs["1010"], "debit": "500000.0000", "credit": "0.0000", "desc": "Cash at Bank USD"},
-             {"account_id": accs["1500"], "debit": "120000.0000", "credit": "0.0000", "desc": "Office Equipment"},
-             {"account_id": accs["1510"], "debit": "85000.0000", "credit": "0.0000", "desc": "Computer Equipment"},
-             {"account_id": accs["1520"], "debit": "350000.0000", "credit": "0.0000", "desc": "Leasehold Improvements"},
-             {"account_id": accs["3000"], "debit": "0.0000", "credit": "1000000.0000", "desc": "Share Capital"},
-             {"account_id": accs["3100"], "debit": "0.0000", "credit": "2055000.0000", "desc": "Retained Earnings"},
-         ]),
-        ("JE-00002", "Nov 2025 salary accrual — all staff",
-         "2025-11-30", "2025-11", [
-             {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000", "desc": "Salaries Nov"},
-             {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000", "desc": "MPF employer Nov"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000", "desc": "Net salary paid"},
-             {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000", "desc": "MPF payable (employer+employee)"},
-         ]),
-        ("JE-00003", "Nov 2025 office rent",
-         "2025-11-01", "2025-11", [
-             {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000", "desc": "Rent — November"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
-         ]),
-        ("JE-00004", "Nov 2025 depreciation",
-         "2025-11-30", "2025-11", [
-             {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000", "desc": "Monthly depreciation"},
-             {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000", "desc": "Office equip depr"},
-             {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700", "desc": "Computer equip depr"},
-             {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300", "desc": "Leasehold impr depr"},
-         ]),
+        (
+            "JE-00001",
+            "Opening balances — initial capital injection",
+            "2025-11-01",
+            "2025-11",
+            [
+                {
+                    "account_id": accs["1000"],
+                    "debit": "2000000.0000",
+                    "credit": "0.0000",
+                    "desc": "Cash at Bank HKD",
+                },
+                {
+                    "account_id": accs["1010"],
+                    "debit": "500000.0000",
+                    "credit": "0.0000",
+                    "desc": "Cash at Bank USD",
+                },
+                {
+                    "account_id": accs["1500"],
+                    "debit": "120000.0000",
+                    "credit": "0.0000",
+                    "desc": "Office Equipment",
+                },
+                {
+                    "account_id": accs["1510"],
+                    "debit": "85000.0000",
+                    "credit": "0.0000",
+                    "desc": "Computer Equipment",
+                },
+                {
+                    "account_id": accs["1520"],
+                    "debit": "350000.0000",
+                    "credit": "0.0000",
+                    "desc": "Leasehold Improvements",
+                },
+                {
+                    "account_id": accs["3000"],
+                    "debit": "0.0000",
+                    "credit": "1000000.0000",
+                    "desc": "Share Capital",
+                },
+                {
+                    "account_id": accs["3100"],
+                    "debit": "0.0000",
+                    "credit": "2055000.0000",
+                    "desc": "Retained Earnings",
+                },
+            ],
+        ),
+        (
+            "JE-00002",
+            "Nov 2025 salary accrual — all staff",
+            "2025-11-30",
+            "2025-11",
+            [
+                {
+                    "account_id": accs["5000"],
+                    "debit": "280000.0000",
+                    "credit": "0.0000",
+                    "desc": "Salaries Nov",
+                },
+                {
+                    "account_id": accs["5100"],
+                    "debit": "14000.0000",
+                    "credit": "0.0000",
+                    "desc": "MPF employer Nov",
+                },
+                {
+                    "account_id": accs["1000"],
+                    "debit": "0.0000",
+                    "credit": "266000.0000",
+                    "desc": "Net salary paid",
+                },
+                {
+                    "account_id": accs["2300"],
+                    "debit": "0.0000",
+                    "credit": "28000.0000",
+                    "desc": "MPF payable (employer+employee)",
+                },
+            ],
+        ),
+        (
+            "JE-00003",
+            "Nov 2025 office rent",
+            "2025-11-01",
+            "2025-11",
+            [
+                {
+                    "account_id": accs["6000"],
+                    "debit": "65000.0000",
+                    "credit": "0.0000",
+                    "desc": "Rent — November",
+                },
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
+            ],
+        ),
+        (
+            "JE-00004",
+            "Nov 2025 depreciation",
+            "2025-11-30",
+            "2025-11",
+            [
+                {
+                    "account_id": accs["6700"],
+                    "debit": "6250.0000",
+                    "credit": "0.0000",
+                    "desc": "Monthly depreciation",
+                },
+                {
+                    "account_id": accs["1550"],
+                    "debit": "0.0000",
+                    "credit": "2000.0000",
+                    "desc": "Office equip depr",
+                },
+                {
+                    "account_id": accs["1560"],
+                    "debit": "0.0000",
+                    "credit": "1416.6700",
+                    "desc": "Computer equip depr",
+                },
+                {
+                    "account_id": accs["1570"],
+                    "debit": "0.0000",
+                    "credit": "2833.3300",
+                    "desc": "Leasehold impr depr",
+                },
+            ],
+        ),
         # --- Dec 2025 ---
-        ("JE-00005", "Dec 2025 salary accrual",
-         "2025-12-31", "2025-12", [
-             {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
-             {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
-             {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
-         ]),
-        ("JE-00006", "Dec 2025 office rent",
-         "2025-12-01", "2025-12", [
-             {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
-         ]),
-        ("JE-00007", "Dec 2025 depreciation",
-         "2025-12-31", "2025-12", [
-             {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
-             {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
-             {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
-             {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
-         ]),
-        ("JE-00008", "Dec 2025 year-end FX revaluation — USD account",
-         "2025-12-31", "2025-12", [
-             {"account_id": accs["1010"], "debit": "2250.0000", "credit": "0.0000", "desc": "USD revaluation gain"},
-             {"account_id": accs["4910"], "debit": "0.0000", "credit": "2250.0000", "desc": "FX gain"},
-         ]),
+        (
+            "JE-00005",
+            "Dec 2025 salary accrual",
+            "2025-12-31",
+            "2025-12",
+            [
+                {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
+                {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
+                {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
+            ],
+        ),
+        (
+            "JE-00006",
+            "Dec 2025 office rent",
+            "2025-12-01",
+            "2025-12",
+            [
+                {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
+            ],
+        ),
+        (
+            "JE-00007",
+            "Dec 2025 depreciation",
+            "2025-12-31",
+            "2025-12",
+            [
+                {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
+                {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
+                {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
+                {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
+            ],
+        ),
+        (
+            "JE-00008",
+            "Dec 2025 year-end FX revaluation — USD account",
+            "2025-12-31",
+            "2025-12",
+            [
+                {
+                    "account_id": accs["1010"],
+                    "debit": "2250.0000",
+                    "credit": "0.0000",
+                    "desc": "USD revaluation gain",
+                },
+                {
+                    "account_id": accs["4910"],
+                    "debit": "0.0000",
+                    "credit": "2250.0000",
+                    "desc": "FX gain",
+                },
+            ],
+        ),
         # --- Jan 2026 ---
-        ("JE-00009", "Jan 2026 salary accrual",
-         "2026-01-31", "2026-01", [
-             {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
-             {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
-             {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
-         ]),
-        ("JE-00010", "Jan 2026 office rent",
-         "2026-01-01", "2026-01", [
-             {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
-         ]),
-        ("JE-00011", "Jan 2026 depreciation",
-         "2026-01-31", "2026-01", [
-             {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
-             {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
-             {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
-             {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
-         ]),
-        ("JE-00012", "Jan 2026 insurance prepayment (annual policy)",
-         "2026-01-15", "2026-01", [
-             {"account_id": accs["1200"], "debit": "36000.0000", "credit": "0.0000", "desc": "Annual insurance prepaid"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "36000.0000"},
-         ]),
+        (
+            "JE-00009",
+            "Jan 2026 salary accrual",
+            "2026-01-31",
+            "2026-01",
+            [
+                {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
+                {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
+                {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
+            ],
+        ),
+        (
+            "JE-00010",
+            "Jan 2026 office rent",
+            "2026-01-01",
+            "2026-01",
+            [
+                {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
+            ],
+        ),
+        (
+            "JE-00011",
+            "Jan 2026 depreciation",
+            "2026-01-31",
+            "2026-01",
+            [
+                {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
+                {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
+                {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
+                {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
+            ],
+        ),
+        (
+            "JE-00012",
+            "Jan 2026 insurance prepayment (annual policy)",
+            "2026-01-15",
+            "2026-01",
+            [
+                {
+                    "account_id": accs["1200"],
+                    "debit": "36000.0000",
+                    "credit": "0.0000",
+                    "desc": "Annual insurance prepaid",
+                },
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "36000.0000"},
+            ],
+        ),
         # --- Feb 2026 ---
-        ("JE-00013", "Feb 2026 salary accrual",
-         "2026-02-28", "2026-02", [
-             {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
-             {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
-             {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
-         ]),
-        ("JE-00014", "Feb 2026 office rent",
-         "2026-02-01", "2026-02", [
-             {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
-         ]),
-        ("JE-00015", "Feb 2026 depreciation + insurance amortization",
-         "2026-02-28", "2026-02", [
-             {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
-             {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
-             {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
-             {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
-         ]),
-        ("JE-00016", "Feb 2026 insurance amortization (1/12 of annual)",
-         "2026-02-28", "2026-02", [
-             {"account_id": accs["6200"], "debit": "3000.0000", "credit": "0.0000", "desc": "Monthly insurance"},
-             {"account_id": accs["1200"], "debit": "0.0000", "credit": "3000.0000"},
-         ]),
+        (
+            "JE-00013",
+            "Feb 2026 salary accrual",
+            "2026-02-28",
+            "2026-02",
+            [
+                {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
+                {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
+                {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
+            ],
+        ),
+        (
+            "JE-00014",
+            "Feb 2026 office rent",
+            "2026-02-01",
+            "2026-02",
+            [
+                {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
+            ],
+        ),
+        (
+            "JE-00015",
+            "Feb 2026 depreciation + insurance amortization",
+            "2026-02-28",
+            "2026-02",
+            [
+                {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
+                {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
+                {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
+                {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
+            ],
+        ),
+        (
+            "JE-00016",
+            "Feb 2026 insurance amortization (1/12 of annual)",
+            "2026-02-28",
+            "2026-02",
+            [
+                {
+                    "account_id": accs["6200"],
+                    "debit": "3000.0000",
+                    "credit": "0.0000",
+                    "desc": "Monthly insurance",
+                },
+                {"account_id": accs["1200"], "debit": "0.0000", "credit": "3000.0000"},
+            ],
+        ),
         # --- Mar 2026 ---
-        ("JE-00017", "Mar 2026 salary accrual",
-         "2026-03-31", "2026-03", [
-             {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
-             {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
-             {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
-         ]),
-        ("JE-00018", "Mar 2026 office rent",
-         "2026-03-01", "2026-03", [
-             {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
-         ]),
-        ("JE-00019", "Mar 2026 depreciation",
-         "2026-03-31", "2026-03", [
-             {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
-             {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
-             {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
-             {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
-         ]),
+        (
+            "JE-00017",
+            "Mar 2026 salary accrual",
+            "2026-03-31",
+            "2026-03",
+            [
+                {"account_id": accs["5000"], "debit": "280000.0000", "credit": "0.0000"},
+                {"account_id": accs["5100"], "debit": "14000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "266000.0000"},
+                {"account_id": accs["2300"], "debit": "0.0000", "credit": "28000.0000"},
+            ],
+        ),
+        (
+            "JE-00018",
+            "Mar 2026 office rent",
+            "2026-03-01",
+            "2026-03",
+            [
+                {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
+            ],
+        ),
+        (
+            "JE-00019",
+            "Mar 2026 depreciation",
+            "2026-03-31",
+            "2026-03",
+            [
+                {"account_id": accs["6700"], "debit": "6250.0000", "credit": "0.0000"},
+                {"account_id": accs["1550"], "debit": "0.0000", "credit": "2000.0000"},
+                {"account_id": accs["1560"], "debit": "0.0000", "credit": "1416.6700"},
+                {"account_id": accs["1570"], "debit": "0.0000", "credit": "2833.3300"},
+            ],
+        ),
         # --- Apr 2026 ---
-        ("JE-00020", "Apr 2026 office rent",
-         "2026-04-01", "2026-04", [
-             {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
-             {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
-         ]),
+        (
+            "JE-00020",
+            "Apr 2026 office rent",
+            "2026-04-01",
+            "2026-04",
+            [
+                {"account_id": accs["6000"], "debit": "65000.0000", "credit": "0.0000"},
+                {"account_id": accs["1000"], "debit": "0.0000", "credit": "65000.0000"},
+            ],
+        ),
     ]
 
     je_ids: dict[str, str] = {}
@@ -662,58 +1312,240 @@ async def seed_invoices(
     # lines: [(desc, qty, unit_price, account_code)]
     data = [
         # Paid invoices
-        ("INV-00001", "ABCHOLD", "2025-11-15", "2025-12-15", "2025-11", "HKD", "1",
-         [("Consulting — corporate restructuring Nov", Decimal("40"), Decimal("2500.0000"), "4000")],
-         "paid"),
-        ("INV-00002", "XYZCORP", "2025-12-01", "2025-12-31", "2025-12", "HKD", "1",
-         [("Audit services — FY2025 interim", Decimal("60"), Decimal("2200.0000"), "4100"),
-          ("Disbursements — government filing fees", Decimal("1"), Decimal("2500.0000"), "4400")],
-         "paid"),
-        ("INV-00003", "DEFGRP", "2026-01-10", "2026-02-10", "2026-01", "HKD", "1",
-         [("Tax advisory — group restructuring", Decimal("30"), Decimal("2800.0000"), "4200")],
-         "paid"),
-        ("INV-00004", "SUNPROP", "2026-01-20", "2026-02-20", "2026-01", "HKD", "1",
-         [("Consulting — property acquisition due diligence", Decimal("25"), Decimal("2500.0000"), "4000")],
-         "paid"),
+        (
+            "INV-00001",
+            "ABCHOLD",
+            "2025-11-15",
+            "2025-12-15",
+            "2025-11",
+            "HKD",
+            "1",
+            [
+                (
+                    "Consulting — corporate restructuring Nov",
+                    Decimal("40"),
+                    Decimal("2500.0000"),
+                    "4000",
+                )
+            ],
+            "paid",
+        ),
+        (
+            "INV-00002",
+            "XYZCORP",
+            "2025-12-01",
+            "2025-12-31",
+            "2025-12",
+            "HKD",
+            "1",
+            [
+                ("Audit services — FY2025 interim", Decimal("60"), Decimal("2200.0000"), "4100"),
+                (
+                    "Disbursements — government filing fees",
+                    Decimal("1"),
+                    Decimal("2500.0000"),
+                    "4400",
+                ),
+            ],
+            "paid",
+        ),
+        (
+            "INV-00003",
+            "DEFGRP",
+            "2026-01-10",
+            "2026-02-10",
+            "2026-01",
+            "HKD",
+            "1",
+            [("Tax advisory — group restructuring", Decimal("30"), Decimal("2800.0000"), "4200")],
+            "paid",
+        ),
+        (
+            "INV-00004",
+            "SUNPROP",
+            "2026-01-20",
+            "2026-02-20",
+            "2026-01",
+            "HKD",
+            "1",
+            [
+                (
+                    "Consulting — property acquisition due diligence",
+                    Decimal("25"),
+                    Decimal("2500.0000"),
+                    "4000",
+                )
+            ],
+            "paid",
+        ),
         # Partially paid
-        ("INV-00005", "MKTTRAD", "2026-02-01", "2026-03-03", "2026-02", "HKD", "1",
-         [("Tax advisory — transfer pricing study", Decimal("50"), Decimal("2800.0000"), "4200"),
-          ("Disbursements — HKICPA filing", Decimal("1"), Decimal("3800.0000"), "4400")],
-         "partial"),
+        (
+            "INV-00005",
+            "MKTTRAD",
+            "2026-02-01",
+            "2026-03-03",
+            "2026-02",
+            "HKD",
+            "1",
+            [
+                (
+                    "Tax advisory — transfer pricing study",
+                    Decimal("50"),
+                    Decimal("2800.0000"),
+                    "4200",
+                ),
+                ("Disbursements — HKICPA filing", Decimal("1"), Decimal("3800.0000"), "4400"),
+            ],
+            "partial",
+        ),
         # Authorised (approved, not yet sent)
-        ("INV-00006", "ABCHOLD", "2026-03-01", "2026-03-31", "2026-03", "HKD", "1",
-         [("Consulting — Q1 2026 retainer", Decimal("80"), Decimal("2500.0000"), "4000")],
-         "authorised"),
-        ("INV-00007", "DEFGRP", "2026-03-15", "2026-04-14", "2026-03", "HKD", "1",
-         [("Audit services — FY2025 final audit", Decimal("120"), Decimal("2200.0000"), "4100"),
-          ("Disbursements — travel to Shenzhen", Decimal("1"), Decimal("4500.0000"), "4400")],
-         "authorised"),
-        ("INV-00008", "GHIEDU", "2026-03-20", "2026-04-19", "2026-03", "HKD", "1",
-         [("Training — Financial Reporting Standards workshop (2 days)", Decimal("2"), Decimal("15000.0000"), "4300")],
-         "authorised"),
+        (
+            "INV-00006",
+            "ABCHOLD",
+            "2026-03-01",
+            "2026-03-31",
+            "2026-03",
+            "HKD",
+            "1",
+            [("Consulting — Q1 2026 retainer", Decimal("80"), Decimal("2500.0000"), "4000")],
+            "authorised",
+        ),
+        (
+            "INV-00007",
+            "DEFGRP",
+            "2026-03-15",
+            "2026-04-14",
+            "2026-03",
+            "HKD",
+            "1",
+            [
+                (
+                    "Audit services — FY2025 final audit",
+                    Decimal("120"),
+                    Decimal("2200.0000"),
+                    "4100",
+                ),
+                ("Disbursements — travel to Shenzhen", Decimal("1"), Decimal("4500.0000"), "4400"),
+            ],
+            "authorised",
+        ),
+        (
+            "INV-00008",
+            "GHIEDU",
+            "2026-03-20",
+            "2026-04-19",
+            "2026-03",
+            "HKD",
+            "1",
+            [
+                (
+                    "Training — Financial Reporting Standards workshop (2 days)",
+                    Decimal("2"),
+                    Decimal("15000.0000"),
+                    "4300",
+                )
+            ],
+            "authorised",
+        ),
         # Sent
-        ("INV-00009", "SUNPROP", "2026-04-01", "2026-05-01", "2026-04", "HKD", "1",
-         [("Consulting — lease renewal advisory", Decimal("15"), Decimal("2500.0000"), "4000")],
-         "sent"),
-        ("INV-00010", "WLCHAN", "2026-04-05", "2026-05-05", "2026-04", "HKD", "1",
-         [("Tax advisory — personal tax return FY2025/26", Decimal("8"), Decimal("2800.0000"), "4200")],
-         "sent"),
+        (
+            "INV-00009",
+            "SUNPROP",
+            "2026-04-01",
+            "2026-05-01",
+            "2026-04",
+            "HKD",
+            "1",
+            [("Consulting — lease renewal advisory", Decimal("15"), Decimal("2500.0000"), "4000")],
+            "sent",
+        ),
+        (
+            "INV-00010",
+            "WLCHAN",
+            "2026-04-05",
+            "2026-05-05",
+            "2026-04",
+            "HKD",
+            "1",
+            [
+                (
+                    "Tax advisory — personal tax return FY2025/26",
+                    Decimal("8"),
+                    Decimal("2800.0000"),
+                    "4200",
+                )
+            ],
+            "sent",
+        ),
         # Draft
-        ("INV-00011", "MKTTRAD", "2026-04-10", None, "2026-04", "HKD", "1",
-         [("Consulting — supply chain review", Decimal("20"), Decimal("2500.0000"), "4000")],
-         "draft"),
-        ("INV-00012", "XYZCORP", "2026-04-12", None, "2026-04", "HKD", "1",
-         [("Audit services — interim review Q1 2026", Decimal("35"), Decimal("2200.0000"), "4100")],
-         "draft"),
+        (
+            "INV-00011",
+            "MKTTRAD",
+            "2026-04-10",
+            None,
+            "2026-04",
+            "HKD",
+            "1",
+            [("Consulting — supply chain review", Decimal("20"), Decimal("2500.0000"), "4000")],
+            "draft",
+        ),
+        (
+            "INV-00012",
+            "XYZCORP",
+            "2026-04-12",
+            None,
+            "2026-04",
+            "HKD",
+            "1",
+            [
+                (
+                    "Audit services — interim review Q1 2026",
+                    Decimal("35"),
+                    Decimal("2200.0000"),
+                    "4100",
+                )
+            ],
+            "draft",
+        ),
         # USD invoice (international client)
-        ("INV-00013", "GBLTECH", "2026-03-01", "2026-04-01", "2026-03", "USD", "7.81000000",
-         [("Consulting — APAC market entry strategy", Decimal("60"), Decimal("350.0000"), "4000"),
-          ("Tax advisory — HK tax structuring", Decimal("20"), Decimal("400.0000"), "4200")],
-         "authorised"),
+        (
+            "INV-00013",
+            "GBLTECH",
+            "2026-03-01",
+            "2026-04-01",
+            "2026-03",
+            "USD",
+            "7.81000000",
+            [
+                (
+                    "Consulting — APAC market entry strategy",
+                    Decimal("60"),
+                    Decimal("350.0000"),
+                    "4000",
+                ),
+                ("Tax advisory — HK tax structuring", Decimal("20"), Decimal("400.0000"), "4200"),
+            ],
+            "authorised",
+        ),
         # Another paid HKD
-        ("INV-00014", "GHIEDU", "2025-12-10", "2026-01-10", "2025-12", "HKD", "1",
-         [("Training — Corporate Governance workshop (1 day)", Decimal("1"), Decimal("15000.0000"), "4300")],
-         "paid"),
+        (
+            "INV-00014",
+            "GHIEDU",
+            "2025-12-10",
+            "2026-01-10",
+            "2025-12",
+            "HKD",
+            "1",
+            [
+                (
+                    "Training — Corporate Governance workshop (1 day)",
+                    Decimal("1"),
+                    Decimal("15000.0000"),
+                    "4300",
+                )
+            ],
+            "paid",
+        ),
     ]
 
     inv_ids: dict[str, str] = {}
@@ -748,7 +1580,9 @@ async def seed_invoices(
             total=total,
             amount_due=amount_due,
             functional_total=functional_total,
-            authorised_by=ACTOR_ID if inv_status in ("authorised", "sent", "paid", "partial") else None,
+            authorised_by=(
+                ACTOR_ID if inv_status in ("authorised", "sent", "paid", "partial") else None
+            ),
             sent_at=_now() if inv_status in ("sent", "paid", "partial") else None,
             paid_at=_now() if inv_status == "paid" else None,
             created_by=ACTOR_ID,
@@ -787,38 +1621,182 @@ async def seed_bills(
     """Create 12 bills with varying statuses."""
     data = [
         # Paid rent bills (Nov-Feb)
-        ("BILL-00001", "HKLAND", "2025-11-01", "2025-11-15", "2025-11", "6000",
-         "Office rent — November 2025", Decimal("65000.0000"), "paid", "HKD", "1"),
-        ("BILL-00002", "HKLAND", "2025-12-01", "2025-12-15", "2025-12", "6000",
-         "Office rent — December 2025", Decimal("65000.0000"), "paid", "HKD", "1"),
-        ("BILL-00003", "HKLAND", "2026-01-01", "2026-01-15", "2026-01", "6000",
-         "Office rent — January 2026", Decimal("65000.0000"), "paid", "HKD", "1"),
-        ("BILL-00004", "HKLAND", "2026-02-01", "2026-02-15", "2026-02", "6000",
-         "Office rent — February 2026", Decimal("65000.0000"), "paid", "HKD", "1"),
+        (
+            "BILL-00001",
+            "HKLAND",
+            "2025-11-01",
+            "2025-11-15",
+            "2025-11",
+            "6000",
+            "Office rent — November 2025",
+            Decimal("65000.0000"),
+            "paid",
+            "HKD",
+            "1",
+        ),
+        (
+            "BILL-00002",
+            "HKLAND",
+            "2025-12-01",
+            "2025-12-15",
+            "2025-12",
+            "6000",
+            "Office rent — December 2025",
+            Decimal("65000.0000"),
+            "paid",
+            "HKD",
+            "1",
+        ),
+        (
+            "BILL-00003",
+            "HKLAND",
+            "2026-01-01",
+            "2026-01-15",
+            "2026-01",
+            "6000",
+            "Office rent — January 2026",
+            Decimal("65000.0000"),
+            "paid",
+            "HKD",
+            "1",
+        ),
+        (
+            "BILL-00004",
+            "HKLAND",
+            "2026-02-01",
+            "2026-02-15",
+            "2026-02",
+            "6000",
+            "Office rent — February 2026",
+            Decimal("65000.0000"),
+            "paid",
+            "HKD",
+            "1",
+        ),
         # Software subscription (USD supplier)
-        ("BILL-00005", "CLDSOFT", "2025-12-01", "2025-12-31", "2025-12", "6600",
-         "CloudSoft Enterprise Suite — Dec 2025", Decimal("1200.0000"), "paid", "USD", "7.80450000"),
-        ("BILL-00006", "CLDSOFT", "2026-01-01", "2026-01-31", "2026-01", "6600",
-         "CloudSoft Enterprise Suite — Jan 2026", Decimal("1200.0000"), "paid", "USD", "7.79800000"),
+        (
+            "BILL-00005",
+            "CLDSOFT",
+            "2025-12-01",
+            "2025-12-31",
+            "2025-12",
+            "6600",
+            "CloudSoft Enterprise Suite — Dec 2025",
+            Decimal("1200.0000"),
+            "paid",
+            "USD",
+            "7.80450000",
+        ),
+        (
+            "BILL-00006",
+            "CLDSOFT",
+            "2026-01-01",
+            "2026-01-31",
+            "2026-01",
+            "6600",
+            "CloudSoft Enterprise Suite — Jan 2026",
+            Decimal("1200.0000"),
+            "paid",
+            "USD",
+            "7.79800000",
+        ),
         # Insurance annual premium
-        ("BILL-00007", "HKGINS", "2026-01-15", "2026-02-15", "2026-01", "6200",
-         "Professional indemnity insurance — annual premium FY2026", Decimal("36000.0000"), "paid", "HKD", "1"),
+        (
+            "BILL-00007",
+            "HKGINS",
+            "2026-01-15",
+            "2026-02-15",
+            "2026-01",
+            "6200",
+            "Professional indemnity insurance — annual premium FY2026",
+            Decimal("36000.0000"),
+            "paid",
+            "HKD",
+            "1",
+        ),
         # Approved but not yet paid
-        ("BILL-00008", "HKLAND", "2026-03-01", "2026-03-15", "2026-03", "6000",
-         "Office rent — March 2026", Decimal("65000.0000"), "approved", "HKD", "1"),
-        ("BILL-00009", "OFFMART", "2026-03-10", "2026-04-10", "2026-03", "6900",
-         "Stationery and printing supplies Q1 2026", Decimal("4800.0000"), "approved", "HKD", "1"),
-        ("BILL-00010", "CLDSOFT", "2026-03-01", "2026-03-31", "2026-03", "6600",
-         "CloudSoft Enterprise Suite — Mar 2026", Decimal("1200.0000"), "approved", "USD", "7.81000000"),
+        (
+            "BILL-00008",
+            "HKLAND",
+            "2026-03-01",
+            "2026-03-15",
+            "2026-03",
+            "6000",
+            "Office rent — March 2026",
+            Decimal("65000.0000"),
+            "approved",
+            "HKD",
+            "1",
+        ),
+        (
+            "BILL-00009",
+            "OFFMART",
+            "2026-03-10",
+            "2026-04-10",
+            "2026-03",
+            "6900",
+            "Stationery and printing supplies Q1 2026",
+            Decimal("4800.0000"),
+            "approved",
+            "HKD",
+            "1",
+        ),
+        (
+            "BILL-00010",
+            "CLDSOFT",
+            "2026-03-01",
+            "2026-03-31",
+            "2026-03",
+            "6600",
+            "CloudSoft Enterprise Suite — Mar 2026",
+            Decimal("1200.0000"),
+            "approved",
+            "USD",
+            "7.81000000",
+        ),
         # Draft bills
-        ("BILL-00011", "HKLAND", "2026-04-01", "2026-04-15", "2026-04", "6000",
-         "Office rent — April 2026", Decimal("65000.0000"), "draft", "HKD", "1"),
-        ("BILL-00012", "WNGTRV", "2026-04-05", "2026-05-05", "2026-04", "6300",
-         "Business travel — Shenzhen site visit", Decimal("8500.0000"), "draft", "HKD", "1"),
+        (
+            "BILL-00011",
+            "HKLAND",
+            "2026-04-01",
+            "2026-04-15",
+            "2026-04",
+            "6000",
+            "Office rent — April 2026",
+            Decimal("65000.0000"),
+            "draft",
+            "HKD",
+            "1",
+        ),
+        (
+            "BILL-00012",
+            "WNGTRV",
+            "2026-04-05",
+            "2026-05-05",
+            "2026-04",
+            "6300",
+            "Business travel — Shenzhen site visit",
+            Decimal("8500.0000"),
+            "draft",
+            "HKD",
+            "1",
+        ),
     ]
 
     bill_ids: dict[str, str] = {}
-    for number, contact_code, issue, due, period, exp_code, desc, amount, bill_status, ccy, fx in data:
+    for (
+        number,
+        contact_code,
+        issue,
+        due,
+        period,
+        exp_code,
+        desc,
+        amount,
+        bill_status,
+        ccy,
+        fx,
+    ) in data:
         amt = amount
         fx_rate = Decimal(fx)
         functional_total = amt * fx_rate if ccy != "HKD" else amt
@@ -877,23 +1855,71 @@ async def seed_payments(
     """Create 10 payments: 6 received from customers, 4 made to suppliers."""
     received = [
         # Full payment of INV-00001 (HK$100,000)
-        ("PAY-R001", "ABCHOLD", "2025-12-10", Decimal("100000.0000"), "HKD", "1",
-         "HSBC TT ref: TT-20251210-001", "INV-00001"),
+        (
+            "PAY-R001",
+            "ABCHOLD",
+            "2025-12-10",
+            Decimal("100000.0000"),
+            "HKD",
+            "1",
+            "HSBC TT ref: TT-20251210-001",
+            "INV-00001",
+        ),
         # Full payment of INV-00002 (HK$134,500)
-        ("PAY-R002", "XYZCORP", "2025-12-28", Decimal("134500.0000"), "HKD", "1",
-         "BOC cheque #882401", "INV-00002"),
+        (
+            "PAY-R002",
+            "XYZCORP",
+            "2025-12-28",
+            Decimal("134500.0000"),
+            "HKD",
+            "1",
+            "BOC cheque #882401",
+            "INV-00002",
+        ),
         # Full payment of INV-00003 (HK$84,000)
-        ("PAY-R003", "DEFGRP", "2026-02-05", Decimal("84000.0000"), "HKD", "1",
-         "HSBC TT ref: TT-20260205-003", "INV-00003"),
+        (
+            "PAY-R003",
+            "DEFGRP",
+            "2026-02-05",
+            Decimal("84000.0000"),
+            "HKD",
+            "1",
+            "HSBC TT ref: TT-20260205-003",
+            "INV-00003",
+        ),
         # Full payment of INV-00004 (HK$62,500)
-        ("PAY-R004", "SUNPROP", "2026-02-18", Decimal("62500.0000"), "HKD", "1",
-         "DBS transfer ref: DBS-0218-SP", "INV-00004"),
+        (
+            "PAY-R004",
+            "SUNPROP",
+            "2026-02-18",
+            Decimal("62500.0000"),
+            "HKD",
+            "1",
+            "DBS transfer ref: DBS-0218-SP",
+            "INV-00004",
+        ),
         # Full payment of INV-00014 (HK$15,000)
-        ("PAY-R005", "GHIEDU", "2026-01-08", Decimal("15000.0000"), "HKD", "1",
-         "Cheque #GHI-20260108", "INV-00014"),
+        (
+            "PAY-R005",
+            "GHIEDU",
+            "2026-01-08",
+            Decimal("15000.0000"),
+            "HKD",
+            "1",
+            "Cheque #GHI-20260108",
+            "INV-00014",
+        ),
         # Partial payment of INV-00005 (50% of HK$143,800)
-        ("PAY-R006", "MKTTRAD", "2026-03-01", Decimal("71900.0000"), "HKD", "1",
-         "MKT bank transfer partial", "INV-00005"),
+        (
+            "PAY-R006",
+            "MKTTRAD",
+            "2026-03-01",
+            Decimal("71900.0000"),
+            "HKD",
+            "1",
+            "MKT bank transfer partial",
+            "INV-00005",
+        ),
     ]
 
     for number, contact_code, pay_date, amount, ccy, fx, ref, inv_num in received:
@@ -931,14 +1957,46 @@ async def seed_payments(
     # Supplier payments
     made = [
         # Rent payments
-        ("PAY-M001", "HKLAND", "2025-11-05", Decimal("65000.0000"), "HKD", "1",
-         "Autopay — rent Nov 2025", "BILL-00001"),
-        ("PAY-M002", "HKLAND", "2025-12-05", Decimal("65000.0000"), "HKD", "1",
-         "Autopay — rent Dec 2025", "BILL-00002"),
-        ("PAY-M003", "HKLAND", "2026-01-05", Decimal("65000.0000"), "HKD", "1",
-         "Autopay — rent Jan 2026", "BILL-00003"),
-        ("PAY-M004", "HKLAND", "2026-02-05", Decimal("65000.0000"), "HKD", "1",
-         "Autopay — rent Feb 2026", "BILL-00004"),
+        (
+            "PAY-M001",
+            "HKLAND",
+            "2025-11-05",
+            Decimal("65000.0000"),
+            "HKD",
+            "1",
+            "Autopay — rent Nov 2025",
+            "BILL-00001",
+        ),
+        (
+            "PAY-M002",
+            "HKLAND",
+            "2025-12-05",
+            Decimal("65000.0000"),
+            "HKD",
+            "1",
+            "Autopay — rent Dec 2025",
+            "BILL-00002",
+        ),
+        (
+            "PAY-M003",
+            "HKLAND",
+            "2026-01-05",
+            Decimal("65000.0000"),
+            "HKD",
+            "1",
+            "Autopay — rent Jan 2026",
+            "BILL-00003",
+        ),
+        (
+            "PAY-M004",
+            "HKLAND",
+            "2026-02-05",
+            Decimal("65000.0000"),
+            "HKD",
+            "1",
+            "Autopay — rent Feb 2026",
+            "BILL-00004",
+        ),
     ]
 
     for number, contact_code, pay_date, amount, ccy, fx, ref, bill_num in made:
@@ -1025,46 +2083,190 @@ async def seed_bank_transactions(
 
     hkd_txns = [
         # Nov 2025
-        (_d("2025-11-05"), "Autopay — Henderson Leasing rent", Decimal("-65000.0000"), "RENT-NOV25", True),
-        (_d("2025-11-15"), "HSBC payroll batch Nov", Decimal("-266000.0000"), "PAYROLL-NOV25", True),
+        (
+            _d("2025-11-05"),
+            "Autopay — Henderson Leasing rent",
+            Decimal("-65000.0000"),
+            "RENT-NOV25",
+            True,
+        ),
+        (
+            _d("2025-11-15"),
+            "HSBC payroll batch Nov",
+            Decimal("-266000.0000"),
+            "PAYROLL-NOV25",
+            True,
+        ),
         (_d("2025-11-20"), "MPF remittance — Nov", Decimal("-28000.0000"), "MPF-NOV25", True),
         (_d("2025-11-25"), "Bank charges — Nov", Decimal("-350.0000"), "BC-NOV25", True),
         # Dec 2025
-        (_d("2025-12-05"), "Autopay — Henderson Leasing rent", Decimal("-65000.0000"), "RENT-DEC25", True),
-        (_d("2025-12-10"), "TT from ABC Holdings Ltd", Decimal("100000.0000"), "TT-20251210-001", True),
-        (_d("2025-12-15"), "HSBC payroll batch Dec", Decimal("-266000.0000"), "PAYROLL-DEC25", True),
+        (
+            _d("2025-12-05"),
+            "Autopay — Henderson Leasing rent",
+            Decimal("-65000.0000"),
+            "RENT-DEC25",
+            True,
+        ),
+        (
+            _d("2025-12-10"),
+            "TT from ABC Holdings Ltd",
+            Decimal("100000.0000"),
+            "TT-20251210-001",
+            True,
+        ),
+        (
+            _d("2025-12-15"),
+            "HSBC payroll batch Dec",
+            Decimal("-266000.0000"),
+            "PAYROLL-DEC25",
+            True,
+        ),
         (_d("2025-12-20"), "MPF remittance — Dec", Decimal("-28000.0000"), "MPF-DEC25", True),
-        (_d("2025-12-28"), "BOC cheque deposit — XYZ Corporation", Decimal("134500.0000"), "CHQ-882401", True),
+        (
+            _d("2025-12-28"),
+            "BOC cheque deposit — XYZ Corporation",
+            Decimal("134500.0000"),
+            "CHQ-882401",
+            True,
+        ),
         (_d("2025-12-30"), "Bank charges — Dec", Decimal("-420.0000"), "BC-DEC25", True),
         # Jan 2026
-        (_d("2026-01-05"), "Autopay — Henderson Leasing rent", Decimal("-65000.0000"), "RENT-JAN26", True),
-        (_d("2026-01-08"), "Cheque deposit — GHI Education", Decimal("15000.0000"), "CHQ-GHI-0108", True),
-        (_d("2026-01-15"), "HSBC payroll batch Jan", Decimal("-266000.0000"), "PAYROLL-JAN26", True),
-        (_d("2026-01-15"), "Insurance premium — HK General Insurance", Decimal("-36000.0000"), "INS-FY26", True),
+        (
+            _d("2026-01-05"),
+            "Autopay — Henderson Leasing rent",
+            Decimal("-65000.0000"),
+            "RENT-JAN26",
+            True,
+        ),
+        (
+            _d("2026-01-08"),
+            "Cheque deposit — GHI Education",
+            Decimal("15000.0000"),
+            "CHQ-GHI-0108",
+            True,
+        ),
+        (
+            _d("2026-01-15"),
+            "HSBC payroll batch Jan",
+            Decimal("-266000.0000"),
+            "PAYROLL-JAN26",
+            True,
+        ),
+        (
+            _d("2026-01-15"),
+            "Insurance premium — HK General Insurance",
+            Decimal("-36000.0000"),
+            "INS-FY26",
+            True,
+        ),
         (_d("2026-01-20"), "MPF remittance — Jan", Decimal("-28000.0000"), "MPF-JAN26", True),
         (_d("2026-01-30"), "Bank charges — Jan", Decimal("-380.0000"), "BC-JAN26", True),
         # Feb 2026
-        (_d("2026-02-05"), "Autopay — Henderson Leasing rent", Decimal("-65000.0000"), "RENT-FEB26", True),
-        (_d("2026-02-05"), "TT from DEF Group Holdings", Decimal("84000.0000"), "TT-20260205-003", True),
-        (_d("2026-02-15"), "HSBC payroll batch Feb", Decimal("-266000.0000"), "PAYROLL-FEB26", True),
-        (_d("2026-02-18"), "DBS transfer from Sunrise Properties", Decimal("62500.0000"), "DBS-0218-SP", True),
+        (
+            _d("2026-02-05"),
+            "Autopay — Henderson Leasing rent",
+            Decimal("-65000.0000"),
+            "RENT-FEB26",
+            True,
+        ),
+        (
+            _d("2026-02-05"),
+            "TT from DEF Group Holdings",
+            Decimal("84000.0000"),
+            "TT-20260205-003",
+            True,
+        ),
+        (
+            _d("2026-02-15"),
+            "HSBC payroll batch Feb",
+            Decimal("-266000.0000"),
+            "PAYROLL-FEB26",
+            True,
+        ),
+        (
+            _d("2026-02-18"),
+            "DBS transfer from Sunrise Properties",
+            Decimal("62500.0000"),
+            "DBS-0218-SP",
+            True,
+        ),
         (_d("2026-02-20"), "MPF remittance — Feb", Decimal("-28000.0000"), "MPF-FEB26", True),
         (_d("2026-02-28"), "Bank charges — Feb", Decimal("-390.0000"), "BC-FEB26", True),
         # Mar 2026
-        (_d("2026-03-01"), "MKT Trading partial payment", Decimal("71900.0000"), "MKT-PART-0301", True),
-        (_d("2026-03-05"), "Autopay — Henderson Leasing rent", Decimal("-65000.0000"), "RENT-MAR26", False),
+        (
+            _d("2026-03-01"),
+            "MKT Trading partial payment",
+            Decimal("71900.0000"),
+            "MKT-PART-0301",
+            True,
+        ),
+        (
+            _d("2026-03-05"),
+            "Autopay — Henderson Leasing rent",
+            Decimal("-65000.0000"),
+            "RENT-MAR26",
+            False,
+        ),
         (_d("2026-03-10"), "Office Mart — stationery", Decimal("-4800.0000"), "OFFMART-Q1", False),
-        (_d("2026-03-15"), "HSBC payroll batch Mar", Decimal("-266000.0000"), "PAYROLL-MAR26", False),
+        (
+            _d("2026-03-15"),
+            "HSBC payroll batch Mar",
+            Decimal("-266000.0000"),
+            "PAYROLL-MAR26",
+            False,
+        ),
         (_d("2026-03-20"), "MPF remittance — Mar", Decimal("-28000.0000"), "MPF-MAR26", False),
-        (_d("2026-03-25"), "Telephone & internet — PCCW", Decimal("-1850.0000"), "PCCW-MAR26", False),
-        (_d("2026-03-28"), "Cleaning service — monthly", Decimal("-3200.0000"), "CLEAN-MAR26", False),
+        (
+            _d("2026-03-25"),
+            "Telephone & internet — PCCW",
+            Decimal("-1850.0000"),
+            "PCCW-MAR26",
+            False,
+        ),
+        (
+            _d("2026-03-28"),
+            "Cleaning service — monthly",
+            Decimal("-3200.0000"),
+            "CLEAN-MAR26",
+            False,
+        ),
         (_d("2026-03-31"), "Bank charges — Mar", Decimal("-410.0000"), "BC-MAR26", False),
         # Apr 2026 (current month — all unreconciled)
-        (_d("2026-04-01"), "Autopay — Henderson Leasing rent", Decimal("-65000.0000"), "RENT-APR26", False),
-        (_d("2026-04-05"), "Wing On Travel — Shenzhen trip", Decimal("-8500.0000"), "WNGTRV-SZ", False),
-        (_d("2026-04-10"), "Incoming transfer — pending match", Decimal("25000.0000"), "UNKNOWN-0410", False),
-        (_d("2026-04-12"), "Card purchase — restaurant client dinner", Decimal("-2800.0000"), "CARD-0412", False),
-        (_d("2026-04-15"), "HSBC payroll batch Apr", Decimal("-266000.0000"), "PAYROLL-APR26", False),
+        (
+            _d("2026-04-01"),
+            "Autopay — Henderson Leasing rent",
+            Decimal("-65000.0000"),
+            "RENT-APR26",
+            False,
+        ),
+        (
+            _d("2026-04-05"),
+            "Wing On Travel — Shenzhen trip",
+            Decimal("-8500.0000"),
+            "WNGTRV-SZ",
+            False,
+        ),
+        (
+            _d("2026-04-10"),
+            "Incoming transfer — pending match",
+            Decimal("25000.0000"),
+            "UNKNOWN-0410",
+            False,
+        ),
+        (
+            _d("2026-04-12"),
+            "Card purchase — restaurant client dinner",
+            Decimal("-2800.0000"),
+            "CARD-0412",
+            False,
+        ),
+        (
+            _d("2026-04-15"),
+            "HSBC payroll batch Apr",
+            Decimal("-266000.0000"),
+            "PAYROLL-APR26",
+            False,
+        ),
     ]
 
     for txn_date, desc, amount, ref, reconciled in hkd_txns:
@@ -1085,15 +2287,63 @@ async def seed_bank_transactions(
         db.add(txn)
 
     usd_txns = [
-        (_d("2025-12-01"), "CloudSoft subscription — Dec", Decimal("-1200.0000"), "CLDSOFT-DEC25", True),
-        (_d("2025-12-15"), "Wire from Global Tech Solutions", Decimal("5000.0000"), "GBLTECH-DEC25", True),
-        (_d("2026-01-01"), "CloudSoft subscription — Jan", Decimal("-1200.0000"), "CLDSOFT-JAN26", True),
-        (_d("2026-02-01"), "CloudSoft subscription — Feb", Decimal("-1200.0000"), "CLDSOFT-FEB26", True),
-        (_d("2026-03-01"), "CloudSoft subscription — Mar", Decimal("-1200.0000"), "CLDSOFT-MAR26", False),
-        (_d("2026-03-15"), "Wire from Global Tech Solutions", Decimal("29000.0000"), "GBLTECH-MAR26", False),
+        (
+            _d("2025-12-01"),
+            "CloudSoft subscription — Dec",
+            Decimal("-1200.0000"),
+            "CLDSOFT-DEC25",
+            True,
+        ),
+        (
+            _d("2025-12-15"),
+            "Wire from Global Tech Solutions",
+            Decimal("5000.0000"),
+            "GBLTECH-DEC25",
+            True,
+        ),
+        (
+            _d("2026-01-01"),
+            "CloudSoft subscription — Jan",
+            Decimal("-1200.0000"),
+            "CLDSOFT-JAN26",
+            True,
+        ),
+        (
+            _d("2026-02-01"),
+            "CloudSoft subscription — Feb",
+            Decimal("-1200.0000"),
+            "CLDSOFT-FEB26",
+            True,
+        ),
+        (
+            _d("2026-03-01"),
+            "CloudSoft subscription — Mar",
+            Decimal("-1200.0000"),
+            "CLDSOFT-MAR26",
+            False,
+        ),
+        (
+            _d("2026-03-15"),
+            "Wire from Global Tech Solutions",
+            Decimal("29000.0000"),
+            "GBLTECH-MAR26",
+            False,
+        ),
         (_d("2026-03-31"), "Bank charges — USD Mar", Decimal("-25.0000"), "BC-USD-MAR26", False),
-        (_d("2026-04-01"), "CloudSoft subscription — Apr", Decimal("-1200.0000"), "CLDSOFT-APR26", False),
-        (_d("2026-04-10"), "Incoming wire — pending", Decimal("8000.0000"), "UNKNOWN-USD-0410", False),
+        (
+            _d("2026-04-01"),
+            "CloudSoft subscription — Apr",
+            Decimal("-1200.0000"),
+            "CLDSOFT-APR26",
+            False,
+        ),
+        (
+            _d("2026-04-10"),
+            "Incoming wire — pending",
+            Decimal("8000.0000"),
+            "UNKNOWN-USD-0410",
+            False,
+        ),
         (_d("2026-04-15"), "Bank charges — USD Apr", Decimal("-25.0000"), "BC-USD-APR26", False),
     ]
 
@@ -1363,7 +2613,9 @@ async def seed_time_entries(
         ("2026-03-20", Decimal("5.00"), "Post-audit debrief with client"),
     ]
     for entry_date, hours, desc in prj1_dates:
-        entries.append((project_ids["PRJ-001"], ACTOR_ID, entry_date, hours, desc, True, "approved"))
+        entries.append(
+            (project_ids["PRJ-001"], ACTOR_ID, entry_date, hours, desc, True, "approved")
+        )
 
     # PRJ-002: XYZ Corp Tax Advisory — Dec to Mar, ~90 hours
     prj2_dates = [
@@ -1381,7 +2633,9 @@ async def seed_time_entries(
         ("2026-03-28", Decimal("4.00"), "Client progress review meeting"),
     ]
     for entry_date, hours, desc in prj2_dates:
-        entries.append((project_ids["PRJ-002"], ACTOR2_ID, entry_date, hours, desc, True, "approved"))
+        entries.append(
+            (project_ids["PRJ-002"], ACTOR2_ID, entry_date, hours, desc, True, "approved")
+        )
 
     # PRJ-003: DEF Group Restructuring — Nov to Apr, ~150 hours
     prj3_dates = [
@@ -1418,7 +2672,9 @@ async def seed_time_entries(
         ("2026-01-06", Decimal("8.00"), "Delivery — Day 2: Corporate Governance"),
     ]
     for entry_date, hours, desc in prj4_dates:
-        entries.append((project_ids["PRJ-004"], ACTOR2_ID, entry_date, hours, desc, True, "approved"))
+        entries.append(
+            (project_ids["PRJ-004"], ACTOR2_ID, entry_date, hours, desc, True, "approved")
+        )
 
     for project_id, user_id, entry_date, hours, desc, billable, approval in entries:
         te = TimeEntry(
@@ -1542,23 +2798,51 @@ async def seed_budget(
     # (account_code, monthly amounts Jan-Dec in HKD)
     budget_lines_data = [
         ("5000", [Decimal("280000")] * 12),  # Salaries
-        ("5100", [Decimal("14000")] * 12),   # MPF
-        ("6000", [Decimal("65000")] * 12),   # Rent
-        ("6100", [Decimal("3500")] * 12),    # Utilities
-        ("6200", [Decimal("3000")] * 12),    # Insurance (amortized)
-        ("6300", [Decimal("5000"), Decimal("3000"), Decimal("8000"), Decimal("5000"),
-                  Decimal("10000"), Decimal("3000"), Decimal("5000"), Decimal("3000"),
-                  Decimal("8000"), Decimal("5000"), Decimal("3000"), Decimal("5000")]),  # Travel
-        ("6400", [Decimal("4000"), Decimal("6000"), Decimal("3000"), Decimal("4000"),
-                  Decimal("5000"), Decimal("8000"), Decimal("4000"), Decimal("3000"),
-                  Decimal("6000"), Decimal("5000"), Decimal("10000"), Decimal("8000")]),  # Entertainment
-        ("6500", [Decimal("2000")] * 12),    # Prof development
-        ("6600", [Decimal("12000")] * 12),   # Software
-        ("6700", [Decimal("6250")] * 12),    # Depreciation
-        ("6800", [Decimal("500")] * 12),     # Bank charges
-        ("6900", [Decimal("2000")] * 12),    # Printing
-        ("7000", [Decimal("1000")] * 12),    # Courier
-        ("7200", [Decimal("2000")] * 12),    # Telephone
+        ("5100", [Decimal("14000")] * 12),  # MPF
+        ("6000", [Decimal("65000")] * 12),  # Rent
+        ("6100", [Decimal("3500")] * 12),  # Utilities
+        ("6200", [Decimal("3000")] * 12),  # Insurance (amortized)
+        (
+            "6300",
+            [
+                Decimal("5000"),
+                Decimal("3000"),
+                Decimal("8000"),
+                Decimal("5000"),
+                Decimal("10000"),
+                Decimal("3000"),
+                Decimal("5000"),
+                Decimal("3000"),
+                Decimal("8000"),
+                Decimal("5000"),
+                Decimal("3000"),
+                Decimal("5000"),
+            ],
+        ),  # Travel
+        (
+            "6400",
+            [
+                Decimal("4000"),
+                Decimal("6000"),
+                Decimal("3000"),
+                Decimal("4000"),
+                Decimal("5000"),
+                Decimal("8000"),
+                Decimal("4000"),
+                Decimal("3000"),
+                Decimal("6000"),
+                Decimal("5000"),
+                Decimal("10000"),
+                Decimal("8000"),
+            ],
+        ),  # Entertainment
+        ("6500", [Decimal("2000")] * 12),  # Prof development
+        ("6600", [Decimal("12000")] * 12),  # Software
+        ("6700", [Decimal("6250")] * 12),  # Depreciation
+        ("6800", [Decimal("500")] * 12),  # Bank charges
+        ("6900", [Decimal("2000")] * 12),  # Printing
+        ("7000", [Decimal("1000")] * 12),  # Courier
+        ("7200", [Decimal("2000")] * 12),  # Telephone
     ]
 
     count = 0
@@ -1593,6 +2877,7 @@ async def seed_budget(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 async def main() -> None:
     print("\n=== Seeding Aegis ERP demo data (Dragon Advisory Ltd) ===\n")
@@ -1722,7 +3007,7 @@ async def main() -> None:
         contacts = await seed_contacts(db)
 
         # 6. Tax codes
-        tax_codes = await seed_tax_codes(db, accs)
+        await seed_tax_codes(db, accs)
 
         # 7. Items / products
         items = await seed_items(db, accs)
@@ -1731,7 +3016,7 @@ async def main() -> None:
         await seed_fx_rates(db)
 
         # 9. Journal entries
-        je_ids = await seed_journals(db, accs, periods)
+        await seed_journals(db, accs, periods)
 
         # 10. Invoices
         inv_ids = await seed_invoices(db, accs, contacts, items)
