@@ -2252,3 +2252,14 @@ class WipResponse(BaseModel):
     total_hours: str
     total_amount: str
     currency: str
+
+
+# ── CSV Import ───────────────────────────────────────────────────────────────
+
+
+class CsvImportResult(BaseModel):
+    """Standard response for all CSV import endpoints."""
+
+    imported: int
+    skipped: int
+    errors: list[str]

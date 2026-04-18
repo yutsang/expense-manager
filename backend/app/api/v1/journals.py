@@ -5,12 +5,14 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Header, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
     ApproveRejectRequest,
+    CsvImportResult,
     JournalCreate,
     JournalListResponse,
     JournalResponse,
@@ -18,7 +20,8 @@ from app.api.v1.schemas import (
     ProblemDetail,
 )
 from app.domain.ledger.journal import JournalBalanceError, JournalLineInput, JournalStatusError
-from app.infra.models import JournalLine
+from app.infra.models import Account, JournalLine
+from app.services.csv_import import generate_template_csv, parse_csv, parse_date, parse_decimal
 from app.services.journals import (
     ControlAccountError,
     FutureDateError,
@@ -305,3 +308,144 @@ async def void_journal_endpoint(
 
     lines = await _load_lines(db, reversal.id)
     return _journal_response(reversal, lines)
+
+
+# ── CSV Import / Template ────────────────────────────────────────────────────
+
+_JOURNAL_REQUIRED = ["date", "description", "account_code", "debit", "credit"]
+_JOURNAL_OPTIONAL = ["currency", "fx_rate", "contact_name"]
+_JOURNAL_ALL = _JOURNAL_REQUIRED + _JOURNAL_OPTIONAL
+_JOURNAL_EXAMPLE = [
+    "2025-01-15", "Office supplies purchase", "6300", "500.00", "0",
+    "USD", "1", "Office Depot",
+]
+
+
+@router.get("/csv-template")
+async def csv_template() -> StreamingResponse:
+    """Download a CSV template for journal entry imports."""
+    content = generate_template_csv(_JOURNAL_ALL, _JOURNAL_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="journals-template.csv"'},
+    )
+
+
+@router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_journals(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+    period_id: str = Query(..., description="Period ID to post journal entries into"),
+) -> CsvImportResult:
+    """Import journal entries from a CSV file.
+
+    Rows with same date + description are grouped into one journal entry
+    with multiple lines. Total debits must equal total credits per group.
+    """
+    content = await file.read()
+    rows, errors = await parse_csv(content, _JOURNAL_REQUIRED, _JOURNAL_OPTIONAL)
+
+    if errors and not rows:
+        return CsvImportResult(imported=0, skipped=0, errors=errors)
+
+    # Resolve accounts: code -> id
+    acct_result = await db.execute(
+        select(Account.id, Account.code).where(Account.tenant_id == tenant_id)
+    )
+    acct_map: dict[str, str] = {code.lower(): aid for aid, code in acct_result}
+
+    # Group rows into journal entries by date + description
+    groups: dict[tuple[str, str], list[tuple[int, dict[str, str]]]] = {}
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        key = (row["date"], row["description"])
+        groups.setdefault(key, []).append((row_no, row))
+
+    imported = 0
+    skipped = 0
+
+    for (date_str, description), group_rows in groups.items():
+        try:
+            parsed_date = parse_date(date_str)
+
+            line_inputs: list[JournalLineInput] = []
+            total_debit = Decimal("0")
+            total_credit = Decimal("0")
+            line_error = False
+
+            for row_no, row in group_rows:
+                acct_code = row["account_code"].lower()
+                acct_id = acct_map.get(acct_code)
+                if not acct_id:
+                    errors.append(
+                        f"Row {row_no}: account_code '{row['account_code']}' not found"
+                    )
+                    line_error = True
+                    continue
+
+                debit = parse_decimal(row["debit"])
+                credit = parse_decimal(row["credit"])
+                currency = row.get("currency") or "USD"
+                fx_rate = parse_decimal(row.get("fx_rate") or "1")
+
+                total_debit += debit
+                total_credit += credit
+
+                line_inputs.append(
+                    JournalLineInput(
+                        account_id=acct_id,
+                        debit=debit,
+                        credit=credit,
+                        currency=currency,
+                        fx_rate=fx_rate,
+                        functional_debit=debit * fx_rate,
+                        functional_credit=credit * fx_rate,
+                        description=description,
+                        contact_id=None,
+                    )
+                )
+
+            if line_error or not line_inputs:
+                skipped += len(group_rows)
+                continue
+
+            # Validate balance
+            if total_debit != total_credit:
+                for row_no, _ in group_rows:
+                    errors.append(
+                        f"Row {row_no}: journal '{description}' is unbalanced "
+                        f"(debits={total_debit}, credits={total_credit})"
+                    )
+                skipped += len(group_rows)
+                continue
+
+            await create_draft(
+                db,
+                tenant_id=tenant_id,
+                date_=parsed_date,
+                period_id=period_id,
+                description=description,
+                lines=line_inputs,
+                source_type="csv_import",
+                actor_id=actor_id,
+            )
+            imported += 1
+        except Exception as exc:
+            for row_no, _ in group_rows:
+                errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "journals.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)

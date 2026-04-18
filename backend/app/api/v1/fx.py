@@ -5,12 +5,14 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
-from app.api.v1.deps import DbSession, TenantId
-from app.api.v1.schemas import FxRateResponse, FxRateUpsert
+from app.api.v1.deps import ActorId, DbSession, TenantId
+from app.api.v1.schemas import CsvImportResult, FxRateResponse, FxRateUpsert
 from app.infra.models import FxRate
+from app.services.csv_import import generate_template_csv, parse_csv, parse_date, parse_decimal
 from app.services.fx import (
     FxRateNotFoundError,
     FxRateSanityError,
@@ -128,3 +130,83 @@ async def lookup_fx_rate_at(
         "bid_rate": str(result["bid_rate"]) if result.get("bid_rate") is not None else None,
         "ask_rate": str(result["ask_rate"]) if result.get("ask_rate") is not None else None,
     }
+
+
+# ── CSV Import / Template ────────────────────────────────────────────────────
+
+_FX_REQUIRED = ["from_currency", "to_currency", "rate_date", "rate"]
+_FX_OPTIONAL = ["source"]
+_FX_ALL = _FX_REQUIRED + _FX_OPTIONAL
+_FX_EXAMPLE = ["USD", "EUR", "2025-01-15", "0.9200", "ecb"]
+
+
+@router.get("/csv-template")
+async def csv_template() -> StreamingResponse:
+    """Download a CSV template for FX rate imports."""
+    content = generate_template_csv(_FX_ALL, _FX_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="fx-rates-template.csv"'},
+    )
+
+
+@router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_fx_rates(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> CsvImportResult:
+    """Import FX rates from a CSV file."""
+    content = await file.read()
+    rows, errors = await parse_csv(content, _FX_REQUIRED, _FX_OPTIONAL)
+
+    imported = 0
+    skipped = 0
+
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        try:
+            from_ccy = row["from_currency"].upper().strip()
+            to_ccy = row["to_currency"].upper().strip()
+
+            if len(from_ccy) != 3 or len(to_ccy) != 3:
+                errors.append(
+                    f"Row {row_no}: currency codes must be 3 characters"
+                )
+                skipped += 1
+                continue
+
+            rate_date = parse_date(row["rate_date"])
+            rate = parse_decimal(row["rate"])
+            source = row.get("source") or "csv_import"
+
+            await upsert_rate(
+                db,
+                from_currency=from_ccy,
+                to_currency=to_ccy,
+                rate_date=rate_date,
+                rate=rate,
+                source=source,
+                force=True,
+            )
+            imported += 1
+        except FxRateSanityError as exc:
+            errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+        except Exception as exc:
+            errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "fx.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)

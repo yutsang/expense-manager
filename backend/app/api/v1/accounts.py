@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
@@ -10,6 +11,7 @@ from app.api.v1.schemas import (
     AccountListResponse,
     AccountResponse,
     AccountUpdate,
+    CsvImportResult,
     ProblemDetail,
 )
 from app.services.accounts import (
@@ -22,6 +24,7 @@ from app.services.accounts import (
     list_accounts,
     update_account,
 )
+from app.services.csv_import import generate_template_csv, parse_csv
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -771,3 +774,99 @@ async def seed_default_coa_endpoint(
     return AccountListResponse(
         items=[AccountResponse.model_validate(a) for a in created], total=len(created)
     )
+
+
+# ── CSV Import / Template ────────────────────────────────────────────────────
+
+_ACCOUNT_REQUIRED = ["code", "name", "type", "normal_balance"]
+_ACCOUNT_OPTIONAL = [
+    "subtype", "parent_code", "description", "currency", "is_control_account",
+]
+_ACCOUNT_ALL = _ACCOUNT_REQUIRED + _ACCOUNT_OPTIONAL
+_ACCOUNT_EXAMPLE = [
+    "1000", "Cash", "asset", "debit", "bank", "", "Main cash account", "USD", "false",
+]
+
+
+@router.get("/csv-template")
+async def csv_template() -> StreamingResponse:
+    """Download a CSV template for account imports."""
+    content = generate_template_csv(_ACCOUNT_ALL, _ACCOUNT_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="accounts-template.csv"'},
+    )
+
+
+@router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_accounts(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> CsvImportResult:
+    """Import chart of accounts from a CSV file."""
+    content = await file.read()
+    rows, errors = await parse_csv(content, _ACCOUNT_REQUIRED, _ACCOUNT_OPTIONAL)
+
+    imported = 0
+    skipped = 0
+
+    # First pass: resolve parent_code to parent_id
+    from sqlalchemy import select as sa_select
+
+    from app.infra.models import Account
+
+    # Build a code->id map from existing accounts
+    existing_result = await db.execute(
+        sa_select(Account.code, Account.id).where(Account.tenant_id == tenant_id)
+    )
+    code_to_id: dict[str, str] = {r[0]: r[1] for r in existing_result}
+
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        try:
+            parent_id = None
+            parent_code = row.get("parent_code")
+            if parent_code:
+                parent_id = code_to_id.get(parent_code)
+                if not parent_id:
+                    errors.append(f"Row {row_no}: parent_code '{parent_code}' not found")
+                    skipped += 1
+                    continue
+
+            is_control = row.get("is_control_account", "").lower() in ("true", "yes", "1")
+            account = await create_account(
+                db,
+                tenant_id=tenant_id,
+                code=row["code"],
+                name=row["name"],
+                type=row["type"],
+                subtype=row.get("subtype") or "other",
+                normal_balance=row["normal_balance"],
+                parent_id=parent_id,
+                is_control_account=is_control,
+                currency=row.get("currency") or None,
+                description=row.get("description") or None,
+                actor_id=actor_id,
+            )
+            code_to_id[account.code] = account.id
+            imported += 1
+        except AccountCodeConflictError:
+            skipped += 1
+        except Exception as exc:
+            errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "accounts.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)

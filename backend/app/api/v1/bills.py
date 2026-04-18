@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
@@ -15,7 +17,9 @@ from app.api.v1.schemas import (
     BulkActionFailure,
     BulkActionRequest,
     BulkActionResponse,
+    CsvImportResult,
 )
+from app.infra.models import Account, Contact
 from app.services.bills import (
     ArchivedContactError,
     BillNotFoundError,
@@ -29,6 +33,7 @@ from app.services.bills import (
     submit_for_approval,
     void_bill,
 )
+from app.services.csv_import import generate_template_csv, parse_csv, parse_date, parse_decimal
 from app.services.tax_codes import TaxCodeNotFoundError, get_tax_code
 
 router = APIRouter(prefix="/bills", tags=["bills"])
@@ -204,3 +209,149 @@ async def void(bill_id: str, db: DbSession, tenant_id: TenantId, actor_id: Actor
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Bill not found")
     except BillTransitionError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+# ── CSV Import / Template ────────────────────────────────────────────────────
+
+_BILL_REQUIRED = ["contact_name_or_code", "issue_date", "account_code", "quantity", "unit_price"]
+_BILL_OPTIONAL = [
+    "due_date", "currency", "description", "tax_code", "discount_pct", "reference",
+]
+_BILL_ALL = _BILL_REQUIRED + _BILL_OPTIONAL
+_BILL_EXAMPLE = [
+    "Office Depot", "2025-01-10", "6300", "1", "500.00",
+    "2025-02-10", "USD", "Office supplies", "", "0", "BILL-001",
+]
+
+
+@router.get("/csv-template")
+async def csv_template() -> StreamingResponse:
+    """Download a CSV template for bill imports."""
+    content = generate_template_csv(_BILL_ALL, _BILL_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="bills-template.csv"'},
+    )
+
+
+@router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_bills(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> CsvImportResult:
+    """Import bills from a CSV file.
+
+    Rows with same contact_name_or_code + issue_date + reference are grouped
+    into one bill with multiple lines.
+    """
+    content = await file.read()
+    rows, errors = await parse_csv(content, _BILL_REQUIRED, _BILL_OPTIONAL)
+
+    if errors and not rows:
+        return CsvImportResult(imported=0, skipped=0, errors=errors)
+
+    # Resolve contacts: name or code -> id
+    contact_result = await db.execute(
+        select(Contact.id, Contact.name, Contact.code).where(
+            Contact.tenant_id == tenant_id, Contact.is_archived.is_(False)
+        )
+    )
+    contact_map: dict[str, str] = {}
+    for cid, cname, ccode in contact_result:
+        contact_map[cname.lower()] = cid
+        if ccode:
+            contact_map[ccode.lower()] = cid
+
+    # Resolve accounts: code -> id
+    acct_result = await db.execute(
+        select(Account.id, Account.code).where(Account.tenant_id == tenant_id)
+    )
+    acct_map: dict[str, str] = {code.lower(): aid for aid, code in acct_result}
+
+    # Group rows into bills
+    groups: dict[tuple[str, str, str], list[tuple[int, dict[str, str]]]] = {}
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        key = (
+            row["contact_name_or_code"].lower(),
+            row["issue_date"],
+            row.get("reference", ""),
+        )
+        groups.setdefault(key, []).append((row_no, row))
+
+    imported = 0
+    skipped = 0
+
+    for (contact_key, issue_date_str, reference), group_rows in groups.items():
+        try:
+            contact_id = contact_map.get(contact_key)
+            if not contact_id:
+                for row_no, _ in group_rows:
+                    errors.append(f"Row {row_no}: contact '{contact_key}' not found")
+                skipped += len(group_rows)
+                continue
+
+            parsed_issue = parse_date(issue_date_str)
+            first_row = group_rows[0][1]
+            currency = first_row.get("currency") or "USD"
+            due_date_str = first_row.get("due_date")
+            parsed_due = str(parse_date(due_date_str)) if due_date_str else None
+
+            lines: list[dict] = []
+            line_error = False
+            for row_no, row in group_rows:
+                acct_code = row["account_code"].lower()
+                acct_id = acct_map.get(acct_code)
+                if not acct_id:
+                    errors.append(f"Row {row_no}: account_code '{row['account_code']}' not found")
+                    line_error = True
+                    continue
+
+                qty = parse_decimal(row["quantity"])
+                price = parse_decimal(row["unit_price"])
+                discount = parse_decimal(row.get("discount_pct") or "0")
+
+                lines.append({
+                    "account_id": acct_id,
+                    "description": row.get("description") or None,
+                    "quantity": qty,
+                    "unit_price": price,
+                    "discount_pct": discount,
+                    "_tax_rate": Decimal("0"),
+                })
+
+            if line_error or not lines:
+                skipped += len(group_rows)
+                continue
+
+            await create_bill(
+                db,
+                tenant_id,
+                actor_id,
+                contact_id=contact_id,
+                issue_date=str(parsed_issue),
+                due_date=parsed_due,
+                currency=currency,
+                supplier_reference=reference or None,
+                lines=lines,
+            )
+            imported += 1
+        except Exception as exc:
+            for row_no, _ in group_rows:
+                errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "bills.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
+    CsvImportResult,
     ItemCreate,
     ItemListResponse,
     ItemResponse,
@@ -17,6 +19,7 @@ from app.api.v1.schemas import (
     TaxCodeResponse,
     TaxCodeUpdate,
 )
+from app.services.csv_import import generate_template_csv, parse_csv, parse_decimal
 from app.services.items import (
     ItemCodeConflictError,
     ItemNotFoundError,
@@ -119,6 +122,76 @@ async def archive_item_endpoint(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Item not found")
 
 
+# ── Items CSV Import / Template ──────────────────────────────────────────────
+
+_ITEM_REQUIRED = ["code", "name"]
+_ITEM_OPTIONAL = ["description", "unit_price", "account_code", "tax_code"]
+_ITEM_ALL = _ITEM_REQUIRED + _ITEM_OPTIONAL
+_ITEM_EXAMPLE = ["ITEM-001", "Widget", "Standard widget", "25.00", "4000", "GST"]
+
+
+@items_router.get("/csv-template")
+async def items_csv_template() -> StreamingResponse:
+    """Download a CSV template for item imports."""
+    content = generate_template_csv(_ITEM_ALL, _ITEM_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="items-template.csv"'},
+    )
+
+
+@items_router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_items(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> CsvImportResult:
+    """Import items from a CSV file."""
+    content = await file.read()
+    rows, errors = await parse_csv(content, _ITEM_REQUIRED, _ITEM_OPTIONAL)
+
+    imported = 0
+    skipped = 0
+
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        try:
+            price = None
+            if row.get("unit_price"):
+                price = parse_decimal(row["unit_price"])
+
+            await create_item(
+                db,
+                tenant_id,
+                actor_id,
+                code=row["code"],
+                name=row["name"],
+                item_type="service",
+                description=row.get("description") or None,
+                sales_unit_price=price,
+            )
+            imported += 1
+        except ItemCodeConflictError:
+            skipped += 1
+        except Exception as exc:
+            errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "items.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)
+
+
 # ── Tax Codes ─────────────────────────────────────────────────────────────────
 
 
@@ -182,6 +255,81 @@ async def update_tax_code_endpoint(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Tax code not found")
     except TaxCodeInUseError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+# ── Tax Codes CSV Import / Template ──────────────────────────────────────────
+
+_TAX_REQUIRED = ["code", "name", "rate", "tax_type"]
+_TAX_OPTIONAL = ["country"]
+_TAX_ALL = _TAX_REQUIRED + _TAX_OPTIONAL
+_TAX_EXAMPLE = ["GST", "GST 10%", "0.10", "output", "AU"]
+
+
+@tax_router.get("/csv-template")
+async def tax_csv_template() -> StreamingResponse:
+    """Download a CSV template for tax code imports."""
+    content = generate_template_csv(_TAX_ALL, _TAX_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="tax-codes-template.csv"'},
+    )
+
+
+@tax_router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_tax_codes(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> CsvImportResult:
+    """Import tax codes from a CSV file."""
+    content = await file.read()
+    rows, errors = await parse_csv(content, _TAX_REQUIRED, _TAX_OPTIONAL)
+
+    imported = 0
+    skipped = 0
+
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        try:
+            tax_type = row["tax_type"].lower()
+            if tax_type not in ("output", "input", "exempt", "zero"):
+                errors.append(
+                    f"Row {row_no}: tax_type must be output/input/exempt/zero, got '{tax_type}'"
+                )
+                skipped += 1
+                continue
+
+            rate = parse_decimal(row["rate"])
+            await create_tax_code(
+                db,
+                tenant_id,
+                actor_id,
+                code=row["code"],
+                name=row["name"],
+                rate=rate,
+                tax_type=tax_type,
+                country=(row.get("country") or "").upper() or "US",
+            )
+            imported += 1
+        except TaxCodeConflictError:
+            skipped += 1
+        except Exception as exc:
+            errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "tax_codes.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)
 
 
 # Combine into one module router

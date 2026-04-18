@@ -5,10 +5,13 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Header, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
+    CsvImportResult,
     PaymentAllocationCreate,
     PaymentAllocationResponse,
     PaymentCreate,
@@ -16,6 +19,8 @@ from app.api.v1.schemas import (
     PaymentResponse,
     PaymentVoidRequest,
 )
+from app.infra.models import Contact
+from app.services.csv_import import generate_template_csv, parse_csv, parse_date, parse_decimal
 from app.services.payments import (
     AllocationError,
     PaymentNotFoundError,
@@ -158,3 +163,106 @@ async def void(
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Payment not found")
     except PaymentTransitionError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+# ── CSV Import / Template ────────────────────────────────────────────────────
+
+_PAYMENT_REQUIRED = ["payment_type", "contact_name_or_code", "amount", "payment_date"]
+_PAYMENT_OPTIONAL = ["currency", "reference", "invoice_number", "bill_number"]
+_PAYMENT_ALL = _PAYMENT_REQUIRED + _PAYMENT_OPTIONAL
+_PAYMENT_EXAMPLE = [
+    "received", "Acme Corp", "1000.00", "2025-01-20",
+    "USD", "PAY-001", "INV-001", "",
+]
+
+
+@router.get("/csv-template")
+async def csv_template() -> StreamingResponse:
+    """Download a CSV template for payment imports."""
+    content = generate_template_csv(_PAYMENT_ALL, _PAYMENT_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="payments-template.csv"'},
+    )
+
+
+@router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_payments(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> CsvImportResult:
+    """Import payments from a CSV file."""
+    content = await file.read()
+    rows, errors = await parse_csv(content, _PAYMENT_REQUIRED, _PAYMENT_OPTIONAL)
+
+    if errors and not rows:
+        return CsvImportResult(imported=0, skipped=0, errors=errors)
+
+    # Resolve contacts: name or code -> id
+    contact_result = await db.execute(
+        select(Contact.id, Contact.name, Contact.code).where(
+            Contact.tenant_id == tenant_id, Contact.is_archived.is_(False)
+        )
+    )
+    contact_map: dict[str, str] = {}
+    for cid, cname, ccode in contact_result:
+        contact_map[cname.lower()] = cid
+        if ccode:
+            contact_map[ccode.lower()] = cid
+
+    imported = 0
+    skipped = 0
+
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        try:
+            contact_key = row["contact_name_or_code"].lower()
+            contact_id = contact_map.get(contact_key)
+            if not contact_id:
+                errors.append(f"Row {row_no}: contact '{row['contact_name_or_code']}' not found")
+                skipped += 1
+                continue
+
+            payment_type = row["payment_type"].lower()
+            if payment_type not in ("received", "made"):
+                errors.append(
+                    f"Row {row_no}: payment_type must be 'received' or 'made', got '{payment_type}'"
+                )
+                skipped += 1
+                continue
+
+            amount = parse_decimal(row["amount"])
+            parsed_date = parse_date(row["payment_date"])
+            currency = row.get("currency") or "USD"
+            reference = row.get("reference") or None
+
+            await create_payment(
+                db,
+                tenant_id,
+                actor_id,
+                payment_type=payment_type,
+                contact_id=contact_id,
+                amount=amount,
+                currency=currency,
+                payment_date=str(parsed_date),
+                reference=reference,
+            )
+            imported += 1
+        except Exception as exc:
+            errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "payments.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)

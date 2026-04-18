@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
@@ -10,6 +11,7 @@ from app.api.v1.schemas import (
     ContactListResponse,
     ContactResponse,
     ContactUpdate,
+    CsvImportResult,
     RiskRatingUpdate,
 )
 from app.services.contacts import (
@@ -25,6 +27,7 @@ from app.services.contacts import (
     set_risk_rating,
     update_contact,
 )
+from app.services.csv_import import generate_template_csv, parse_csv
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
@@ -63,6 +66,88 @@ async def list_all(
         next_cursor = items[limit].id
         items = items[:limit]
     return ContactListResponse(items=items, next_cursor=next_cursor)
+
+
+# ── CSV Import / Template ────────────────────────────────────────────────────
+# These MUST be registered before /{contact_id} to avoid path conflicts.
+
+_CONTACT_REQUIRED = ["name", "contact_type"]
+_CONTACT_OPTIONAL = [
+    "code", "email", "phone", "currency", "tax_number",
+    "address_line1", "city", "country", "credit_limit",
+]
+_CONTACT_ALL = _CONTACT_REQUIRED + _CONTACT_OPTIONAL
+_CONTACT_EXAMPLE = [
+    "Acme Corp", "customer", "ACME", "acme@example.com", "+1-555-0100",
+    "USD", "12-345-678", "123 Main St", "New York", "US", "50000",
+]
+
+
+@router.get("/csv-template")
+async def csv_template() -> StreamingResponse:
+    """Download a CSV template for contact imports."""
+    content = generate_template_csv(_CONTACT_ALL, _CONTACT_EXAMPLE)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="contacts-template.csv"'},
+    )
+
+
+@router.post("/import", response_model=CsvImportResult, status_code=status.HTTP_201_CREATED)
+async def import_contacts(
+    file: UploadFile,
+    db: DbSession,
+    tenant_id: TenantId,
+    actor_id: ActorId,
+) -> CsvImportResult:
+    """Import contacts from a CSV file."""
+    content = await file.read()
+    rows, errors = await parse_csv(content, _CONTACT_REQUIRED, _CONTACT_OPTIONAL)
+
+    imported = 0
+    skipped = 0
+
+    for row_no, row in enumerate(rows, start=2 + len(errors)):
+        try:
+            await create_contact(
+                db,
+                tenant_id,
+                actor_id,
+                contact_type=row["contact_type"],
+                name=row["name"],
+                code=row.get("code") or None,
+                email=row.get("email") or None,
+                phone=row.get("phone") or None,
+                currency=row.get("currency") or "USD",
+                tax_number=row.get("tax_number") or None,
+                address_line1=row.get("address_line1") or None,
+                city=row.get("city") or None,
+                country=row.get("country") or None,
+                credit_limit=row.get("credit_limit") or None,
+            )
+            imported += 1
+        except (ContactCodeConflictError, DuplicateContactError):
+            skipped += 1
+        except Exception as exc:
+            errors.append(f"Row {row_no}: {exc}")
+            skipped += 1
+
+    if imported > 0:
+        await db.commit()
+
+    from app.core.logging import get_logger
+    get_logger(__name__).info(
+        "contacts.import.complete",
+        tenant_id=tenant_id,
+        imported=imported,
+        skipped=skipped,
+        errors=len(errors),
+    )
+    return CsvImportResult(imported=imported, skipped=skipped, errors=errors)
+
+
+# ── Single-resource endpoints (parameterized paths) ──────────────────────────
 
 
 @router.get("/{contact_id}", response_model=ContactResponse)
