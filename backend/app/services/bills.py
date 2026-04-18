@@ -67,6 +67,14 @@ def _compute_line(
     return net, tax
 
 
+async def _get_tenant(db: AsyncSession, tenant_id: str) -> object:
+    """Fetch tenant for config lookups (tax rounding policy, etc.)."""
+    from app.infra.models import Tenant
+
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    return tenant
+
+
 async def create_bill(
     db: AsyncSession,
     tenant_id: str,
@@ -81,6 +89,7 @@ async def create_bill(
     supplier_reference: str | None = None,
     notes: str | None = None,
     lines: list[dict],
+    is_tax_inclusive: bool = False,
 ) -> Bill:
     # Validate date order
     if due_date is not None and due_date < issue_date:
@@ -106,6 +115,11 @@ async def create_bill(
             f"Invalid account IDs for this tenant: {', '.join(sorted(missing_ids))}"
         )
 
+    # ── Tax rounding policy (Issue #76) ───────────────────────────────────
+    tenant = await _get_tenant(db, tenant_id)
+    tax_rounding_policy = getattr(tenant, "tax_rounding_policy", "per_line") if tenant else "per_line"
+    quantize_tax = tax_rounding_policy != "per_invoice"
+
     subtotal = Decimal("0")
     tax_total = Decimal("0")
     line_models: list[BillLine] = []
@@ -116,7 +130,11 @@ async def create_bill(
         disc = Decimal(str(line.get("discount_pct", "0")))
         tax_rate = Decimal(str(line.get("_tax_rate", "0")))
 
-        net, tax = _compute_line(qty, price, disc, tax_rate)
+        net, tax = _compute_line(
+            qty, price, disc, tax_rate,
+            is_tax_inclusive=is_tax_inclusive,
+            quantize_tax=quantize_tax,
+        )
         subtotal += net
         tax_total += tax
 
@@ -135,6 +153,10 @@ async def create_bill(
                 tax_amount=tax,
             )
         )
+
+    # Final quantization for per-invoice rounding
+    if not quantize_tax:
+        tax_total = tax_total.quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
 
     total = subtotal + tax_total
 
@@ -160,6 +182,7 @@ async def create_bill(
         supplier_reference=supplier_reference,
         currency=currency,
         fx_rate=fx_rate,
+        is_tax_inclusive=is_tax_inclusive,
         subtotal=subtotal,
         tax_total=tax_total,
         total=total,

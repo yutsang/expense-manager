@@ -30,6 +30,7 @@ _skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python 
 # ── Model tests ──────────────────────────────────────────────────────────────
 
 
+@_skip_311
 class TestBankFeedConnectionModel:
     """BankFeedConnection model must exist with the expected columns."""
 
@@ -75,6 +76,7 @@ class TestBankFeedConnectionModel:
         assert "ck_bank_feed_connections_status" in constraints
 
 
+@_skip_311
 class TestBankTransactionInstitutionId:
     """BankTransaction must have institution_transaction_id column."""
 
