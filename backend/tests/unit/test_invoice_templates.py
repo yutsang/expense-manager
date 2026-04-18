@@ -182,9 +182,7 @@ class TestInvoiceTemplateModel:
         assert loaded is not None
         assert loaded.recurrence_frequency is None
 
-    def test_deactivate_template(
-        self, session: Session, tenant: Tenant, contact: Contact
-    ) -> None:
+    def test_deactivate_template(self, session: Session, tenant: Tenant, contact: Contact) -> None:
         template = InvoiceTemplate(
             id=str(uuid.uuid4()),
             tenant_id=tenant.id,
@@ -321,7 +319,11 @@ class TestSaveInvoiceAsTemplate:
         loaded = session.get(InvoiceTemplate, template.id)
         assert loaded is not None
         assert loaded.contact_id == contact.id
-        loaded_lines = json.loads(loaded.lines_json) if isinstance(loaded.lines_json, str) else loaded.lines_json
+        loaded_lines = (
+            json.loads(loaded.lines_json)
+            if isinstance(loaded.lines_json, str)
+            else loaded.lines_json
+        )
         assert len(loaded_lines) == 1
         assert loaded_lines[0]["description"] == "Consulting services"
         assert loaded_lines[0]["quantity"] == "10"

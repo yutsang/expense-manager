@@ -152,14 +152,10 @@ async def list_accruals(
     return list(result.scalars().all())
 
 
-async def get_accrual(
-    db: AsyncSession, *, tenant_id: str, accrual_id: str
-) -> Accrual:
+async def get_accrual(db: AsyncSession, *, tenant_id: str, accrual_id: str) -> Accrual:
     """Get a single accrual by ID."""
     result = await db.execute(
-        select(Accrual).where(
-            Accrual.id == accrual_id, Accrual.tenant_id == tenant_id
-        )
+        select(Accrual).where(Accrual.id == accrual_id, Accrual.tenant_id == tenant_id)
     )
     accrual = result.scalar_one_or_none()
     if not accrual:

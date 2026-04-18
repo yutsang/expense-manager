@@ -116,10 +116,7 @@ class TestTenantSettingsServiceSource:
 
     def _read_source(self) -> str:
         svc_path = (
-            pathlib.Path(__file__).resolve().parents[2]
-            / "app"
-            / "services"
-            / "tenant_settings.py"
+            pathlib.Path(__file__).resolve().parents[2] / "app" / "services" / "tenant_settings.py"
         )
         return svc_path.read_text()
 
@@ -208,7 +205,5 @@ class TestTenantSettingsService:
         tenant = self._make_tenant()
         mock_db.scalar = AsyncMock(return_value=tenant)
 
-        await update_settings(
-            mock_db, "t1", "actor-1", {"org_name": "New Name"}
-        )
+        await update_settings(mock_db, "t1", "actor-1", {"org_name": "New Name"})
         assert tenant.name == "New Name"

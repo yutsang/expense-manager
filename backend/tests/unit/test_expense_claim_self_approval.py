@@ -28,10 +28,7 @@ class TestServiceSourceHasSelfApprovalGuard:
         import pathlib
 
         svc_path = (
-            pathlib.Path(__file__).resolve().parents[2]
-            / "app"
-            / "services"
-            / "expense_claims.py"
+            pathlib.Path(__file__).resolve().parents[2] / "app" / "services" / "expense_claims.py"
         )
         return svc_path.read_text()
 
@@ -55,11 +52,7 @@ class TestApiEndpointHandlesSelfApproval:
         import pathlib
 
         api_path = (
-            pathlib.Path(__file__).resolve().parents[2]
-            / "app"
-            / "api"
-            / "v1"
-            / "expense_claims.py"
+            pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "expense_claims.py"
         )
         return api_path.read_text()
 

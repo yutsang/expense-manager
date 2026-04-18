@@ -32,7 +32,7 @@ class TestMigration0035Exists:
 
     def test_migration_revises_0032(self) -> None:
         source = self._get_migration_source()
-        assert 'down_revision' in source
+        assert "down_revision" in source
         assert '"0032"' in source
 
 

@@ -201,24 +201,40 @@ class TestReconcileFxRounding:
 
         lines = [
             JournalLineInput(
-                account_id="acc-1", debit=Decimal("333.33"), credit=Decimal("0"),
-                currency="EUR", fx_rate=Decimal("1.08573"),
-                functional_debit=d1_func, functional_credit=Decimal("0"),
+                account_id="acc-1",
+                debit=Decimal("333.33"),
+                credit=Decimal("0"),
+                currency="EUR",
+                fx_rate=Decimal("1.08573"),
+                functional_debit=d1_func,
+                functional_credit=Decimal("0"),
             ),
             JournalLineInput(
-                account_id="acc-2", debit=Decimal("777.77"), credit=Decimal("0"),
-                currency="GBP", fx_rate=Decimal("1.27491"),
-                functional_debit=d2_func, functional_credit=Decimal("0"),
+                account_id="acc-2",
+                debit=Decimal("777.77"),
+                credit=Decimal("0"),
+                currency="GBP",
+                fx_rate=Decimal("1.27491"),
+                functional_debit=d2_func,
+                functional_credit=Decimal("0"),
             ),
             JournalLineInput(
-                account_id="acc-3", debit=Decimal("12345"), credit=Decimal("0"),
-                currency="JPY", fx_rate=Decimal("0.00673"),
-                functional_debit=d3_func, functional_credit=Decimal("0"),
+                account_id="acc-3",
+                debit=Decimal("12345"),
+                credit=Decimal("0"),
+                currency="JPY",
+                fx_rate=Decimal("0.00673"),
+                functional_debit=d3_func,
+                functional_credit=Decimal("0"),
             ),
             JournalLineInput(
-                account_id="acc-bank", debit=Decimal("0"), credit=credit_func,
-                currency="USD", fx_rate=Decimal("1"),
-                functional_debit=Decimal("0"), functional_credit=credit_func,
+                account_id="acc-bank",
+                debit=Decimal("0"),
+                credit=credit_func,
+                currency="USD",
+                fx_rate=Decimal("1"),
+                functional_debit=Decimal("0"),
+                functional_credit=credit_func,
             ),
         ]
 
@@ -233,12 +249,20 @@ class TestReconcileFxRounding:
 
         lines = [
             JournalLineInput(
-                account_id="acc-expense", debit=Decimal("100"), credit=Decimal("0"),
-                currency="USD", functional_debit=Decimal("100"), functional_credit=Decimal("0"),
+                account_id="acc-expense",
+                debit=Decimal("100"),
+                credit=Decimal("0"),
+                currency="USD",
+                functional_debit=Decimal("100"),
+                functional_credit=Decimal("0"),
             ),
             JournalLineInput(
-                account_id="acc-bank", debit=Decimal("0"), credit=Decimal("100"),
-                currency="USD", functional_debit=Decimal("0"), functional_credit=Decimal("100"),
+                account_id="acc-bank",
+                debit=Decimal("0"),
+                credit=Decimal("100"),
+                currency="USD",
+                functional_debit=Decimal("0"),
+                functional_credit=Decimal("100"),
             ),
         ]
         result = reconcile_fx_rounding(lines)

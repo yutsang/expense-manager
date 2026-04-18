@@ -200,7 +200,10 @@ async def create_invoice(
         tax_rate = Decimal(str(line.get("_tax_rate", "0")))  # resolved by caller
 
         net, tax = _compute_line(
-            qty, price, disc, tax_rate,
+            qty,
+            price,
+            disc,
+            tax_rate,
             is_tax_inclusive=is_tax_inclusive,
             quantize_tax=quantize_tax,
         )

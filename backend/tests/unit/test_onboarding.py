@@ -259,7 +259,9 @@ class TestSetupTenantService:
 
         with (
             patch("app.services.onboarding.create_account", new_callable=AsyncMock) as mock_create,
-            patch("app.services.onboarding.provision_periods", new_callable=AsyncMock, return_value=[]),
+            patch(
+                "app.services.onboarding.provision_periods", new_callable=AsyncMock, return_value=[]
+            ),
         ):
             mock_create.return_value = MagicMock(id="acct-1")
             await setup_tenant(

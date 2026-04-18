@@ -143,9 +143,7 @@ async def update(
 time_entries_router = APIRouter(prefix="/time-entries", tags=["time-entries"])
 
 
-@time_entries_router.post(
-    "", response_model=TimeEntryResponse, status_code=status.HTTP_201_CREATED
-)
+@time_entries_router.post("", response_model=TimeEntryResponse, status_code=status.HTTP_201_CREATED)
 async def create_entry(
     body: TimeEntryCreate, db: DbSession, tenant_id: TenantId, actor_id: ActorId
 ):

@@ -24,9 +24,12 @@ def _prorate_factor(acquisition_date: date, period_end_date: date | None) -> Dec
     month = acquisition_date.month
     days_in_month = calendar.monthrange(year, month)[1]
 
-    if period_end_date is not None and (period_end_date.year, period_end_date.month) != (year, month):
+    if period_end_date is not None and (period_end_date.year, period_end_date.month) != (
+        year,
+        month,
+    ):
         # If the period ends in a different month, use the full month
-            return Decimal("1")
+        return Decimal("1")
 
     day = acquisition_date.day
     days_remaining = days_in_month - day + 1  # include the acquisition day

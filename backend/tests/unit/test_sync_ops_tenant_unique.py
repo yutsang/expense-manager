@@ -34,9 +34,9 @@ class TestSyncOpModelConstraint:
         # Find the client_op_id line
         for line in cls_body.split("\n"):
             if "client_op_id" in line and "mapped_column" in line:
-                assert "unique=True" not in line, (
-                    "client_op_id should not have unique=True (global scope)"
-                )
+                assert (
+                    "unique=True" not in line
+                ), "client_op_id should not have unique=True (global scope)"
                 break
         else:
             raise AssertionError("client_op_id column not found in SyncOp")
@@ -50,7 +50,7 @@ class TestSyncOpModelConstraint:
         # Find the UniqueConstraint with the name
         constraint_start = cls_body.index("uq_sync_ops_tenant_client_op")
         # Go back to find the beginning of the constraint
-        constraint_section = cls_body[max(0, constraint_start - 100):constraint_start + 50]
+        constraint_section = cls_body[max(0, constraint_start - 100) : constraint_start + 50]
         assert "tenant_id" in constraint_section
         assert "client_op_id" in constraint_section
 

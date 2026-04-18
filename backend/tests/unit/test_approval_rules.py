@@ -289,11 +289,7 @@ class TestAPISource:
         import pathlib
 
         api_path = (
-            pathlib.Path(__file__).resolve().parents[2]
-            / "app"
-            / "api"
-            / "v1"
-            / "approval_rules.py"
+            pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "approval_rules.py"
         )
         return api_path.read_text()
 
@@ -414,9 +410,7 @@ class TestExistingServicesUpdated:
     def test_invoice_api_passes_comment(self) -> None:
         import pathlib
 
-        api = (
-            pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "invoices.py"
-        )
+        api = pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "invoices.py"
         source = api.read_text()
         assert "ApproveRejectRequest" in source
 
@@ -430,9 +424,7 @@ class TestExistingServicesUpdated:
     def test_journal_api_passes_comment(self) -> None:
         import pathlib
 
-        api = (
-            pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "journals.py"
-        )
+        api = pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "journals.py"
         source = api.read_text()
         assert "ApproveRejectRequest" in source
 

@@ -132,7 +132,9 @@ def tenant_b(session: Session) -> Tenant:
     return t
 
 
-def _make_account(session: Session, tenant_id: str, code: str, name: str, acct_type: str) -> Account:
+def _make_account(
+    session: Session, tenant_id: str, code: str, name: str, acct_type: str
+) -> Account:
     """Helper to create an account."""
     acct = Account(
         id=str(uuid.uuid4()),
@@ -186,9 +188,7 @@ class TestTenantIsolation:
         _make_account(session, tenant_a.id, "4000", "Revenue", "revenue")
 
         # Query for tenant B's accounts should return nothing
-        result = session.execute(
-            sa.select(Account).where(Account.tenant_id == tenant_b.id)
-        )
+        result = session.execute(sa.select(Account).where(Account.tenant_id == tenant_b.id))
         tenant_b_accounts = list(result.scalars().all())
         assert len(tenant_b_accounts) == 0
 
@@ -230,9 +230,7 @@ class TestTenantIsolation:
         _make_period(session, tenant_a.id, "2025-01")
         _make_period(session, tenant_a.id, "2025-02")
 
-        result = session.execute(
-            sa.select(Period).where(Period.tenant_id == tenant_b.id)
-        )
+        result = session.execute(sa.select(Period).where(Period.tenant_id == tenant_b.id))
         assert len(list(result.scalars().all())) == 0
 
     def test_direct_id_access_still_requires_tenant_filter(
@@ -374,9 +372,7 @@ class TestJournalBalancing:
         ]
         validate_balance(lines)  # Should not raise
 
-    def test_balanced_journal_persists_to_db(
-        self, session: Session, tenant_a: Tenant
-    ) -> None:
+    def test_balanced_journal_persists_to_db(self, session: Session, tenant_a: Tenant) -> None:
         """A balanced journal entry can be saved to the database."""
         period = _make_period(session, tenant_a.id, "2025-01")
         cash = _make_account(session, tenant_a.id, "1000", "Cash", "asset")
@@ -399,32 +395,36 @@ class TestJournalBalancing:
         )
         session.add(je)
 
-        session.add(JournalLine(
-            id=str(uuid.uuid4()),
-            tenant_id=tenant_a.id,
-            journal_entry_id=je_id,
-            line_no=1,
-            account_id=cash.id,
-            debit=Decimal("500"),
-            credit=Decimal("0"),
-            currency="USD",
-            fx_rate=Decimal("1"),
-            functional_debit=Decimal("500"),
-            functional_credit=Decimal("0"),
-        ))
-        session.add(JournalLine(
-            id=str(uuid.uuid4()),
-            tenant_id=tenant_a.id,
-            journal_entry_id=je_id,
-            line_no=2,
-            account_id=revenue.id,
-            debit=Decimal("0"),
-            credit=Decimal("500"),
-            currency="USD",
-            fx_rate=Decimal("1"),
-            functional_debit=Decimal("0"),
-            functional_credit=Decimal("500"),
-        ))
+        session.add(
+            JournalLine(
+                id=str(uuid.uuid4()),
+                tenant_id=tenant_a.id,
+                journal_entry_id=je_id,
+                line_no=1,
+                account_id=cash.id,
+                debit=Decimal("500"),
+                credit=Decimal("0"),
+                currency="USD",
+                fx_rate=Decimal("1"),
+                functional_debit=Decimal("500"),
+                functional_credit=Decimal("0"),
+            )
+        )
+        session.add(
+            JournalLine(
+                id=str(uuid.uuid4()),
+                tenant_id=tenant_a.id,
+                journal_entry_id=je_id,
+                line_no=2,
+                account_id=revenue.id,
+                debit=Decimal("0"),
+                credit=Decimal("500"),
+                currency="USD",
+                fx_rate=Decimal("1"),
+                functional_debit=Decimal("0"),
+                functional_credit=Decimal("500"),
+            )
+        )
         session.flush()
 
         # Verify the entry persisted correctly
@@ -488,9 +488,7 @@ class TestPeriodClose:
         with pytest.raises(PeriodTransitionError):
             assert_transition_allowed(PeriodStatus.AUDITED, PeriodStatus.OPEN)
 
-    def test_period_status_stored_correctly(
-        self, session: Session, tenant_a: Tenant
-    ) -> None:
+    def test_period_status_stored_correctly(self, session: Session, tenant_a: Tenant) -> None:
         """Period status can be updated and read back from DB."""
         period = _make_period(session, tenant_a.id, "2025-01", status="open")
         assert period.status == "open"

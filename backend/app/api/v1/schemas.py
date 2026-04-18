@@ -1565,18 +1565,14 @@ class OnboardingSetup(BaseModel):
     country: str = Field(default="US", min_length=2, max_length=10)
     functional_currency: str = Field(default="USD", min_length=3, max_length=3)
     fiscal_year_start_month: int = Field(default=1, ge=1, le=12)
-    coa_template: str = Field(
-        ..., pattern="^(general|professional_services|retail)$"
-    )
+    coa_template: str = Field(..., pattern="^(general|professional_services|retail)$")
     bank_account_name: str = Field(..., min_length=1, max_length=255)
     bank_name: str | None = Field(default=None, max_length=255)
     bank_account_number: str | None = Field(default=None, max_length=100)
     bank_currency: str = Field(default="USD", min_length=3, max_length=3)
     first_contact_name: str | None = Field(default=None, max_length=255)
     first_contact_email: str | None = Field(default=None, max_length=254)
-    first_contact_type: str | None = Field(
-        default=None, pattern="^(customer|supplier|both)$"
-    )
+    first_contact_type: str | None = Field(default=None, pattern="^(customer|supplier|both)$")
 
 
 class OnboardingResponse(BaseModel):
@@ -1802,8 +1798,18 @@ class BudgetLineCreate(BaseModel):
     month_12: str = Field(default="0")
 
     @field_validator(
-        "month_1", "month_2", "month_3", "month_4", "month_5", "month_6",
-        "month_7", "month_8", "month_9", "month_10", "month_11", "month_12",
+        "month_1",
+        "month_2",
+        "month_3",
+        "month_4",
+        "month_5",
+        "month_6",
+        "month_7",
+        "month_8",
+        "month_9",
+        "month_10",
+        "month_11",
+        "month_12",
     )
     @classmethod
     def must_be_valid_decimal(cls, v: str) -> str:
@@ -1833,8 +1839,18 @@ class BudgetLineResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @field_validator(
-        "month_1", "month_2", "month_3", "month_4", "month_5", "month_6",
-        "month_7", "month_8", "month_9", "month_10", "month_11", "month_12",
+        "month_1",
+        "month_2",
+        "month_3",
+        "month_4",
+        "month_5",
+        "month_6",
+        "month_7",
+        "month_8",
+        "month_9",
+        "month_10",
+        "month_11",
+        "month_12",
         mode="before",
     )
     @classmethod
@@ -1926,9 +1942,7 @@ class SaveAsTemplateRequest(BaseModel):
 class ApprovalRuleCreate(BaseModel):
     """Request body for creating an approval rule."""
 
-    entity_type: str = Field(
-        ..., pattern="^(invoice|bill|journal|expense_claim)$"
-    )
+    entity_type: str = Field(..., pattern="^(invoice|bill|journal|expense_claim)$")
     condition_field: str = Field(..., pattern="^(total|amount)$")
     condition_operator: str = Field(..., pattern="^(gte|lte|gt|lt|eq)$")
     condition_value: str = Field(..., description="Threshold value as decimal string")
@@ -1948,13 +1962,9 @@ class ApprovalRuleCreate(BaseModel):
 class ApprovalRuleUpdate(BaseModel):
     """Request body for updating an approval rule."""
 
-    entity_type: str | None = Field(
-        default=None, pattern="^(invoice|bill|journal|expense_claim)$"
-    )
+    entity_type: str | None = Field(default=None, pattern="^(invoice|bill|journal|expense_claim)$")
     condition_field: str | None = Field(default=None, pattern="^(total|amount)$")
-    condition_operator: str | None = Field(
-        default=None, pattern="^(gte|lte|gt|lt|eq)$"
-    )
+    condition_operator: str | None = Field(default=None, pattern="^(gte|lte|gt|lt|eq)$")
     condition_value: str | None = None
     required_role: str | None = Field(default=None, min_length=1, max_length=50)
     approval_order: int | None = Field(default=None, ge=1)
@@ -2136,9 +2146,7 @@ class TimeEntryUpdate(BaseModel):
     hours: str | None = None
     description: str | None = None
     is_billable: bool | None = None
-    approval_status: str | None = Field(
-        default=None, pattern="^(pending|approved|rejected)$"
-    )
+    approval_status: str | None = Field(default=None, pattern="^(pending|approved|rejected)$")
     entry_date: date | None = None
 
     @field_validator("hours")

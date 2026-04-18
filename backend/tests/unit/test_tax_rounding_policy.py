@@ -148,18 +148,14 @@ class TestComputeLineTaxExclusive:
     def test_basic_tax_exclusive(self) -> None:
         from app.services.invoices import _compute_line
 
-        net, tax = _compute_line(
-            Decimal("1"), Decimal("100"), Decimal("0"), Decimal("0.1")
-        )
+        net, tax = _compute_line(Decimal("1"), Decimal("100"), Decimal("0"), Decimal("0.1"))
         assert net == Decimal("100.0000")
         assert tax == Decimal("10.0000")
 
     def test_tax_exclusive_with_discount(self) -> None:
         from app.services.invoices import _compute_line
 
-        net, tax = _compute_line(
-            Decimal("2"), Decimal("50"), Decimal("0.1"), Decimal("0.1")
-        )
+        net, tax = _compute_line(Decimal("2"), Decimal("50"), Decimal("0.1"), Decimal("0.1"))
         assert net == Decimal("90.0000")
         assert tax == Decimal("9.0000")
 
@@ -167,9 +163,7 @@ class TestComputeLineTaxExclusive:
         """Calling _compute_line without new kwargs works as before."""
         from app.services.invoices import _compute_line
 
-        net, tax = _compute_line(
-            Decimal("1"), Decimal("200"), Decimal("0"), Decimal("0.05")
-        )
+        net, tax = _compute_line(Decimal("1"), Decimal("200"), Decimal("0"), Decimal("0.05"))
         assert net == Decimal("200.0000")
         assert tax == Decimal("10.0000")
 
@@ -203,12 +197,8 @@ class TestComputeLineTaxInclusive:
             Decimal("0.1"),
             is_tax_inclusive=True,
         )
-        expected_net = (Decimal("115.50") / Decimal("1.1")).quantize(
-            _QUANTIZE_4, ROUND_HALF_EVEN
-        )
-        expected_tax = (Decimal("115.50") - expected_net).quantize(
-            _QUANTIZE_4, ROUND_HALF_EVEN
-        )
+        expected_net = (Decimal("115.50") / Decimal("1.1")).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
+        expected_tax = (Decimal("115.50") - expected_net).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
         assert net == expected_net
         assert tax == expected_tax
 
@@ -251,27 +241,37 @@ class TestPerInvoiceRounding:
 
         # Per-line rounding (default)
         _, tax1_pl = _compute_line(
-            Decimal("1"), Decimal("99.99"), Decimal("0"), Decimal("0.1"),
+            Decimal("1"),
+            Decimal("99.99"),
+            Decimal("0"),
+            Decimal("0.1"),
             quantize_tax=True,
         )
         _, tax2_pl = _compute_line(
-            Decimal("1"), Decimal("99.99"), Decimal("0"), Decimal("0.1"),
+            Decimal("1"),
+            Decimal("99.99"),
+            Decimal("0"),
+            Decimal("0.1"),
             quantize_tax=True,
         )
         total_tax_per_line = tax1_pl + tax2_pl
 
         # Per-invoice rounding
         _, tax1_pi = _compute_line(
-            Decimal("1"), Decimal("99.99"), Decimal("0"), Decimal("0.1"),
+            Decimal("1"),
+            Decimal("99.99"),
+            Decimal("0"),
+            Decimal("0.1"),
             quantize_tax=False,
         )
         _, tax2_pi = _compute_line(
-            Decimal("1"), Decimal("99.99"), Decimal("0"), Decimal("0.1"),
+            Decimal("1"),
+            Decimal("99.99"),
+            Decimal("0"),
+            Decimal("0.1"),
             quantize_tax=False,
         )
-        total_tax_per_invoice = (tax1_pi + tax2_pi).quantize(
-            _QUANTIZE_4, ROUND_HALF_EVEN
-        )
+        total_tax_per_invoice = (tax1_pi + tax2_pi).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
 
         assert total_tax_per_line == Decimal("19.9980")
         assert total_tax_per_invoice == Decimal("19.9980")
@@ -286,7 +286,10 @@ class TestPerInvoiceRounding:
         taxes = []
         for _ in range(3):
             _, tax = _compute_line(
-                Decimal("1"), Decimal("33.33"), Decimal("0"), Decimal("0.1"),
+                Decimal("1"),
+                Decimal("33.33"),
+                Decimal("0"),
+                Decimal("0.1"),
                 quantize_tax=False,
             )
             taxes.append(tax)
@@ -318,9 +321,7 @@ class TestBillComputeLineTaxInclusive:
         """Default tax-exclusive should remain unchanged."""
         from app.services.bills import _compute_line
 
-        net, tax = _compute_line(
-            Decimal("1"), Decimal("100"), Decimal("0"), Decimal("0.1")
-        )
+        net, tax = _compute_line(Decimal("1"), Decimal("100"), Decimal("0"), Decimal("0.1"))
         assert net == Decimal("100.0000")
         assert tax == Decimal("10.0000")
 
@@ -329,7 +330,10 @@ class TestBillComputeLineTaxInclusive:
         from app.services.bills import _compute_line
 
         _, tax = _compute_line(
-            Decimal("1"), Decimal("33.33"), Decimal("0"), Decimal("0.1"),
+            Decimal("1"),
+            Decimal("33.33"),
+            Decimal("0"),
+            Decimal("0.1"),
             quantize_tax=False,
         )
         # Raw tax without quantization: 33.33 * 0.1 = 3.333

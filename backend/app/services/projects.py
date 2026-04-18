@@ -446,48 +446,60 @@ async def resolve_billing_rate(
 
     # 1. Project + user specific
     rate = await db.scalar(
-        select(BillingRate.rate).where(
+        select(BillingRate.rate)
+        .where(
             BillingRate.tenant_id == tenant_id,
             BillingRate.project_id == project_id,
             BillingRate.user_id == user_id,
             date_filter,
-        ).order_by(BillingRate.effective_from.desc()).limit(1)
+        )
+        .order_by(BillingRate.effective_from.desc())
+        .limit(1)
     )
     if rate is not None:
         return Decimal(str(rate))
 
     # 2. User-specific (any project)
     rate = await db.scalar(
-        select(BillingRate.rate).where(
+        select(BillingRate.rate)
+        .where(
             BillingRate.tenant_id == tenant_id,
             BillingRate.project_id.is_(None),
             BillingRate.user_id == user_id,
             date_filter,
-        ).order_by(BillingRate.effective_from.desc()).limit(1)
+        )
+        .order_by(BillingRate.effective_from.desc())
+        .limit(1)
     )
     if rate is not None:
         return Decimal(str(rate))
 
     # 3. Project-level role rate (no specific user)
     rate = await db.scalar(
-        select(BillingRate.rate).where(
+        select(BillingRate.rate)
+        .where(
             BillingRate.tenant_id == tenant_id,
             BillingRate.project_id == project_id,
             BillingRate.user_id.is_(None),
             date_filter,
-        ).order_by(BillingRate.effective_from.desc()).limit(1)
+        )
+        .order_by(BillingRate.effective_from.desc())
+        .limit(1)
     )
     if rate is not None:
         return Decimal(str(rate))
 
     # 4. Tenant default (no project, no user)
     rate = await db.scalar(
-        select(BillingRate.rate).where(
+        select(BillingRate.rate)
+        .where(
             BillingRate.tenant_id == tenant_id,
             BillingRate.project_id.is_(None),
             BillingRate.user_id.is_(None),
             date_filter,
-        ).order_by(BillingRate.effective_from.desc()).limit(1)
+        )
+        .order_by(BillingRate.effective_from.desc())
+        .limit(1)
     )
     if rate is not None:
         return Decimal(str(rate))
@@ -514,13 +526,15 @@ async def get_wip(
     await get_project(db, tenant_id, project_id)
 
     result = await db.execute(
-        select(TimeEntry).where(
+        select(TimeEntry)
+        .where(
             TimeEntry.tenant_id == tenant_id,
             TimeEntry.project_id == project_id,
             TimeEntry.is_billable.is_(True),
             TimeEntry.approval_status == "approved",
             TimeEntry.billed_invoice_id.is_(None),
-        ).order_by(TimeEntry.entry_date)
+        )
+        .order_by(TimeEntry.entry_date)
     )
     entries = list(result.scalars())
 
@@ -545,15 +559,17 @@ async def get_wip(
             amount = Decimal("0")
 
         total_amount += amount
-        entry_details.append({
-            "id": entry.id,
-            "entry_date": str(entry.entry_date),
-            "user_id": entry.user_id,
-            "hours": str(hours),
-            "rate": str(rate),
-            "amount": str(amount),
-            "description": entry.description,
-        })
+        entry_details.append(
+            {
+                "id": entry.id,
+                "entry_date": str(entry.entry_date),
+                "user_id": entry.user_id,
+                "hours": str(hours),
+                "rate": str(rate),
+                "amount": str(amount),
+                "description": entry.description,
+            }
+        )
 
     proj = await get_project(db, tenant_id, project_id)
     return {
@@ -591,7 +607,8 @@ async def generate_invoice(
 
     # Fetch unbilled, approved, billable entries in range
     result = await db.execute(
-        select(TimeEntry).where(
+        select(TimeEntry)
+        .where(
             TimeEntry.tenant_id == tenant_id,
             TimeEntry.project_id == project_id,
             TimeEntry.is_billable.is_(True),
@@ -599,7 +616,8 @@ async def generate_invoice(
             TimeEntry.billed_invoice_id.is_(None),
             TimeEntry.entry_date >= from_date,
             TimeEntry.entry_date <= to_date,
-        ).order_by(TimeEntry.entry_date)
+        )
+        .order_by(TimeEntry.entry_date)
     )
     entries = list(result.scalars())
 

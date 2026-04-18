@@ -72,9 +72,7 @@ async def setup_tenant(
         raise TenantNotFoundError(f"Tenant not found: {tenant_id}")
 
     if tenant.setup_completed_at is not None:
-        raise OnboardingAlreadyCompleteError(
-            f"Tenant {tenant_id} has already completed onboarding"
-        )
+        raise OnboardingAlreadyCompleteError(f"Tenant {tenant_id} has already completed onboarding")
 
     # Update tenant details
     tenant.name = company_name
@@ -91,7 +89,9 @@ async def setup_tenant(
     # Build a code->id map for parent resolution
     code_to_id: dict[str, str] = {}
     for acct_def in coa_accounts:
-        parent_id = code_to_id.get(acct_def.get("parent_code")) if "parent_code" in acct_def else None
+        parent_id = (
+            code_to_id.get(acct_def.get("parent_code")) if "parent_code" in acct_def else None
+        )
         try:
             acct = await create_account(
                 db,

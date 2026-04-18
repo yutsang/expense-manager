@@ -113,12 +113,8 @@ def upgrade() -> None:
         sa.Column("created_by", sa.UUID(as_uuid=False), nullable=True),
         sa.Column("updated_by", sa.UUID(as_uuid=False), nullable=True),
         sa.Column("version", sa.Integer, nullable=False, server_default="1"),
-        sa.CheckConstraint(
-            "start_date <= end_date", name="ck_approval_delegations_date_range"
-        ),
-        sa.CheckConstraint(
-            "delegator_id != delegate_id", name="ck_approval_delegations_no_self"
-        ),
+        sa.CheckConstraint("start_date <= end_date", name="ck_approval_delegations_date_range"),
+        sa.CheckConstraint("delegator_id != delegate_id", name="ck_approval_delegations_no_self"),
     )
 
     # -- RLS policies ---------------------------------------------------------

@@ -118,42 +118,36 @@ async def dashboard_endpoint(
     tenant_id: TenantId,
 ) -> DashboardResponse:
     # Cash balance: sum(debit - credit) on bank subtype accounts
-    cash_row = await db.execute(
-        text("""
+    cash_row = await db.execute(text("""
             SELECT COALESCE(SUM(jl.debit - jl.credit), 0) AS cash_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.subtype = 'bank'
               AND je.status = 'posted'
-        """)
-    )
+        """))
     cash_balance = Decimal(str(cash_row.scalar() or 0))
 
     # AR: balance on account code 1100
-    ar_row = await db.execute(
-        text("""
+    ar_row = await db.execute(text("""
             SELECT COALESCE(SUM(jl.debit - jl.credit), 0) AS ar_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.code = '1100'
               AND je.status = 'posted'
-        """)
-    )
+        """))
     accounts_receivable = Decimal(str(ar_row.scalar() or 0))
 
     # AP: balance on account code 2000 (credit normal, so credit - debit)
-    ap_row = await db.execute(
-        text("""
+    ap_row = await db.execute(text("""
             SELECT COALESCE(SUM(jl.credit - jl.debit), 0) AS ap_balance
             FROM journal_lines jl
             JOIN accounts a ON a.id = jl.account_id
             JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE a.code = '2000'
               AND je.status = 'posted'
-        """)
-    )
+        """))
     accounts_payable = Decimal(str(ap_row.scalar() or 0))
 
     # Revenue MTD: total credit on revenue accounts for current month
@@ -204,13 +198,11 @@ async def dashboard_endpoint(
     invoices_overdue = int(inv_row.scalar() or 0)
 
     # Bills awaiting approval
-    bills_row = await db.execute(
-        text("""
+    bills_row = await db.execute(text("""
             SELECT COUNT(*) AS awaiting_count
             FROM bills
             WHERE status = 'awaiting_approval'
-        """)
-    )
+        """))
     bills_awaiting_approval = int(bills_row.scalar() or 0)
 
     def fmt(d: Decimal) -> str:

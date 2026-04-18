@@ -28,7 +28,10 @@ from app.core.logging import get_logger
 log = get_logger(__name__)
 
 ECB_DAILY_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
-ECB_NS = {"gesmes": "http://www.gesmes.org/xml/2002-08-01", "eurofxref": "http://www.ecb.int/vocabulary/2002-08-01/eurofxref"}
+ECB_NS = {
+    "gesmes": "http://www.gesmes.org/xml/2002-08-01",
+    "eurofxref": "http://www.ecb.int/vocabulary/2002-08-01/eurofxref",
+}
 
 # Common cross-rate pairs to derive from EUR base rates
 CROSS_RATE_PAIRS: list[tuple[str, str]] = [

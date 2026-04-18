@@ -107,9 +107,7 @@ async def list_templates(
     return list(result.scalars())
 
 
-async def get_template(
-    db: AsyncSession, tenant_id: str, template_id: str
-) -> InvoiceTemplate:
+async def get_template(db: AsyncSession, tenant_id: str, template_id: str) -> InvoiceTemplate:
     template = await db.scalar(
         select(InvoiceTemplate).where(
             InvoiceTemplate.id == template_id,

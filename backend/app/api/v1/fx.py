@@ -121,7 +121,9 @@ async def lookup_fx_rate_at(
         "at": at.isoformat(),
         "rate": str(result["rate"]),
         "source": result["source"],
-        "rate_timestamp": result["rate_timestamp"].isoformat() if result["rate_timestamp"] else None,
+        "rate_timestamp": (
+            result["rate_timestamp"].isoformat() if result["rate_timestamp"] else None
+        ),
         "staleness_seconds": result["staleness_seconds"],
         "bid_rate": str(result["bid_rate"]) if result.get("bid_rate") is not None else None,
         "ask_rate": str(result["ask_rate"]) if result.get("ask_rate") is not None else None,

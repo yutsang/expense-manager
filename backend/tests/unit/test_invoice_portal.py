@@ -277,9 +277,7 @@ class TestAcknowledgeInvoice:
 
         mock_db.scalar.return_value = inv
 
-        await acknowledge_invoice(
-            mock_db, share_token="valid-token", customer_name="Jane"
-        )
+        await acknowledge_invoice(mock_db, share_token="valid-token", customer_name="Jane")
         assert inv.acknowledged_at is not None
         assert inv.acknowledged_by_name == "Jane"
 
@@ -297,9 +295,7 @@ class TestAcknowledgeInvoice:
         mock_db.scalar.return_value = inv
 
         # Should not raise — acknowledge is idempotent
-        result = await acknowledge_invoice(
-            mock_db, share_token="valid-token", customer_name="Jane"
-        )
+        result = await acknowledge_invoice(mock_db, share_token="valid-token", customer_name="Jane")
         assert result is not None
 
 

@@ -76,9 +76,7 @@ async def get_public_invoice(
     This is called from the unauthenticated public route.
     Raises ShareTokenInvalidError if no invoice matches the token.
     """
-    inv = await db.scalar(
-        select(Invoice).where(Invoice.share_token == share_token)
-    )
+    inv = await db.scalar(select(Invoice).where(Invoice.share_token == share_token))
     if not inv:
         raise ShareTokenInvalidError("Invalid or expired share link")
 
@@ -152,9 +150,7 @@ async def acknowledge_invoice(
 
     Idempotent: if already acknowledged, returns the existing record unchanged.
     """
-    inv = await db.scalar(
-        select(Invoice).where(Invoice.share_token == share_token)
-    )
+    inv = await db.scalar(select(Invoice).where(Invoice.share_token == share_token))
     if not inv:
         raise ShareTokenInvalidError("Invalid or expired share link")
 

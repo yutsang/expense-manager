@@ -77,9 +77,7 @@ def upgrade() -> None:
         sa.Column("updated_by", sa.UUID(), nullable=True),
         sa.Column("version", sa.Integer(), nullable=False, server_default="1"),
         sa.PrimaryKeyConstraint("id"),
-        sa.CheckConstraint(
-            "accrual_type IN ('accrual','prepayment')", name="ck_accruals_type"
-        ),
+        sa.CheckConstraint("accrual_type IN ('accrual','prepayment')", name="ck_accruals_type"),
         sa.CheckConstraint("status IN ('posted','reversed')", name="ck_accruals_status"),
         sa.CheckConstraint("amount > 0", name="ck_accruals_positive"),
     )

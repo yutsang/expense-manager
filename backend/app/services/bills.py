@@ -117,7 +117,9 @@ async def create_bill(
 
     # ── Tax rounding policy (Issue #76) ───────────────────────────────────
     tenant = await _get_tenant(db, tenant_id)
-    tax_rounding_policy = getattr(tenant, "tax_rounding_policy", "per_line") if tenant else "per_line"
+    tax_rounding_policy = (
+        getattr(tenant, "tax_rounding_policy", "per_line") if tenant else "per_line"
+    )
     quantize_tax = tax_rounding_policy != "per_invoice"
 
     subtotal = Decimal("0")
@@ -131,7 +133,10 @@ async def create_bill(
         tax_rate = Decimal(str(line.get("_tax_rate", "0")))
 
         net, tax = _compute_line(
-            qty, price, disc, tax_rate,
+            qty,
+            price,
+            disc,
+            tax_rate,
             is_tax_inclusive=is_tax_inclusive,
             quantize_tax=quantize_tax,
         )

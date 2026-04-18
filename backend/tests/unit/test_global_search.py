@@ -80,9 +80,7 @@ class TestSearchServiceSource:
     """Verify search service code exists."""
 
     def _read_service_source(self) -> str:
-        svc_path = (
-            pathlib.Path(__file__).resolve().parents[2] / "app" / "services" / "search.py"
-        )
+        svc_path = pathlib.Path(__file__).resolve().parents[2] / "app" / "services" / "search.py"
         return svc_path.read_text()
 
     def test_global_search_function_exists(self) -> None:
@@ -117,9 +115,7 @@ class TestSearchApiSource:
     """Verify search API endpoint exists."""
 
     def _read_api_source(self) -> str:
-        api_path = (
-            pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "search.py"
-        )
+        api_path = pathlib.Path(__file__).resolve().parents[2] / "app" / "api" / "v1" / "search.py"
         return api_path.read_text()
 
     def test_search_endpoint_exists(self) -> None:

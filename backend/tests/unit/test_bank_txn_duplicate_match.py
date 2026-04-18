@@ -109,9 +109,7 @@ class TestBankTransactionModelAuditColumns:
     def _read_model_source(self) -> str:
         import pathlib
 
-        model_path = (
-            pathlib.Path(__file__).resolve().parents[2] / "app" / "infra" / "models.py"
-        )
+        model_path = pathlib.Path(__file__).resolve().parents[2] / "app" / "infra" / "models.py"
         return model_path.read_text()
 
     def test_has_unreconciled_at(self) -> None:
@@ -197,9 +195,7 @@ class TestMatchTransactionAlreadyMatchedDifferentLine:
         return txn
 
     @pytest.mark.anyio
-    async def test_raises_when_already_matched_to_different_line(
-        self, mock_db: AsyncMock
-    ) -> None:
+    async def test_raises_when_already_matched_to_different_line(self, mock_db: AsyncMock) -> None:
         """Bank txn matched to jl-old should reject match to jl-new."""
         from app.services.bank_reconciliation import (
             DuplicateReconciliationError,

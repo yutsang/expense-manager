@@ -58,9 +58,7 @@ class Tenant(Base):
     region: Mapped[str] = mapped_column(String(16), nullable=False, default="us")
     invoice_approval_threshold: Mapped[object | None] = mapped_column(Numeric(19, 4), nullable=True)
     invoice_number_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    tax_rounding_policy: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="per_line"
-    )
+    tax_rounding_policy: Mapped[str] = mapped_column(String(16), nullable=False, default="per_line")
     settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     journal_approval_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="trial")
@@ -337,9 +335,7 @@ class FxRate(Base):
     rate_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
     rate: Mapped[object] = mapped_column(Numeric(19, 8), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False, default="manual")
-    rate_timestamp: Mapped[datetime | None] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=True
-    )
+    rate_timestamp: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     bid_rate: Mapped[object | None] = mapped_column(Numeric(19, 8), nullable=True)
     ask_rate: Mapped[object | None] = mapped_column(Numeric(19, 8), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -1066,7 +1062,10 @@ class BankTransaction(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "bank_account_id", "transaction_date", "amount", "reference",
+            "bank_account_id",
+            "transaction_date",
+            "amount",
+            "reference",
             name="uq_bank_txn_dedup",
         ),
     )
@@ -1093,9 +1092,7 @@ class BankFeedConnection(Base):
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="connected"
     )  # connected, error, expired, disconnected
-    last_sync_at: Mapped[datetime | None] = mapped_column(
-        TIMESTAMP(timezone=True), nullable=True
-    )
+    last_sync_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     last_sync_cursor: Mapped[str | None] = mapped_column(String(500), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -2064,9 +2061,7 @@ class EntityGroupMember(Base):
         nullable=False,
         index=True,
     )
-    ownership_pct: Mapped[object] = mapped_column(
-        Numeric(5, 2), nullable=False, default=100
-    )
+    ownership_pct: Mapped[object] = mapped_column(Numeric(5, 2), nullable=False, default=100)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
     )
@@ -2078,7 +2073,9 @@ class EntityGroupMember(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
-        UniqueConstraint("group_id", "member_tenant_id", name="uq_entity_group_members_group_tenant"),
+        UniqueConstraint(
+            "group_id", "member_tenant_id", name="uq_entity_group_members_group_tenant"
+        ),
         CheckConstraint(
             "ownership_pct > 0 AND ownership_pct <= 100",
             name="ck_entity_group_members_ownership_pct",
@@ -2205,9 +2202,7 @@ class InvoiceTemplate(Base):
     next_generation_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    last_generated_invoice_id: Mapped[str | None] = mapped_column(
-        String(36), nullable=True
-    )
+    last_generated_invoice_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
     )
@@ -2269,9 +2264,7 @@ class Project(Base):
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "code", name="uq_projects_tenant_code"),
-        CheckConstraint(
-            "status IN ('active','completed','archived')", name="ck_projects_status"
-        ),
+        CheckConstraint("status IN ('active','completed','archived')", name="ck_projects_status"),
     )
 
 
@@ -2298,9 +2291,7 @@ class TimeEntry(Base):
     hours: Mapped[object] = mapped_column(Numeric(6, 2), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_billable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    approval_status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="pending"
-    )
+    approval_status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     billed_invoice_id: Mapped[str | None] = mapped_column(
         UUID(as_uuid=False),
         ForeignKey("invoices.id", ondelete="SET NULL"),
@@ -2360,9 +2351,7 @@ class BillingRate(Base):
     updated_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
-    __table_args__ = (
-        CheckConstraint("rate >= 0", name="ck_billing_rates_rate_non_negative"),
-    )
+    __table_args__ = (CheckConstraint("rate >= 0", name="ck_billing_rates_rate_non_negative"),)
 
 
 # ---------------------------------------------------------------------------
@@ -2459,10 +2448,6 @@ class ApprovalDelegation(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     __table_args__ = (
-        CheckConstraint(
-            "start_date <= end_date", name="ck_approval_delegations_date_range"
-        ),
-        CheckConstraint(
-            "delegator_id != delegate_id", name="ck_approval_delegations_no_self"
-        ),
+        CheckConstraint("start_date <= end_date", name="ck_approval_delegations_date_range"),
+        CheckConstraint("delegator_id != delegate_id", name="ck_approval_delegations_no_self"),
     )

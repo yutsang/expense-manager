@@ -46,8 +46,12 @@ def upgrade() -> None:
             index=True,
         ),
         sa.Column("name", sa.String(200), nullable=False),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")
+        ),
+        sa.Column(
+            "updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")
+        ),
         sa.Column("created_by", UUID(as_uuid=False), nullable=True),
         sa.Column("updated_by", UUID(as_uuid=False), nullable=True),
         sa.Column("version", sa.Integer, nullable=False, server_default="1"),
@@ -71,12 +75,18 @@ def upgrade() -> None:
             index=True,
         ),
         sa.Column("ownership_pct", sa.Numeric(5, 2), nullable=False, server_default="100"),
-        sa.Column("created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
-        sa.Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")),
+        sa.Column(
+            "created_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")
+        ),
+        sa.Column(
+            "updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=sa.text("now()")
+        ),
         sa.Column("created_by", UUID(as_uuid=False), nullable=True),
         sa.Column("updated_by", UUID(as_uuid=False), nullable=True),
         sa.Column("version", sa.Integer, nullable=False, server_default="1"),
-        sa.UniqueConstraint("group_id", "member_tenant_id", name="uq_entity_group_members_group_tenant"),
+        sa.UniqueConstraint(
+            "group_id", "member_tenant_id", name="uq_entity_group_members_group_tenant"
+        ),
         sa.CheckConstraint(
             "ownership_pct > 0 AND ownership_pct <= 100",
             name="ck_entity_group_members_ownership_pct",

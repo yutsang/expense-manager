@@ -356,12 +356,12 @@ class TestFixedAssetAcquisitionDateColumn:
         idx = source.index("class FixedAsset")
         block = source[idx : idx + 2000]
         # Should use Date, not String(10)
-        assert "mapped_column(Date" in block or "mapped_column(sa.Date" in block, (
-            "FixedAsset.acquisition_date should use Date type, not String(10)"
-        )
-        assert "Mapped[date]" in block or "Mapped[str]" not in block.split("acquisition_date")[1][:50], (
-            "acquisition_date should be Mapped[date], not Mapped[str]"
-        )
+        assert (
+            "mapped_column(Date" in block or "mapped_column(sa.Date" in block
+        ), "FixedAsset.acquisition_date should use Date type, not String(10)"
+        assert (
+            "Mapped[date]" in block or "Mapped[str]" not in block.split("acquisition_date")[1][:50]
+        ), "acquisition_date should be Mapped[date], not Mapped[str]"
 
     def test_date_migration_file_exists(self) -> None:
         migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"

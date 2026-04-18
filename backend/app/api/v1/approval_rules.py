@@ -37,9 +37,7 @@ async def list_all(
 ):
     """List approval rules, optionally filtered by entity_type."""
     rules = await list_rules(db, tenant_id, entity_type=entity_type)
-    return ApprovalRuleListResponse(
-        items=[ApprovalRuleResponse.model_validate(r) for r in rules]
-    )
+    return ApprovalRuleListResponse(items=[ApprovalRuleResponse.model_validate(r) for r in rules])
 
 
 @router.post("", response_model=ApprovalRuleResponse, status_code=status.HTTP_201_CREATED)

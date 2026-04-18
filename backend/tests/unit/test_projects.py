@@ -252,15 +252,11 @@ class TestTimeEntrySchemas:
 
     def test_time_entry_create_rejects_zero_hours(self) -> None:
         with pytest.raises(Exception):
-            TimeEntryCreate(
-                project_id="p", user_id="u", entry_date=date(2026, 1, 1), hours="0"
-            )
+            TimeEntryCreate(project_id="p", user_id="u", entry_date=date(2026, 1, 1), hours="0")
 
     def test_time_entry_create_rejects_negative_hours(self) -> None:
         with pytest.raises(Exception):
-            TimeEntryCreate(
-                project_id="p", user_id="u", entry_date=date(2026, 1, 1), hours="-1"
-            )
+            TimeEntryCreate(project_id="p", user_id="u", entry_date=date(2026, 1, 1), hours="-1")
 
     def test_time_entry_update_rejects_invalid_approval_status(self) -> None:
         with pytest.raises(Exception):
@@ -300,22 +296,16 @@ class TestGenerateInvoiceRequest:
     """Validate GenerateInvoiceRequest schema."""
 
     def test_valid_date_range(self) -> None:
-        req = GenerateInvoiceRequest(
-            from_date=date(2026, 1, 1), to_date=date(2026, 1, 31)
-        )
+        req = GenerateInvoiceRequest(from_date=date(2026, 1, 1), to_date=date(2026, 1, 31))
         assert req.from_date < req.to_date
 
     def test_same_date_allowed(self) -> None:
-        req = GenerateInvoiceRequest(
-            from_date=date(2026, 1, 1), to_date=date(2026, 1, 1)
-        )
+        req = GenerateInvoiceRequest(from_date=date(2026, 1, 1), to_date=date(2026, 1, 1))
         assert req.from_date == req.to_date
 
     def test_rejects_reversed_dates(self) -> None:
         with pytest.raises(Exception):
-            GenerateInvoiceRequest(
-                from_date=date(2026, 2, 1), to_date=date(2026, 1, 1)
-            )
+            GenerateInvoiceRequest(from_date=date(2026, 2, 1), to_date=date(2026, 1, 1))
 
 
 class TestWipResponse:
@@ -451,9 +441,7 @@ class TestBillingRateResolution:
 
         mock_db = AsyncMock()
         # First three calls return None, fourth (default) returns rate
-        mock_db.scalar = AsyncMock(
-            side_effect=[None, None, None, Decimal("100.0000")]
-        )
+        mock_db.scalar = AsyncMock(side_effect=[None, None, None, Decimal("100.0000")])
 
         rate = await resolve_billing_rate(
             mock_db,
@@ -497,9 +485,7 @@ class TestTimeEntryLocking:
         mock_db.scalar = AsyncMock(return_value=mock_entry)
 
         with pytest.raises(TimeEntryLockedError):
-            await update_time_entry(
-                mock_db, "t1", "te-1", "actor-1", hours=Decimal("5.00")
-            )
+            await update_time_entry(mock_db, "t1", "te-1", "actor-1", hours=Decimal("5.00"))
 
 
 # ── API router source verification ──────────────────────────────────────────
@@ -516,11 +502,11 @@ class TestApiRouterSource:
 
     def test_projects_post_endpoint(self) -> None:
         source = self._read_source()
-        assert '@router.post("")' in source or "@router.post(\"\"" in source
+        assert '@router.post("")' in source or '@router.post(""' in source
 
     def test_projects_get_list_endpoint(self) -> None:
         source = self._read_source()
-        assert '@router.get("")' in source or "@router.get(\"\"" in source
+        assert '@router.get("")' in source or '@router.get(""' in source
 
     def test_projects_get_one_endpoint(self) -> None:
         source = self._read_source()

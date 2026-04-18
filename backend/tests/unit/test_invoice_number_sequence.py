@@ -82,9 +82,9 @@ class TestServiceDoesNotUseCounting:
         if next_def == -1:
             next_def = len(source)
         func_body = source[idx:next_def]
-        assert "func.count()" not in func_body, (
-            "authorise_invoice should not use func.count() for number generation"
-        )
+        assert (
+            "func.count()" not in func_body
+        ), "authorise_invoice should not use func.count() for number generation"
 
     def test_uses_atomic_increment(self) -> None:
         """The service should use an atomic UPDATE ... RETURNING pattern."""
@@ -94,9 +94,9 @@ class TestServiceDoesNotUseCounting:
         if next_def == -1:
             next_def = len(source)
         func_body = source[idx:next_def]
-        assert "invoice_number_seq" in func_body, (
-            "authorise_invoice should use invoice_number_seq for atomic numbering"
-        )
+        assert (
+            "invoice_number_seq" in func_body
+        ), "authorise_invoice should use invoice_number_seq for atomic numbering"
 
 
 # ── Service-level async tests (require Python 3.11+) ─────────────────────────

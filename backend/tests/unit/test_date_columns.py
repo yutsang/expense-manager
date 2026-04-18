@@ -19,15 +19,15 @@ class TestInvoiceDateColumns:
 
     def test_issue_date_column_is_date_type(self) -> None:
         col = Invoice.__table__.c.issue_date
-        assert isinstance(col.type, sa.Date), (
-            f"Invoice.issue_date should be sa.Date(), got {col.type}"
-        )
+        assert isinstance(
+            col.type, sa.Date
+        ), f"Invoice.issue_date should be sa.Date(), got {col.type}"
 
     def test_due_date_column_is_date_type(self) -> None:
         col = Invoice.__table__.c.due_date
-        assert isinstance(col.type, sa.Date), (
-            f"Invoice.due_date should be sa.Date(), got {col.type}"
-        )
+        assert isinstance(
+            col.type, sa.Date
+        ), f"Invoice.due_date should be sa.Date(), got {col.type}"
 
 
 class TestBillDateColumns:
@@ -35,15 +35,11 @@ class TestBillDateColumns:
 
     def test_issue_date_column_is_date_type(self) -> None:
         col = Bill.__table__.c.issue_date
-        assert isinstance(col.type, sa.Date), (
-            f"Bill.issue_date should be sa.Date(), got {col.type}"
-        )
+        assert isinstance(col.type, sa.Date), f"Bill.issue_date should be sa.Date(), got {col.type}"
 
     def test_due_date_column_is_date_type(self) -> None:
         col = Bill.__table__.c.due_date
-        assert isinstance(col.type, sa.Date), (
-            f"Bill.due_date should be sa.Date(), got {col.type}"
-        )
+        assert isinstance(col.type, sa.Date), f"Bill.due_date should be sa.Date(), got {col.type}"
 
 
 class TestPaymentDateColumn:
@@ -51,9 +47,9 @@ class TestPaymentDateColumn:
 
     def test_payment_date_column_is_date_type(self) -> None:
         col = Payment.__table__.c.payment_date
-        assert isinstance(col.type, sa.Date), (
-            f"Payment.payment_date should be sa.Date(), got {col.type}"
-        )
+        assert isinstance(
+            col.type, sa.Date
+        ), f"Payment.payment_date should be sa.Date(), got {col.type}"
 
 
 class TestPydanticSchemaDateTypes:

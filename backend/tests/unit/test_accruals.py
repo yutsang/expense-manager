@@ -183,9 +183,7 @@ class TestAccrualsServiceSource:
     """Verify accruals service code exists."""
 
     def _read_service_source(self) -> str:
-        svc_path = (
-            pathlib.Path(__file__).resolve().parents[2] / "app" / "services" / "accruals.py"
-        )
+        svc_path = pathlib.Path(__file__).resolve().parents[2] / "app" / "services" / "accruals.py"
         return svc_path.read_text()
 
     def test_create_accrual_function_exists(self) -> None:
@@ -297,7 +295,8 @@ class TestCreateAccrualService:
             patch(
                 "app.services.accruals.assert_can_post",
                 side_effect=PeriodPostingError("Period is hard_closed"),
-            ),pytest.raises(PeriodPostingError)
+            ),
+            pytest.raises(PeriodPostingError),
         ):
             await create_accrual(
                 mock_db,

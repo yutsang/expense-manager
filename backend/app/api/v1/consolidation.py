@@ -128,9 +128,7 @@ async def create_group_endpoint(
     tenant_id: TenantId,
     actor_id: ActorId,
 ) -> EntityGroupResponse:
-    group = await create_group(
-        db, parent_tenant_id=tenant_id, name=body.name, actor_id=actor_id
-    )
+    group = await create_group(db, parent_tenant_id=tenant_id, name=body.name, actor_id=actor_id)
     await db.commit()
     return EntityGroupResponse.model_validate(group)
 

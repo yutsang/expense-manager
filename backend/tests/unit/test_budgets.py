@@ -79,7 +79,9 @@ def tenant(session: Session) -> Tenant:
     return t
 
 
-def _make_account(session: Session, tenant_id: str, code: str, name: str, acct_type: str) -> Account:
+def _make_account(
+    session: Session, tenant_id: str, code: str, name: str, acct_type: str
+) -> Account:
     acct = Account(
         id=str(uuid.uuid4()),
         tenant_id=tenant_id,
@@ -195,9 +197,7 @@ class TestBudgetModel:
 class TestBudgetVsActual:
     """Test the budget vs actual variance logic using direct ORM queries."""
 
-    def test_variance_calculation_with_actuals(
-        self, session: Session, tenant: Tenant
-    ) -> None:
+    def test_variance_calculation_with_actuals(self, session: Session, tenant: Tenant) -> None:
         """Budget $5000, actual posted $3200 => variance $1800 (under budget)."""
         period = _make_period(session, tenant.id, "2026-03")
         rent_acct = _make_account(session, tenant.id, "5100", "Rent Expense", "expense")
@@ -326,9 +326,7 @@ class TestBudgetVsActual:
         variance_pct = (variance / budget_amount * Decimal("100")).quantize(Decimal("0.01"))
         assert variance_pct == Decimal("100.00")
 
-    def test_over_budget_negative_variance(
-        self, session: Session, tenant: Tenant
-    ) -> None:
+    def test_over_budget_negative_variance(self, session: Session, tenant: Tenant) -> None:
         """Budget $2000, actual $3500 => variance -$1500 (over budget)."""
         expense_acct = _make_account(session, tenant.id, "5200", "Utilities", "expense")
 

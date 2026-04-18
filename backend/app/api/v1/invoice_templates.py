@@ -126,9 +126,7 @@ async def generate(
     except TemplateNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Template not found")
     except ValueError as exc:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        ) from exc
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
 
 @router.post(
@@ -159,6 +157,4 @@ async def save_as_template(
         await db.refresh(template)
         return InvoiceTemplateResponse.model_validate(template)
     except ValueError as exc:
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, detail=str(exc)
-        ) from exc
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

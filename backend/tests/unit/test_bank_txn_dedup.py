@@ -35,25 +35,25 @@ class TestBankTransactionDedupConstraint:
     def test_constraint_includes_bank_account_id(self) -> None:
         cls_body = self._get_bank_txn_class()
         constraint_start = cls_body.index("uq_bank_txn_dedup")
-        constraint_section = cls_body[max(0, constraint_start - 200):constraint_start + 50]
+        constraint_section = cls_body[max(0, constraint_start - 200) : constraint_start + 50]
         assert "bank_account_id" in constraint_section
 
     def test_constraint_includes_transaction_date(self) -> None:
         cls_body = self._get_bank_txn_class()
         constraint_start = cls_body.index("uq_bank_txn_dedup")
-        constraint_section = cls_body[max(0, constraint_start - 200):constraint_start + 50]
+        constraint_section = cls_body[max(0, constraint_start - 200) : constraint_start + 50]
         assert "transaction_date" in constraint_section
 
     def test_constraint_includes_amount(self) -> None:
         cls_body = self._get_bank_txn_class()
         constraint_start = cls_body.index("uq_bank_txn_dedup")
-        constraint_section = cls_body[max(0, constraint_start - 200):constraint_start + 50]
+        constraint_section = cls_body[max(0, constraint_start - 200) : constraint_start + 50]
         assert "amount" in constraint_section
 
     def test_constraint_includes_reference(self) -> None:
         cls_body = self._get_bank_txn_class()
         constraint_start = cls_body.index("uq_bank_txn_dedup")
-        constraint_section = cls_body[max(0, constraint_start - 200):constraint_start + 50]
+        constraint_section = cls_body[max(0, constraint_start - 200) : constraint_start + 50]
         assert "reference" in constraint_section
 
 
@@ -106,5 +106,5 @@ class TestBankImportCatchesIntegrityError:
         func_body = source[func_start:]
         # Find the IntegrityError handler
         handler_start = func_body.index("except IntegrityError")
-        handler_section = func_body[handler_start:handler_start + 200]
+        handler_section = func_body[handler_start : handler_start + 200]
         assert "skipped_duplicates" in handler_section

@@ -49,9 +49,7 @@ class TestPaymentOverAllocation:
         payment.updated_by = None
         return payment
 
-    def _make_invoice(
-        self, *, amount_due: str = "1000.0000"
-    ) -> MagicMock:
+    def _make_invoice(self, *, amount_due: str = "1000.0000") -> MagicMock:
         inv = MagicMock()
         inv.id = "inv-1"
         inv.tenant_id = "t1"

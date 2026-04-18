@@ -32,10 +32,7 @@ class TestMigration0018:
         import pathlib
 
         migrations_dir = pathlib.Path(__file__).resolve().parents[2] / "migrations" / "versions"
-        candidates = [
-            f
-            for f in migrations_dir.glob("0018*")
-        ]
+        candidates = [f for f in migrations_dir.glob("0018*")]
         assert len(candidates) >= 1, "Migration 0018 not found"
         return candidates[0].read_text()
 
@@ -62,7 +59,7 @@ class TestMigration0018:
 
     def test_migration_revises_0017(self) -> None:
         source = self._get_migration_source()
-        assert 'down_revision' in source
+        assert "down_revision" in source
         assert '"0017"' in source
 
 

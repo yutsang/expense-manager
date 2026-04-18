@@ -125,9 +125,7 @@ def upgrade() -> None:
     op.create_index("ix_time_entries_tenant_id", "time_entries", ["tenant_id"])
     op.create_index("ix_time_entries_project_id", "time_entries", ["project_id"])
     op.create_index("ix_time_entries_user_id", "time_entries", ["user_id"])
-    op.create_index(
-        "ix_time_entries_billed_invoice_id", "time_entries", ["billed_invoice_id"]
-    )
+    op.create_index("ix_time_entries_billed_invoice_id", "time_entries", ["billed_invoice_id"])
 
     # ── Billing Rates ────────────────────────────────────────────────────
     op.create_table(

@@ -100,7 +100,7 @@ class TestVoidPartiallyPaidInvoice:
             patch.object(mock_db, "execute", return_value=alloc_result),
             pytest.raises(InvoiceTransitionError, match="reverse payments first"),
         ):
-                await void_invoice(mock_db, "t1", "inv-1", "actor-2")
+            await void_invoice(mock_db, "t1", "inv-1", "actor-2")
 
     @pytest.mark.anyio
     async def test_void_authorised_no_allocations_succeeds(self, mock_db: AsyncMock) -> None:

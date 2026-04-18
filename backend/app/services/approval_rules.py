@@ -55,9 +55,7 @@ async def list_rules(
 async def get_rule(db: AsyncSession, tenant_id: str, rule_id: str) -> ApprovalRule:
     """Get a single approval rule by ID."""
     rule = await db.scalar(
-        select(ApprovalRule).where(
-            ApprovalRule.id == rule_id, ApprovalRule.tenant_id == tenant_id
-        )
+        select(ApprovalRule).where(ApprovalRule.id == rule_id, ApprovalRule.tenant_id == tenant_id)
     )
     if not rule:
         raise ApprovalRuleNotFoundError(rule_id)

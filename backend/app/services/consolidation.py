@@ -166,9 +166,7 @@ async def remove_member(
 ) -> None:
     """Remove a member from an entity group."""
     await get_group(db, group_id=group_id, parent_tenant_id=parent_tenant_id)
-    await db.execute(
-        delete(EntityGroupMember).where(EntityGroupMember.id == member_id)
-    )
+    await db.execute(delete(EntityGroupMember).where(EntityGroupMember.id == member_id))
     await db.flush()
 
 
@@ -243,9 +241,7 @@ async def _get_member_info(
     if not member_ids:
         return group, []
 
-    tenants_result = await db.execute(
-        select(Tenant).where(Tenant.id.in_(member_ids))
-    )
+    tenants_result = await db.execute(select(Tenant).where(Tenant.id.in_(member_ids)))
     tenant_map = {t.id: t.name for t in tenants_result.scalars().all()}
 
     info = [
