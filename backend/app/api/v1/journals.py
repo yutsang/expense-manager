@@ -316,8 +316,14 @@ _JOURNAL_REQUIRED = ["date", "description", "account_code", "debit", "credit"]
 _JOURNAL_OPTIONAL = ["currency", "fx_rate", "contact_name"]
 _JOURNAL_ALL = _JOURNAL_REQUIRED + _JOURNAL_OPTIONAL
 _JOURNAL_EXAMPLE = [
-    "2025-01-15", "Office supplies purchase", "6300", "500.00", "0",
-    "USD", "1", "Office Depot",
+    "2025-01-15",
+    "Office supplies purchase",
+    "6300",
+    "500.00",
+    "0",
+    "USD",
+    "1",
+    "Office Depot",
 ]
 
 
@@ -379,9 +385,7 @@ async def import_journals(
                 acct_code = row["account_code"].lower()
                 acct_id = acct_map.get(acct_code)
                 if not acct_id:
-                    errors.append(
-                        f"Row {row_no}: account_code '{row['account_code']}' not found"
-                    )
+                    errors.append(f"Row {row_no}: account_code '{row['account_code']}' not found")
                     line_error = True
                     continue
 
@@ -441,6 +445,7 @@ async def import_journals(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "journals.import.complete",
         tenant_id=tenant_id,

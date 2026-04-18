@@ -171,8 +171,14 @@ _PAYMENT_REQUIRED = ["payment_type", "contact_name_or_code", "amount", "payment_
 _PAYMENT_OPTIONAL = ["currency", "reference", "invoice_number", "bill_number"]
 _PAYMENT_ALL = _PAYMENT_REQUIRED + _PAYMENT_OPTIONAL
 _PAYMENT_EXAMPLE = [
-    "received", "Acme Corp", "1000.00", "2025-01-20",
-    "USD", "PAY-001", "INV-001", "",
+    "received",
+    "Acme Corp",
+    "1000.00",
+    "2025-01-20",
+    "USD",
+    "PAY-001",
+    "INV-001",
+    "",
 ]
 
 
@@ -258,6 +264,7 @@ async def import_payments(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "payments.import.complete",
         tenant_id=tenant_id,

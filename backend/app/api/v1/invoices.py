@@ -460,12 +460,26 @@ async def send_reminder(invoice_id: str, db: DbSession, tenant_id: TenantId):
 
 _INVOICE_REQUIRED = ["contact_name_or_code", "issue_date", "account_code", "quantity", "unit_price"]
 _INVOICE_OPTIONAL = [
-    "due_date", "currency", "description", "tax_code", "discount_pct", "reference",
+    "due_date",
+    "currency",
+    "description",
+    "tax_code",
+    "discount_pct",
+    "reference",
 ]
 _INVOICE_ALL = _INVOICE_REQUIRED + _INVOICE_OPTIONAL
 _INVOICE_EXAMPLE = [
-    "Acme Corp", "2025-01-15", "4000", "1", "1000.00",
-    "2025-02-15", "USD", "Consulting services", "", "0", "INV-001",
+    "Acme Corp",
+    "2025-01-15",
+    "4000",
+    "1",
+    "1000.00",
+    "2025-02-15",
+    "USD",
+    "Consulting services",
+    "",
+    "0",
+    "INV-001",
 ]
 
 
@@ -558,14 +572,16 @@ async def import_invoices(
                 price = parse_decimal(row["unit_price"])
                 discount = parse_decimal(row.get("discount_pct") or "0")
 
-                lines.append({
-                    "account_id": acct_id,
-                    "description": row.get("description") or None,
-                    "quantity": qty,
-                    "unit_price": price,
-                    "discount_pct": discount,
-                    "_tax_rate": Decimal("0"),
-                })
+                lines.append(
+                    {
+                        "account_id": acct_id,
+                        "description": row.get("description") or None,
+                        "quantity": qty,
+                        "unit_price": price,
+                        "discount_pct": discount,
+                        "_tax_rate": Decimal("0"),
+                    }
+                )
 
             if line_error or not lines:
                 skipped += len(group_rows)
@@ -592,6 +608,7 @@ async def import_invoices(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "invoices.import.complete",
         tenant_id=tenant_id,

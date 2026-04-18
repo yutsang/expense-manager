@@ -171,9 +171,7 @@ async def import_fx_rates(
             to_ccy = row["to_currency"].upper().strip()
 
             if len(from_ccy) != 3 or len(to_ccy) != 3:
-                errors.append(
-                    f"Row {row_no}: currency codes must be 3 characters"
-                )
+                errors.append(f"Row {row_no}: currency codes must be 3 characters")
                 skipped += 1
                 continue
 
@@ -202,6 +200,7 @@ async def import_fx_rates(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "fx.import.complete",
         tenant_id=tenant_id,

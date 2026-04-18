@@ -73,13 +73,29 @@ async def list_all(
 
 _CONTACT_REQUIRED = ["name", "contact_type"]
 _CONTACT_OPTIONAL = [
-    "code", "email", "phone", "currency", "tax_number",
-    "address_line1", "city", "country", "credit_limit",
+    "code",
+    "email",
+    "phone",
+    "currency",
+    "tax_number",
+    "address_line1",
+    "city",
+    "country",
+    "credit_limit",
 ]
 _CONTACT_ALL = _CONTACT_REQUIRED + _CONTACT_OPTIONAL
 _CONTACT_EXAMPLE = [
-    "Acme Corp", "customer", "ACME", "acme@example.com", "+1-555-0100",
-    "USD", "12-345-678", "123 Main St", "New York", "US", "50000",
+    "Acme Corp",
+    "customer",
+    "ACME",
+    "acme@example.com",
+    "+1-555-0100",
+    "USD",
+    "12-345-678",
+    "123 Main St",
+    "New York",
+    "US",
+    "50000",
 ]
 
 
@@ -137,6 +153,7 @@ async def import_contacts(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "contacts.import.complete",
         tenant_id=tenant_id,

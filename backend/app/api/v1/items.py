@@ -182,6 +182,7 @@ async def import_items(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "items.import.complete",
         tenant_id=tenant_id,
@@ -322,6 +323,7 @@ async def import_tax_codes(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "tax_codes.import.complete",
         tenant_id=tenant_id,

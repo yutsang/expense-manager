@@ -215,12 +215,26 @@ async def void(bill_id: str, db: DbSession, tenant_id: TenantId, actor_id: Actor
 
 _BILL_REQUIRED = ["contact_name_or_code", "issue_date", "account_code", "quantity", "unit_price"]
 _BILL_OPTIONAL = [
-    "due_date", "currency", "description", "tax_code", "discount_pct", "reference",
+    "due_date",
+    "currency",
+    "description",
+    "tax_code",
+    "discount_pct",
+    "reference",
 ]
 _BILL_ALL = _BILL_REQUIRED + _BILL_OPTIONAL
 _BILL_EXAMPLE = [
-    "Office Depot", "2025-01-10", "6300", "1", "500.00",
-    "2025-02-10", "USD", "Office supplies", "", "0", "BILL-001",
+    "Office Depot",
+    "2025-01-10",
+    "6300",
+    "1",
+    "500.00",
+    "2025-02-10",
+    "USD",
+    "Office supplies",
+    "",
+    "0",
+    "BILL-001",
 ]
 
 
@@ -313,14 +327,16 @@ async def import_bills(
                 price = parse_decimal(row["unit_price"])
                 discount = parse_decimal(row.get("discount_pct") or "0")
 
-                lines.append({
-                    "account_id": acct_id,
-                    "description": row.get("description") or None,
-                    "quantity": qty,
-                    "unit_price": price,
-                    "discount_pct": discount,
-                    "_tax_rate": Decimal("0"),
-                })
+                lines.append(
+                    {
+                        "account_id": acct_id,
+                        "description": row.get("description") or None,
+                        "quantity": qty,
+                        "unit_price": price,
+                        "discount_pct": discount,
+                        "_tax_rate": Decimal("0"),
+                    }
+                )
 
             if line_error or not lines:
                 skipped += len(group_rows)
@@ -347,6 +363,7 @@ async def import_bills(
         await db.commit()
 
     from app.core.logging import get_logger
+
     get_logger(__name__).info(
         "bills.import.complete",
         tenant_id=tenant_id,
