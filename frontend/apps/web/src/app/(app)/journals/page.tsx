@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { journalsApi, periodsApi, accountsApi, type JournalEntry, type Period, type Account } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 import { safeFmt, safeSum } from "@/lib/money-safe";
 
 type LineInput = {
@@ -211,12 +212,20 @@ export default function JournalsPage() {
   const isBalanced = dr === cr;
 
   const headerActions = (
-    <button
-      onClick={() => { setShowCreate(true); void loadSupport(); }}
-      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-    >
-      New Entry
-    </button>
+    <>
+      <CsvImportExport
+        entityType="journals"
+        templateUrl="/v1/journals/csv-template"
+        importUrl="/v1/journals/import"
+        onImportComplete={() => void load()}
+      />
+      <button
+        onClick={() => { setShowCreate(true); void loadSupport(); }}
+        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        New Entry
+      </button>
+    </>
   );
 
   return (

@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 
 function fmt(amount: string, currency = "USD") {
   return new Intl.NumberFormat("en-US", {
@@ -116,12 +117,20 @@ export default function PaymentsPage() {
   const contactName = (id: string) => contacts.find((c) => c.id === id)?.name ?? id;
 
   const headerActions = (
-    <button
-      onClick={openForm}
-      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-    >
-      + New Payment
-    </button>
+    <>
+      <CsvImportExport
+        entityType="payments"
+        templateUrl="/v1/payments/csv-template"
+        importUrl="/v1/payments/import"
+        onImportComplete={() => void load(activeTab)}
+      />
+      <button
+        onClick={openForm}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      >
+        + New Payment
+      </button>
+    </>
   );
 
   return (

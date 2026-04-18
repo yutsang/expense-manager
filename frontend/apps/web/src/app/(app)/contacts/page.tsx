@@ -6,6 +6,7 @@ import Link from "next/link";
 import { type Contact, contactsApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 
 const TYPE_LABELS: Record<string, string> = {
   customer: "Customer",
@@ -90,12 +91,20 @@ export default function ContactsPage() {
   };
 
   const headerActions = (
-    <button
-      onClick={() => setShowForm(true)}
-      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-    >
-      + New Contact
-    </button>
+    <>
+      <CsvImportExport
+        entityType="contacts"
+        templateUrl="/v1/contacts/csv-template"
+        importUrl="/v1/contacts/import"
+        onImportComplete={() => void load()}
+      />
+      <button
+        onClick={() => setShowForm(true)}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      >
+        + New Contact
+      </button>
+    </>
   );
 
   return (

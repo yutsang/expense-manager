@@ -4,6 +4,7 @@ import { showToast } from "@/lib/toast";
 import { useEffect, useState, type ReactNode } from "react";
 import { accountsApi, type Account } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
+import { CsvImportExport } from "@/components/csv-import-export";
 
 const TYPE_COLORS: Record<string, string> = {
   asset: "bg-blue-100 text-blue-800",
@@ -175,14 +176,22 @@ export default function AccountsPage() {
   }
 
   const headerActions = (
-    <label className="flex items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={includeInactive}
-        onChange={(e) => setIncludeInactive(e.target.checked)}
+    <>
+      <CsvImportExport
+        entityType="accounts"
+        templateUrl="/v1/accounts/csv-template"
+        importUrl="/v1/accounts/import"
+        onImportComplete={() => void load()}
       />
-      Show inactive
-    </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={includeInactive}
+          onChange={(e) => setIncludeInactive(e.target.checked)}
+        />
+        Show inactive
+      </label>
+    </>
   );
 
   return (

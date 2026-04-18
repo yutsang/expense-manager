@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 
 const STATUS_TABS = ["all", "draft", "submitted", "approved", "rejected", "paid"] as const;
 type StatusTab = (typeof STATUS_TABS)[number];
@@ -161,12 +162,20 @@ export default function ExpenseClaimsPage() {
         title="Expense Claims"
         subtitle="Employee expense reimbursements"
         actions={
-          <button
-            onClick={() => setShowCreate((v) => !v)}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            + New Claim
-          </button>
+          <>
+            <CsvImportExport
+              entityType="expense-claims"
+              templateUrl="/v1/expense-claims/csv-template"
+              importUrl="/v1/expense-claims/import"
+              onImportComplete={() => void load()}
+            />
+            <button
+              onClick={() => setShowCreate((v) => !v)}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              + New Claim
+            </button>
+          </>
         }
       />
       <div className="mx-auto max-w-7xl px-6 py-6 space-y-6">

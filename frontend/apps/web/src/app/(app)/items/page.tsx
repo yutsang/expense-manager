@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { type Item, type TaxCode, itemsApi, taxCodesApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "AUD", "CAD", "SGD", "HKD", "JPY", "CNY", "NZD"];
 
@@ -138,12 +139,20 @@ export default function ItemsPage() {
   };
 
   const headerActions = (
-    <button
-      onClick={openAdd}
-      className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-    >
-      + Add Item
-    </button>
+    <>
+      <CsvImportExport
+        entityType="items"
+        templateUrl="/v1/items/csv-template"
+        importUrl="/v1/items/import"
+        onImportComplete={() => void load()}
+      />
+      <button
+        onClick={openAdd}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      >
+        + Add Item
+      </button>
+    </>
   );
 
   return (

@@ -6,6 +6,7 @@ import { BASE, type Account, type Contact, type Invoice, type TaxCode, accountsA
 import { getTenantIdOrRedirect } from "@/lib/get-tenant-id";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 import { safeFmt, safeLineTotal, safeGrandTotal, safeSum } from "@/lib/money-safe";
 import { safeLineTax, safeInvoiceTotals } from "@/lib/invoice-tax";
 import { showToast } from "@/lib/toast";
@@ -260,12 +261,20 @@ export default function InvoicesPage() {
   }
 
   const headerActions = (
-    <button
-      onClick={() => setShowForm(true)}
-      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
-    >
-      + New Invoice
-    </button>
+    <>
+      <CsvImportExport
+        entityType="invoices"
+        templateUrl="/v1/invoices/csv-template"
+        importUrl="/v1/invoices/import"
+        onImportComplete={() => void load()}
+      />
+      <button
+        onClick={() => setShowForm(true)}
+        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+      >
+        + New Invoice
+      </button>
+    </>
   );
 
   return (

@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 
 function fmt(amount: string) {
   const n = parseFloat(amount);
@@ -222,6 +223,12 @@ export default function BankPage() {
         subtitle="Manage bank accounts and reconciliations"
         actions={
           <div className="flex gap-2">
+            <CsvImportExport
+              entityType="bank-transactions"
+              templateUrl="/v1/bank-transactions/csv-template"
+              importUrl="/v1/bank-transactions/import"
+              onImportComplete={() => void loadAccounts()}
+            />
             <button
               onClick={openImport}
               className="rounded-lg border px-4 py-2 text-sm font-semibold hover:bg-muted"

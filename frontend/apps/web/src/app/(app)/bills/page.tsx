@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { type Account, type Bill, type Contact, accountsApi, billsApi, contactsApi } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
+import { CsvImportExport } from "@/components/csv-import-export";
 import { safeFmt, safeLineTotal, safeGrandTotal } from "@/lib/money-safe";
 
 function fmt(amount: string, currency = "USD") {
@@ -172,12 +173,20 @@ export default function BillsPage() {
   }
 
   const headerActions = (
-    <button
-      onClick={() => setShowForm(true)}
-      className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
-    >
-      + New Bill
-    </button>
+    <>
+      <CsvImportExport
+        entityType="bills"
+        templateUrl="/v1/bills/csv-template"
+        importUrl="/v1/bills/import"
+        onImportComplete={() => void load()}
+      />
+      <button
+        onClick={() => setShowForm(true)}
+        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+      >
+        + New Bill
+      </button>
+    </>
   );
 
   return (

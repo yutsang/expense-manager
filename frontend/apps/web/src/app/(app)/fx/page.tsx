@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { fxApi, type FxRate, type FxRateUpsert } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
+import { CsvImportExport } from "@/components/csv-import-export";
 import { Plus, X, Check, TrendingUp, Info } from "lucide-react";
 
 const CURRENCIES = ["USD", "EUR", "GBP", "AUD", "HKD", "SGD", "JPY", "CNY", "CAD", "NZD"] as const;
@@ -310,6 +311,12 @@ export default function FxRatesPage() {
 
   const actions = (
     <div className="flex items-center gap-2">
+      <CsvImportExport
+        entityType="fx"
+        templateUrl="/v1/fx/csv-template"
+        importUrl="/v1/fx/import"
+        onImportComplete={() => void load()}
+      />
       {/* Fetch live rates — placeholder */}
       <div className="relative">
         <button
