@@ -1722,3 +1722,167 @@ class BankFeedSyncResponse(BaseModel):
     status: str
     transactions_synced: int
     last_sync_at: datetime | None
+
+
+# ── Budgets (Issue #70) ─────────────────────────────────────────────────────
+
+
+class BudgetCreate(BaseModel):
+    fiscal_year: int
+    name: str = Field(..., min_length=1, max_length=100)
+    status: str = Field(default="draft", pattern="^(draft|active|closed)$")
+
+
+class BudgetUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    status: str | None = Field(default=None, pattern="^(draft|active|closed)$")
+
+
+class BudgetResponse(BaseModel):
+    id: str
+    fiscal_year: int
+    name: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class BudgetListResponse(BaseModel):
+    items: list[BudgetResponse]
+    next_cursor: str | None
+
+
+class BudgetLineCreate(BaseModel):
+    account_id: str
+    month_1: str = Field(default="0")
+    month_2: str = Field(default="0")
+    month_3: str = Field(default="0")
+    month_4: str = Field(default="0")
+    month_5: str = Field(default="0")
+    month_6: str = Field(default="0")
+    month_7: str = Field(default="0")
+    month_8: str = Field(default="0")
+    month_9: str = Field(default="0")
+    month_10: str = Field(default="0")
+    month_11: str = Field(default="0")
+    month_12: str = Field(default="0")
+
+    @field_validator(
+        "month_1", "month_2", "month_3", "month_4", "month_5", "month_6",
+        "month_7", "month_8", "month_9", "month_10", "month_11", "month_12",
+    )
+    @classmethod
+    def must_be_valid_decimal(cls, v: str) -> str:
+        Decimal(v)  # raises if invalid
+        return v
+
+
+class BudgetLineResponse(BaseModel):
+    id: str
+    budget_id: str
+    account_id: str
+    month_1: str
+    month_2: str
+    month_3: str
+    month_4: str
+    month_5: str
+    month_6: str
+    month_7: str
+    month_8: str
+    month_9: str
+    month_10: str
+    month_11: str
+    month_12: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+    @field_validator(
+        "month_1", "month_2", "month_3", "month_4", "month_5", "month_6",
+        "month_7", "month_8", "month_9", "month_10", "month_11", "month_12",
+        mode="before",
+    )
+    @classmethod
+    def decimal_to_str(cls, v: Any) -> str:
+        return str(v)
+
+
+class BudgetLineListResponse(BaseModel):
+    items: list[BudgetLineResponse]
+
+
+class BudgetVsActualRow(BaseModel):
+    account_id: str
+    account_name: str
+    budget_amount: str
+    actual_amount: str
+    variance: str
+    variance_pct: str
+
+
+class BudgetVsActualResponse(BaseModel):
+    budget_id: str
+    month: int
+    rows: list[BudgetVsActualRow]
+
+
+# ── Invoice Templates (Issue #66) ───────────────────────────────────────────
+
+
+class InvoiceTemplateCreate(BaseModel):
+    contact_id: str
+    name: str = Field(..., min_length=1, max_length=200)
+    currency: str = Field(default="USD", min_length=3, max_length=3)
+    lines_json: list[dict] = Field(default_factory=list)
+    recurrence_frequency: str | None = Field(
+        default=None, pattern="^(weekly|monthly|quarterly|annually)$"
+    )
+    next_generation_date: date | None = None
+    end_date: date | None = None
+
+
+class InvoiceTemplateUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    contact_id: str | None = None
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    lines_json: list[dict] | None = None
+    recurrence_frequency: str | None = Field(
+        default=None, pattern="^(weekly|monthly|quarterly|annually)$"
+    )
+    next_generation_date: date | None = None
+    end_date: date | None = None
+    is_active: bool | None = None
+
+
+class InvoiceTemplateResponse(BaseModel):
+    id: str
+    contact_id: str
+    name: str
+    currency: str
+    lines_json: list[dict]
+    recurrence_frequency: str | None
+    next_generation_date: date | None
+    end_date: date | None
+    is_active: bool
+    last_generated_invoice_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class InvoiceTemplateListResponse(BaseModel):
+    items: list[InvoiceTemplateResponse]
+    next_cursor: str | None
+
+
+class SaveAsTemplateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    recurrence_frequency: str | None = Field(
+        default=None, pattern="^(weekly|monthly|quarterly|annually)$"
+    )
+    next_generation_date: date | None = None
+    end_date: date | None = None
