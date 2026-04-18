@@ -1,7 +1,7 @@
 """fx: add rate_timestamp/bid/ask; consolidation: entity_groups + members
 
-Revision ID: 0020
-Revises: 0019
+Revision ID: 0034
+Revises: 0033
 Create Date: 2026-04-18
 """
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 
-revision: str = "0020"
-down_revision: str | None = "0019"
+revision: str = "0034"
+down_revision: str | None = "0033"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
