@@ -20,6 +20,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
+
 import defusedxml.ElementTree as ElementTree  # noqa: N812 — safe XML parsing
 
 from app.core.db import AsyncSessionLocal
