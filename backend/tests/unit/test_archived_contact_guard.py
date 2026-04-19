@@ -8,14 +8,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ---------------------------------------------------------------------------
 # Service source inspection tests
@@ -65,7 +60,6 @@ class TestBillArchivedContactGuardSource:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestInvoiceArchivedContactGuard:
     """create_invoice should reject archived contacts."""
 
@@ -159,7 +153,6 @@ class TestInvoiceArchivedContactGuard:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestBillArchivedContactGuard:
     """create_bill should reject archived contacts."""
 
@@ -232,17 +225,22 @@ class TestBillArchivedContactGuard:
         accounts_result = MagicMock()
         accounts_result.scalars.return_value.all.return_value = [acc]
 
-        mock_db.scalar = AsyncMock(return_value=active)
-        mock_db.execute = AsyncMock(return_value=accounts_result)
+        tenant_mock = MagicMock()
+        tenant_mock.tax_rounding_policy = "per_line"
+        mock_db.scalar = AsyncMock(side_effect=[active, tenant_mock])
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        mock_db.execute = AsyncMock(side_effect=[accounts_result, count_result])
 
-        bill = await create_bill(
-            mock_db,
-            "t1",
-            "actor-1",
-            contact_id="c1",
-            issue_date="2026-01-15",
-            currency="USD",
-            lines=self._make_lines(),
-        )
+        with patch("app.services.bills.emit", new_callable=AsyncMock):
+            bill = await create_bill(
+                mock_db,
+                "t1",
+                "actor-1",
+                contact_id="c1",
+                issue_date="2026-01-15",
+                currency="USD",
+                lines=self._make_lines(),
+            )
 
         assert bill is not None

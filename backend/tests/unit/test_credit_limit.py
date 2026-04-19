@@ -14,17 +14,12 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.api.v1.schemas import ContactCreate, ContactResponse, ContactUpdate, InvoiceCreate
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ---------------------------------------------------------------------------
 # Model source inspection tests (always run, no runtime import needed)
@@ -166,7 +161,6 @@ class TestInvoiceServiceCreditLimitSource:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestCreditLimitEnforcement:
     """authorise_invoice should enforce credit limits."""
 
@@ -175,8 +169,10 @@ class TestCreditLimitEnforcement:
         db = AsyncMock()
         db.flush = AsyncMock()
         db.refresh = AsyncMock()
-        db.execute = AsyncMock()
         db.scalar = AsyncMock()
+        seq_result = MagicMock()
+        seq_result.scalar_one.return_value = 1
+        db.execute = AsyncMock(return_value=seq_result)
         return db
 
     def _make_invoice(
@@ -232,9 +228,16 @@ class TestCreditLimitEnforcement:
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.invoices.get_contact", return_value=contact),
             patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
                 "app.services.invoices._get_outstanding_invoice_total",
                 return_value=Decimal("0"),
             ),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-new", "actor-1")
 
@@ -255,9 +258,16 @@ class TestCreditLimitEnforcement:
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.invoices.get_contact", return_value=contact),
             patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
                 "app.services.invoices._get_outstanding_invoice_total",
                 return_value=Decimal("5000.0000"),
             ),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-new", "actor-1")
 
@@ -277,6 +287,11 @@ class TestCreditLimitEnforcement:
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.invoices.get_contact", return_value=contact),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch(
                 "app.services.invoices._get_outstanding_invoice_total",
                 return_value=Decimal("5000.0000"),
@@ -299,6 +314,11 @@ class TestCreditLimitEnforcement:
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.invoices.get_contact", return_value=contact),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch(
                 "app.services.invoices._get_outstanding_invoice_total",
                 return_value=Decimal("5000.0000"),
@@ -323,9 +343,16 @@ class TestCreditLimitEnforcement:
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.invoices.get_contact", return_value=contact),
             patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+            patch(
                 "app.services.invoices._get_outstanding_invoice_total",
                 return_value=Decimal("5000.0000"),
             ),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-new", "actor-1", force=True)
 
@@ -345,6 +372,11 @@ class TestCreditLimitEnforcement:
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.invoices.get_contact", return_value=contact),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch(
                 "app.services.invoices._get_outstanding_invoice_total",
                 return_value=Decimal("0"),

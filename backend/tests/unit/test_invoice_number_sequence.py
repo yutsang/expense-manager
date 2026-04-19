@@ -16,15 +16,10 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ── Model-level tests (source inspection) ────────────────────────────────────
 
@@ -102,7 +97,6 @@ class TestServiceDoesNotUseCounting:
 # ── Service-level async tests (require Python 3.11+) ─────────────────────────
 
 
-@_skip_311
 class TestAuthoriseInvoiceNumberSequence:
     """authorise_invoice assigns numbers via atomic tenant sequence increment."""
 
@@ -161,7 +155,25 @@ class TestAuthoriseInvoiceNumberSequence:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch(
+                "app.services.invoices.get_contact",
+                new_callable=AsyncMock,
+                return_value=MagicMock(
+                    credit_limit=None,
+                    risk_rating="low",
+                    edd_required=False,
+                    edd_approved_by=None,
+                    is_archived=False,
+                ),
+            ),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
 
@@ -182,7 +194,25 @@ class TestAuthoriseInvoiceNumberSequence:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch(
+                "app.services.invoices.get_contact",
+                new_callable=AsyncMock,
+                return_value=MagicMock(
+                    credit_limit=None,
+                    risk_rating="low",
+                    edd_required=False,
+                    edd_approved_by=None,
+                    is_archived=False,
+                ),
+            ),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
 
@@ -203,7 +233,25 @@ class TestAuthoriseInvoiceNumberSequence:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch(
+                "app.services.invoices.get_contact",
+                new_callable=AsyncMock,
+                return_value=MagicMock(
+                    credit_limit=None,
+                    risk_rating="low",
+                    edd_required=False,
+                    edd_approved_by=None,
+                    is_archived=False,
+                ),
+            ),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
 
@@ -224,7 +272,25 @@ class TestAuthoriseInvoiceNumberSequence:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch(
+                "app.services.invoices.get_contact",
+                new_callable=AsyncMock,
+                return_value=MagicMock(
+                    credit_limit=None,
+                    risk_rating="low",
+                    edd_required=False,
+                    edd_approved_by=None,
+                    is_archived=False,
+                ),
+            ),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
 

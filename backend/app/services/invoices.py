@@ -397,8 +397,8 @@ async def _post_invoice_journal(
             number=f"JE-INV-{inv.number}",
             status="posted",
             description=f"Invoice {inv.number}",
-            transaction_date=inv.issue_date,
-            period_name=inv.period_name or inv.issue_date[:7],
+            date=now,
+            period_id=inv.period_name or inv.issue_date[:7],
             currency=inv.currency,
             source_type="invoice",
             source_id=inv.id,
@@ -703,9 +703,9 @@ async def create_credit_note(
         )
         line_no += 1
 
-    # Debit revenue accounts (reverse the original credits)
+    # Debit revenue accounts (reverse the original credits, including tax)
     for il in lines:
-        la = Decimal(str(il.line_amount))
+        la = Decimal(str(il.line_amount)) + Decimal(str(il.tax_amount))
         func_la = (la * fx).quantize(_QUANTIZE_4, ROUND_HALF_EVEN)
         je_lines.append(
             JournalLine(
@@ -729,8 +729,8 @@ async def create_credit_note(
         number=f"JE-CN-{inv.number}",
         status="posted",
         description=f"Reversing journal for credit note {cn_number}",
-        transaction_date=now.strftime("%Y-%m-%d"),
-        period_name=inv.period_name or now.strftime("%Y-%m"),
+        date=now,
+        period_id=inv.period_name or now.strftime("%Y-%m"),
         currency=inv.currency,
         source_type="credit_note",
         source_id=cn.id,

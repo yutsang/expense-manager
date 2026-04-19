@@ -12,7 +12,6 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -23,8 +22,6 @@ from app.api.v1.schemas import TenantSettingsUpdate
 # The service module uses datetime.UTC which requires Python 3.11+.
 # Service-level tests are skipped on older runtimes; the schema and
 # model-source tests still run everywhere.
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
 
 
 class TestTenantSettingsSchema:
@@ -160,7 +157,19 @@ class TestApiEndpointSource:
 # ── Service-level async tests (require Python 3.11+) ────────────────────────
 
 
-@_skip_311
+def _default_contact() -> MagicMock:
+    """Contact mock with safe defaults for authorise_invoice tests."""
+    c = MagicMock()
+    c.id = "contact-1"
+    c.tenant_id = "t1"
+    c.credit_limit = None
+    c.risk_rating = "low"
+    c.edd_required = False
+    c.edd_approved_by = None
+    c.is_archived = False
+    return c
+
+
 class TestAuthoriseInvoiceWithThreshold:
     """authorise_invoice should respect the tenant's approval threshold."""
 
@@ -169,8 +178,11 @@ class TestAuthoriseInvoiceWithThreshold:
         db = AsyncMock()
         db.flush = AsyncMock()
         db.refresh = AsyncMock()
-        db.execute = AsyncMock()
         db.scalar = AsyncMock()
+        # db.execute returns a result with scalar_one() for invoice number sequence
+        seq_result = MagicMock()
+        seq_result.scalar_one.return_value = 1
+        db.execute = AsyncMock(return_value=seq_result)
         return db
 
     def _make_invoice(
@@ -194,6 +206,7 @@ class TestAuthoriseInvoiceWithThreshold:
         inv.version = 1
         inv.updated_by = None
         inv.journal_entry_id = None
+        inv.authorised_by = None
         return inv
 
     def _make_tenant(self, *, threshold: str | None = None) -> MagicMock:
@@ -213,7 +226,15 @@ class TestAuthoriseInvoiceWithThreshold:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=_default_contact()),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
 
@@ -230,6 +251,12 @@ class TestAuthoriseInvoiceWithThreshold:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=_default_contact()),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
@@ -247,6 +274,12 @@ class TestAuthoriseInvoiceWithThreshold:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=_default_contact()),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
@@ -264,7 +297,15 @@ class TestAuthoriseInvoiceWithThreshold:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=_default_contact()),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
 
@@ -281,6 +322,12 @@ class TestAuthoriseInvoiceWithThreshold:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=_default_contact()),
+            patch(
+                "app.services.approval_rules.evaluate_rules",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch("app.services.invoices.get_tenant", return_value=tenant),
         ):
             result = await authorise_invoice(mock_db, "t1", "inv-1", "actor-1")
@@ -288,7 +335,6 @@ class TestAuthoriseInvoiceWithThreshold:
         assert result.authorised_by == "actor-1"
 
 
-@_skip_311
 class TestApproveInvoice:
     """approve_invoice transitions from awaiting_approval to authorised."""
 
@@ -333,6 +379,8 @@ class TestApproveInvoice:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices._post_invoice_journal", new_callable=AsyncMock),
+            patch("app.services.invoices.emit", new_callable=AsyncMock),
         ):
             result = await approve_invoice(mock_db, "t1", "inv-1", "actor-2")
 

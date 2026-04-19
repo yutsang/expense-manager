@@ -15,13 +15,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
 
 
 class TestServiceSourceHasDuplicateReceiptGuard:
@@ -66,7 +62,6 @@ class TestApiEndpointHandlesDuplicateReceipt:
         assert "HTTP_422_UNPROCESSABLE_ENTITY" in source
 
 
-@_skip_311
 class TestDuplicateReceiptIntraClaim:
     """Service-level tests: duplicate receipt_url within a single claim."""
 
@@ -166,7 +161,6 @@ class TestDuplicateReceiptIntraClaim:
         assert result is not None
 
 
-@_skip_311
 class TestDuplicateReceiptCrossClaim:
     """Service-level tests: duplicate receipt_url across claims in same tenant."""
 
@@ -219,6 +213,8 @@ class TestDuplicateReceiptCrossClaim:
     @pytest.mark.anyio
     async def test_receipt_url_on_rejected_claim_allowed(self, mock_db: AsyncMock) -> None:
         """A receipt_url on a rejected claim should NOT block reuse."""
+        from unittest.mock import patch
+
         from app.services.expense_claims import create_expense_claim
 
         # Cross-claim check returns no match (rejected claims are excluded)
@@ -227,7 +223,14 @@ class TestDuplicateReceiptCrossClaim:
 
         count_result = MagicMock()
         count_result.scalar.return_value = 2
-        mock_db.execute = AsyncMock(side_effect=[cross_result, count_result])
+        default_result = MagicMock()
+        default_result.first.return_value = None
+        mock_db.execute = AsyncMock(
+            side_effect=[cross_result, count_result, default_result, default_result]
+        )
+
+        period_mock = MagicMock()
+        period_mock.status = "open"
 
         data = {
             "contact_id": "contact-1",
@@ -243,7 +246,14 @@ class TestDuplicateReceiptCrossClaim:
             ],
         }
 
-        result = await create_expense_claim(mock_db, "t1", "user-1", data)
+        with (
+            patch(
+                "app.services.expense_claims.get_period_for_date",
+                new_callable=AsyncMock,
+                return_value=period_mock,
+            ),
+        ):
+            result = await create_expense_claim(mock_db, "t1", "user-1", data)
         assert result is not None
 
     @pytest.mark.anyio
@@ -283,6 +293,8 @@ class TestDuplicateReceiptCrossClaim:
     @pytest.mark.anyio
     async def test_distinct_receipt_urls_allowed(self, mock_db: AsyncMock) -> None:
         """Different receipt_urls across lines should succeed."""
+        from unittest.mock import patch
+
         from app.services.expense_claims import create_expense_claim
 
         cross_result = MagicMock()
@@ -290,7 +302,14 @@ class TestDuplicateReceiptCrossClaim:
 
         count_result = MagicMock()
         count_result.scalar.return_value = 0
-        mock_db.execute = AsyncMock(side_effect=[cross_result, count_result])
+        default_result = MagicMock()
+        default_result.first.return_value = None
+        mock_db.execute = AsyncMock(
+            side_effect=[cross_result, count_result, default_result, default_result]
+        )
+
+        period_mock = MagicMock()
+        period_mock.status = "open"
 
         data = {
             "contact_id": "contact-1",
@@ -311,5 +330,12 @@ class TestDuplicateReceiptCrossClaim:
             ],
         }
 
-        result = await create_expense_claim(mock_db, "t1", "user-1", data)
+        with (
+            patch(
+                "app.services.expense_claims.get_period_for_date",
+                new_callable=AsyncMock,
+                return_value=period_mock,
+            ),
+        ):
+            result = await create_expense_claim(mock_db, "t1", "user-1", data)
         assert result is not None

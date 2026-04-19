@@ -11,7 +11,6 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -22,9 +21,6 @@ import pytest
 from app.api.v1.schemas import AgingResponse
 
 _UTC = timezone.utc  # noqa: UP017 - need 3.10 compat for test runner
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ---------------------------------------------------------------------------
 # Schema tests
@@ -113,7 +109,6 @@ def _make_row(
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestBuildAgingResponsePagination:
     """The core helper must paginate rows while keeping full bucket totals."""
 
@@ -313,7 +308,6 @@ class TestBuildAgingResponsePagination:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestAgingEndpointParams:
     """ar-aging and ap-aging endpoints must accept limit and cursor query params."""
 
@@ -345,6 +339,7 @@ class TestAgingEndpointParams:
                 as_of=date(2026, 4, 16),
                 limit=25,
                 cursor="inv-abc",
+                bucket=None,
             )
             mock_build.assert_called_once_with(
                 mock_db,
@@ -353,6 +348,7 @@ class TestAgingEndpointParams:
                 ("authorised", "sent", "partial"),
                 limit=25,
                 cursor="inv-abc",
+                bucket=None,
             )
 
     @pytest.mark.anyio
@@ -383,6 +379,7 @@ class TestAgingEndpointParams:
                 as_of=date(2026, 4, 16),
                 limit=100,
                 cursor="bill-xyz",
+                bucket=None,
             )
             mock_build.assert_called_once_with(
                 mock_db,
@@ -391,6 +388,7 @@ class TestAgingEndpointParams:
                 ("approved", "partial"),
                 limit=100,
                 cursor="bill-xyz",
+                bucket=None,
             )
 
     @pytest.mark.anyio
@@ -421,6 +419,9 @@ class TestAgingEndpointParams:
                 db=mock_db,
                 tenant_id="t-1",
                 as_of=date(2026, 4, 16),
+                limit=50,
+                cursor=None,
+                bucket=None,
             )
             mock_build.assert_called_once_with(
                 mock_db,
@@ -429,4 +430,5 @@ class TestAgingEndpointParams:
                 ("authorised", "sent", "partial"),
                 limit=50,
                 cursor=None,
+                bucket=None,
             )

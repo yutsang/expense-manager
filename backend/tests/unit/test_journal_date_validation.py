@@ -12,7 +12,6 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,11 +19,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 _UTC = timezone.utc  # noqa: UP017 - need 3.10 compat
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(
-    _NEEDS_311, reason="transitive imports use datetime.UTC (Python >=3.11)"
-)
 
 
 def _make_lines() -> list:
@@ -73,8 +67,16 @@ def _mock_db() -> AsyncMock:
     db.add = MagicMock()
     db.scalar = AsyncMock(return_value=None)
 
+    acc1 = MagicMock()
+    acc1.id = "acc-1"
+    acc1.tenant_id = "t1"
+    acc1.is_control_account = False
+    acc2 = MagicMock()
+    acc2.id = "acc-2"
+    acc2.tenant_id = "t1"
+    acc2.is_control_account = False
     accounts_result = MagicMock()
-    accounts_result.scalars.return_value.all.return_value = []
+    accounts_result.scalars.return_value.all.return_value = [acc1, acc2]
     db.execute = AsyncMock(return_value=accounts_result)
 
     return db
@@ -130,7 +132,6 @@ class TestDateValidationSourceInspection:
 # ── Async service tests (require Python 3.11+ due to transitive imports) ─────
 
 
-@_skip_311
 class TestRejectHardClosedPeriod:
     """JE with a date in a hard_closed period must be rejected."""
 
@@ -189,7 +190,6 @@ class TestRejectHardClosedPeriod:
             )
 
 
-@_skip_311
 class TestRejectFarFutureDate:
     """JE dated more than 7 days in the future must be rejected unless force=True."""
 
@@ -310,7 +310,6 @@ class TestRejectFarFutureDate:
             assert len(override_calls) == 1
 
 
-@_skip_311
 class TestSoftClosedPeriodWarning:
     """JE in a soft_closed period is accepted but create_draft logs a warning."""
 
@@ -341,7 +340,6 @@ class TestSoftClosedPeriodWarning:
             assert je is not None
 
 
-@_skip_311
 class TestSystemGeneratedBypass:
     """System-generated JEs (e.g., from invoice/bill auth) skip date checks."""
 
@@ -399,7 +397,6 @@ class TestSystemGeneratedBypass:
             assert je is not None
 
 
-@_skip_311
 class TestOpenPeriodAccepted:
     """JE in an open period with a current date should work as before."""
 

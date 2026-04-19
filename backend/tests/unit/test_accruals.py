@@ -13,15 +13,10 @@ Tests cover:
 from __future__ import annotations
 
 import pathlib
-import sys
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ── Schema tests ────────────────────────────────────────────────────────────
 
@@ -237,7 +232,6 @@ class TestAccrualsApiSource:
 # ── Service-level async tests ────────────────────────────────────────────────
 
 
-@_skip_311
 class TestCreateAccrualService:
     """create_accrual creates the accrual record and posts a JE."""
 
@@ -264,12 +258,9 @@ class TestCreateAccrualService:
     async def test_creates_accrual_record(self, mock_db: AsyncMock) -> None:
         from app.services.accruals import create_accrual
 
-        period = self._make_period()
+        self._make_period()
 
-        with (
-            patch("app.services.accruals.get_period", return_value=period),
-            patch("app.services.accruals.assert_can_post", return_value=period),
-        ):
+        with (patch("app.services.accruals.assert_can_post", new_callable=AsyncMock),):
             await create_accrual(
                 mock_db,
                 tenant_id="t1",
@@ -312,7 +303,6 @@ class TestCreateAccrualService:
             )
 
 
-@_skip_311
 class TestReverseAccruals:
     """reverse_accruals creates reversing JEs for all accruals from prior period."""
 

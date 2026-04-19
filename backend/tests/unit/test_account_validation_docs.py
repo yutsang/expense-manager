@@ -9,14 +9,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ---------------------------------------------------------------------------
 # Service source inspection tests
@@ -64,7 +59,6 @@ class TestBillAccountValidationSource:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestInvoiceAccountValidation:
     """create_invoice should validate all line account_ids exist for the tenant."""
 
@@ -74,8 +68,13 @@ class TestInvoiceAccountValidation:
         db.flush = AsyncMock()
         db.refresh = AsyncMock()
         db.execute = AsyncMock()
-        db.scalar = AsyncMock()
         db.add = MagicMock()
+        # db.scalar is called for: contact archived check, then tenant lookup
+        contact_mock = MagicMock()
+        contact_mock.is_archived = False
+        tenant_mock = MagicMock()
+        tenant_mock.tax_rounding_policy = "per_line"
+        db.scalar = AsyncMock(side_effect=[contact_mock, tenant_mock])
         return db
 
     def _make_lines(self, account_ids: list[str] | None = None) -> list[dict]:
@@ -168,7 +167,6 @@ class TestInvoiceAccountValidation:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestBillAccountValidation:
     """create_bill should validate all line account_ids exist for the tenant."""
 
@@ -178,8 +176,13 @@ class TestBillAccountValidation:
         db.flush = AsyncMock()
         db.refresh = AsyncMock()
         db.execute = AsyncMock()
-        db.scalar = AsyncMock()
         db.add = MagicMock()
+        # db.scalar is called for: contact archived check, then tenant lookup
+        contact_mock = MagicMock()
+        contact_mock.is_archived = False
+        tenant_mock = MagicMock()
+        tenant_mock.tax_rounding_policy = "per_line"
+        db.scalar = AsyncMock(side_effect=[contact_mock, tenant_mock])
         return db
 
     def _make_lines(self, account_ids: list[str] | None = None) -> list[dict]:
@@ -246,22 +249,33 @@ class TestBillAccountValidation:
     @pytest.mark.anyio
     async def test_valid_accounts_creates_bill(self, mock_db: AsyncMock) -> None:
         """Valid accounts should allow bill creation."""
+        from unittest.mock import patch
+
         from app.services.bills import create_bill
 
         acc1 = self._make_account("acc-1")
         accounts_result = MagicMock()
         accounts_result.scalars.return_value.all.return_value = [acc1]
-        mock_db.execute = AsyncMock(return_value=accounts_result)
-
-        bill = await create_bill(
-            mock_db,
-            "t1",
-            "actor-1",
-            contact_id="c1",
-            issue_date="2026-01-15",
-            currency="USD",
-            lines=self._make_lines(["acc-1"]),
+        # db.execute is called for: account validation, count for bill numbering, + audit
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        # Use a default fallback for any additional calls (e.g. from emit)
+        default_result = MagicMock()
+        default_result.first.return_value = None
+        mock_db.execute = AsyncMock(
+            side_effect=[accounts_result, count_result, default_result, default_result]
         )
+
+        with patch("app.services.bills.emit", new_callable=AsyncMock):
+            bill = await create_bill(
+                mock_db,
+                "t1",
+                "actor-1",
+                contact_id="c1",
+                issue_date="2026-01-15",
+                currency="USD",
+                lines=self._make_lines(["acc-1"]),
+            )
 
         assert bill is not None
         assert mock_db.add.call_count >= 1

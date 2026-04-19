@@ -50,6 +50,16 @@ def engine() -> sa.engine.Engine:
         SQLiteTypeCompiler.visit_UUID = lambda self, type_, **kw: "VARCHAR(36)"  # type: ignore[attr-defined]
     if not hasattr(SQLiteTypeCompiler, "visit_TIMESTAMP"):
         SQLiteTypeCompiler.visit_TIMESTAMP = lambda self, type_, **kw: "TIMESTAMP"  # type: ignore[attr-defined]
+    if not hasattr(SQLiteTypeCompiler, "visit_INET"):
+        SQLiteTypeCompiler.visit_INET = lambda self, type_, **kw: "VARCHAR(45)"  # type: ignore[attr-defined]
+
+    # Strip Postgres-specific server defaults before creating tables
+    for table in Base.metadata.sorted_tables:
+        for col in table.columns:
+            if col.server_default is not None:
+                sd_text = str(col.server_default.arg) if hasattr(col.server_default, "arg") else ""
+                if "now()" in sd_text:
+                    col.server_default = None
 
     Base.metadata.create_all(eng)
     return eng

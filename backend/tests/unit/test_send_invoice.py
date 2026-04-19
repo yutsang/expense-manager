@@ -12,14 +12,11 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
+from datetime import UTC
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
 
 
 class TestSendInvoiceRequestSchema:
@@ -121,7 +118,6 @@ class TestSendInvoiceServiceSource:
 # ── Service-level async tests (require Python 3.11+) ────────────────────────
 
 
-@_skip_311
 class TestSendInvoiceService:
     """send_invoice service function tests."""
 
@@ -174,7 +170,7 @@ class TestSendInvoiceService:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_contact", return_value=contact),
-            patch("app.services.invoices.send_email", return_value=True) as mock_email,
+            patch("app.services.email_service.send_email", return_value=True) as mock_email,
         ):
             result = await send_invoice(
                 mock_db, "t1", "inv-1", to="customer@example.com", subject="Invoice INV-00001"
@@ -220,7 +216,7 @@ class TestSendInvoiceService:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_contact", return_value=contact),
-            patch("app.services.invoices.send_email", return_value=True),
+            patch("app.services.email_service.send_email", return_value=True),
         ):
             result = await send_invoice(mock_db, "t1", "inv-1", to="customer@example.com")
 
@@ -229,7 +225,7 @@ class TestSendInvoiceService:
     @pytest.mark.anyio
     async def test_send_invoice_allows_resend(self, mock_db: AsyncMock) -> None:
         """An already-sent invoice can be re-sent."""
-        from datetime import UTC, datetime
+        from datetime import datetime
 
         from app.services.invoices import send_invoice
 
@@ -239,7 +235,7 @@ class TestSendInvoiceService:
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_contact", return_value=contact),
-            patch("app.services.invoices.send_email", return_value=True),
+            patch("app.services.email_service.send_email", return_value=True),
         ):
             result = await send_invoice(mock_db, "t1", "inv-1", to="customer@example.com")
 

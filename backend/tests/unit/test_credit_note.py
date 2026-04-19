@@ -15,15 +15,10 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ---------------------------------------------------------------------------
 # Model source inspection tests (always run, no runtime import needed)
@@ -115,7 +110,6 @@ class TestApiEndpointCreditNote:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestCreateCreditNote:
     """create_credit_note creates a linked CN and reversing JE."""
 
@@ -384,7 +378,6 @@ class TestCreateCreditNote:
         assert total_debit == total_credit
 
 
-@_skip_311
 class TestVoidInvoiceWithCreditNote:
     """void_invoice should create a credit note for authorised invoices."""
 
@@ -393,9 +386,12 @@ class TestVoidInvoiceWithCreditNote:
         db = AsyncMock()
         db.flush = AsyncMock()
         db.refresh = AsyncMock()
-        db.execute = AsyncMock()
         db.scalar = AsyncMock()
         db.add = MagicMock()
+        # void_invoice calls db.execute for PaymentAllocation check
+        alloc_result = MagicMock()
+        alloc_result.scalars.return_value.all.return_value = []
+        db.execute = AsyncMock(return_value=alloc_result)
         return db
 
     def _make_invoice(

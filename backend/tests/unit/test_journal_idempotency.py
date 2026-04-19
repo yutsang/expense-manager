@@ -12,7 +12,6 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,9 +19,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 _UTC = timezone.utc  # noqa: UP017 - need 3.10 compat for test runner
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
 
 
 # ── Model-level tests (source inspection, no runtime import needed) ──────────
@@ -165,7 +161,6 @@ class TestApiEndpointSource:
 # ── Async service tests (require Python 3.11+) ──────────────────────────────
 
 
-@_skip_311
 class TestCreateDraftIdempotency:
     """create_draft idempotency behaviour."""
 
@@ -226,8 +221,16 @@ class TestCreateDraftIdempotency:
 
         # Mock: no existing journal with this key (scalar returns None)
         # Mock: account query returns empty (no control accounts)
+        acc1 = MagicMock()
+        acc1.id = "acc-1"
+        acc1.tenant_id = "t1"
+        acc1.is_control_account = False
+        acc2 = MagicMock()
+        acc2.id = "acc-2"
+        acc2.tenant_id = "t1"
+        acc2.is_control_account = False
         accounts_result = MagicMock()
-        accounts_result.scalars.return_value.all.return_value = []
+        accounts_result.scalars.return_value.all.return_value = [acc1, acc2]
         mock_db.execute = AsyncMock(return_value=accounts_result)
         mock_db.scalar = AsyncMock(return_value=None)
 
@@ -282,8 +285,16 @@ class TestCreateDraftIdempotency:
         from app.services.journals import create_draft
 
         # scalar returns None (expired key not found because query filters by created_at)
+        acc1 = MagicMock()
+        acc1.id = "acc-1"
+        acc1.tenant_id = "t1"
+        acc1.is_control_account = False
+        acc2 = MagicMock()
+        acc2.id = "acc-2"
+        acc2.tenant_id = "t1"
+        acc2.is_control_account = False
         accounts_result = MagicMock()
-        accounts_result.scalars.return_value.all.return_value = []
+        accounts_result.scalars.return_value.all.return_value = [acc1, acc2]
         mock_db.execute = AsyncMock(return_value=accounts_result)
         mock_db.scalar = AsyncMock(return_value=None)
 
@@ -308,8 +319,16 @@ class TestCreateDraftIdempotency:
 
         from app.services.journals import create_draft
 
+        acc1 = MagicMock()
+        acc1.id = "acc-1"
+        acc1.tenant_id = "t1"
+        acc1.is_control_account = False
+        acc2 = MagicMock()
+        acc2.id = "acc-2"
+        acc2.tenant_id = "t1"
+        acc2.is_control_account = False
         accounts_result = MagicMock()
-        accounts_result.scalars.return_value.all.return_value = []
+        accounts_result.scalars.return_value.all.return_value = [acc1, acc2]
         mock_db.execute = AsyncMock(return_value=accounts_result)
 
         with (
@@ -341,8 +360,16 @@ class TestCreateDraftIdempotency:
         from app.services.journals import create_draft
 
         # No existing journal with this key
+        acc1 = MagicMock()
+        acc1.id = "acc-1"
+        acc1.tenant_id = "t1"
+        acc1.is_control_account = False
+        acc2 = MagicMock()
+        acc2.id = "acc-2"
+        acc2.tenant_id = "t1"
+        acc2.is_control_account = False
         accounts_result = MagicMock()
-        accounts_result.scalars.return_value.all.return_value = []
+        accounts_result.scalars.return_value.all.return_value = [acc1, acc2]
         mock_db.execute = AsyncMock(return_value=accounts_result)
         mock_db.scalar = AsyncMock(return_value=None)
 
@@ -370,8 +397,16 @@ class TestCreateDraftIdempotency:
         from app.services.journals import create_draft
 
         # No existing journal for this tenant+key
+        acc1 = MagicMock()
+        acc1.id = "acc-1"
+        acc1.tenant_id = "t2"
+        acc1.is_control_account = False
+        acc2 = MagicMock()
+        acc2.id = "acc-2"
+        acc2.tenant_id = "t2"
+        acc2.is_control_account = False
         accounts_result = MagicMock()
-        accounts_result.scalars.return_value.all.return_value = []
+        accounts_result.scalars.return_value.all.return_value = [acc1, acc2]
         mock_db.execute = AsyncMock(return_value=accounts_result)
         mock_db.scalar = AsyncMock(return_value=None)
 

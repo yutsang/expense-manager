@@ -86,11 +86,12 @@ class TestAccountCreateControlField:
 # ── Service guard tests ──────────────────────────────────────────────────────
 
 
-def _make_account(account_id: str, is_control: bool) -> MagicMock:
+def _make_account(account_id: str, is_control: bool, tenant_id: str = "t-1") -> MagicMock:
     """Create a mock Account ORM object."""
     acct = MagicMock()
     acct.id = account_id
     acct.is_control_account = is_control
+    acct.tenant_id = tenant_id
     return acct
 
 
@@ -117,7 +118,7 @@ def _make_lines(account_ids: list[str]) -> list[JournalLineInput]:
     ]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 class TestControlAccountGuard:
     """Tests for the control-account guard in create_draft()."""
 

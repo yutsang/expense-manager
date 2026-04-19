@@ -10,14 +10,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import sys
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-_NEEDS_311 = sys.version_info < (3, 11)
-_skip_311 = pytest.mark.skipif(_NEEDS_311, reason="datetime.UTC requires Python >=3.11")
-
 
 # ---------------------------------------------------------------------------
 # Service source inspection tests
@@ -47,7 +42,6 @@ class TestDuplicateContactSource:
 # ---------------------------------------------------------------------------
 
 
-@_skip_311
 class TestDuplicateContactDetection:
     """create_contact should detect duplicate name + tax_number pairs."""
 
@@ -82,9 +76,9 @@ class TestDuplicateContactDetection:
 
         existing = self._make_existing_contact()
 
-        # First scalar call: code conflict check (returns None)
-        # Second scalar call: duplicate name+tax check (returns existing contact)
-        mock_db.scalar = AsyncMock(side_effect=[None, existing])
+        # No code passed, so code check is skipped. First scalar call is the
+        # duplicate name+tax check which should return the existing contact.
+        mock_db.scalar = AsyncMock(return_value=existing)
 
         with pytest.raises(DuplicateContactError) as exc_info:
             await create_contact(
@@ -105,7 +99,7 @@ class TestDuplicateContactDetection:
 
         existing = self._make_existing_contact(name="ACME CORP")
 
-        mock_db.scalar = AsyncMock(side_effect=[None, existing])
+        mock_db.scalar = AsyncMock(return_value=existing)
 
         with pytest.raises(DuplicateContactError):
             await create_contact(
@@ -164,7 +158,7 @@ class TestDuplicateContactDetection:
 
         existing = self._make_existing_contact(contact_id="dup-contact-42")
 
-        mock_db.scalar = AsyncMock(side_effect=[None, existing])
+        mock_db.scalar = AsyncMock(return_value=existing)
 
         with pytest.raises(DuplicateContactError, match="dup-contact-42"):
             await create_contact(
