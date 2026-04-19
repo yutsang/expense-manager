@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-import defusedxml.ElementTree as ElementTree  # noqa: N812 — safe XML parsing
+import defusedxml.ElementTree as ElementTree  # type: ignore[import-untyped]  # noqa: N812
 
 from app.core.db import AsyncSessionLocal
 from app.core.logging import get_logger
