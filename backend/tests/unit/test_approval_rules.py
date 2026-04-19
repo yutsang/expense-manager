@@ -668,11 +668,25 @@ class TestInvoiceRuleIntegration:
         inv.journal_entry_id = None
         return inv
 
+    def _make_contact(self) -> MagicMock:
+        contact = MagicMock()
+        contact.is_archived = False
+        contact.risk_rating = "low"
+        contact.edd_required = False
+        contact.edd_approved_by = None
+        contact.credit_limit = None
+        return contact
+
     def _make_tenant(self, *, threshold: str | None = None) -> MagicMock:
         tenant = MagicMock()
         tenant.id = "t1"
         tenant.invoice_approval_threshold = Decimal(threshold) if threshold else None
         return tenant
+
+    def _make_seq_result(self) -> MagicMock:
+        seq_result = MagicMock()
+        seq_result.scalar_one.return_value = 1
+        return seq_result
 
     @pytest.mark.anyio
     async def test_rule_triggers_awaiting_approval(self, mock_db: AsyncMock) -> None:
@@ -681,11 +695,15 @@ class TestInvoiceRuleIntegration:
 
         inv = self._make_invoice(total="15000.0000")
         tenant = self._make_tenant(threshold=None)  # No legacy threshold
+        contact = self._make_contact()
         rule = _make_rule(condition_operator="gte", condition_value="10000")
+
+        mock_db.execute = AsyncMock(return_value=self._make_seq_result())
 
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=contact),
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.approval_rules.list_rules", return_value=[rule]),
         ):
@@ -700,10 +718,14 @@ class TestInvoiceRuleIntegration:
 
         inv = self._make_invoice(total="15000.0000")
         tenant = self._make_tenant(threshold=None)
+        contact = self._make_contact()
+
+        mock_db.execute = AsyncMock(return_value=self._make_seq_result())
 
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=contact),
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.approval_rules.list_rules", return_value=[]),
         ):
@@ -718,10 +740,14 @@ class TestInvoiceRuleIntegration:
 
         inv = self._make_invoice(total="15000.0000")
         tenant = self._make_tenant(threshold="10000.0000")
+        contact = self._make_contact()
+
+        mock_db.execute = AsyncMock(return_value=self._make_seq_result())
 
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.get_contact", return_value=contact),
             patch("app.services.invoices.get_tenant", return_value=tenant),
             patch("app.services.approval_rules.list_rules", return_value=[]),
         ):

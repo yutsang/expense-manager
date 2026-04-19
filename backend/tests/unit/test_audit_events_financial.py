@@ -141,6 +141,11 @@ class TestInvoiceAuditEmission:
         inv.journal_entry_id = None
         inv.version = 1
 
+        # void_invoice now queries PaymentAllocation via db.execute().scalars().all()
+        alloc_result = MagicMock()
+        alloc_result.scalars.return_value = MagicMock(all=MagicMock(return_value=[]))
+        mock_db.execute = AsyncMock(return_value=alloc_result)
+
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.emit", new_callable=AsyncMock) as mock_emit,
@@ -191,6 +196,7 @@ class TestBillAuditEmission:
         with (
             patch("app.services.bills.get_bill", return_value=bill),
             patch("app.services.bills.get_bill_lines", return_value=[]),
+            patch("app.services.bills.needs_approval", return_value=False),
             patch("app.services.bills.emit", new_callable=AsyncMock) as mock_emit,
         ):
             mock_db.scalar = AsyncMock(return_value=mock_ap)

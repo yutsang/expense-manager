@@ -30,10 +30,10 @@ class TestMigration0035Exists:
         assert "def upgrade()" in source
         assert "def downgrade()" in source
 
-    def test_migration_revises_0032(self) -> None:
+    def test_migration_revises_0034(self) -> None:
         source = self._get_migration_source()
         assert "down_revision" in source
-        assert '"0032"' in source
+        assert '"0034"' in source
 
 
 class TestMigration0035EnablesRLS:

@@ -200,10 +200,13 @@ class TestTenantSettingsService:
 
     @pytest.mark.anyio
     async def test_update_settings_merges(self, mock_db: AsyncMock) -> None:
+        from unittest.mock import patch
+
         from app.services.tenant_settings import update_settings
 
         tenant = self._make_tenant()
         mock_db.scalar = AsyncMock(return_value=tenant)
 
-        await update_settings(mock_db, "t1", "actor-1", {"org_name": "New Name"})
+        with patch("app.services.tenant_settings.emit", new_callable=AsyncMock):
+            await update_settings(mock_db, "t1", "actor-1", {"org_name": "New Name"})
         assert tenant.name == "New Name"

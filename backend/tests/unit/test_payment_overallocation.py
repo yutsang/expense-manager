@@ -68,15 +68,12 @@ class TestPaymentOverAllocation:
         existing_sum_result = MagicMock()
         existing_sum_result.scalar.return_value = Decimal("0")
 
-        # After adding new allocation, total check
-        post_add_result = MagicMock()
-        post_add_result.scalar.return_value = Decimal("1000.0000")
-
-        mock_db.execute = AsyncMock(side_effect=[existing_sum_result, post_add_result])
+        mock_db.execute = AsyncMock(return_value=existing_sum_result)
 
         with (
             patch("app.services.payments.get_payment", return_value=payment),
             patch.object(mock_db, "scalar", return_value=invoice),
+            patch("app.services.payments.emit", new_callable=AsyncMock),
         ):
             result = await allocate_payment(
                 mock_db,
@@ -158,15 +155,12 @@ class TestPaymentOverAllocation:
         existing_sum_result = MagicMock()
         existing_sum_result.scalar.return_value = Decimal("600.0000")
 
-        # After adding, the total check
-        post_add_result = MagicMock()
-        post_add_result.scalar.return_value = Decimal("1000.0000")
-
-        mock_db.execute = AsyncMock(side_effect=[existing_sum_result, post_add_result])
+        mock_db.execute = AsyncMock(return_value=existing_sum_result)
 
         with (
             patch("app.services.payments.get_payment", return_value=payment),
             patch.object(mock_db, "scalar", return_value=invoice),
+            patch("app.services.payments.emit", new_callable=AsyncMock),
         ):
             # 600 existing + 400 new = 1000 == payment amount — OK
             result = await allocate_payment(
