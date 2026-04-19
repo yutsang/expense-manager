@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: "standalone",
   transpilePackages: ["@aegis/ui", "@aegis/api-client", "@aegis/money", "@aegis/types"],
   async rewrites() {
     return [
