@@ -232,14 +232,12 @@ async def void(invoice_id: str, db: DbSession, tenant_id: TenantId, actor_id: Ac
 
 @router.get("/{invoice_id}/pdf")
 async def download_pdf(invoice_id: str, db: DbSession, tenant_id: TenantId) -> Response:
-    """Generate and return a PDF for the invoice."""
-    try:
-        from fpdf import FPDF  # type: ignore[import-untyped]
-    except ImportError:
-        raise HTTPException(
-            status.HTTP_501_NOT_IMPLEMENTED,
-            detail="PDF generation requires fpdf2. Install with: pip install fpdf2",
-        )
+    """Generate and return a branded PDF for the invoice."""
+    from sqlalchemy import select
+
+    from app.infra.models import Tenant
+    from app.infra.pdf import render_invoice_pdf
+    from app.services.invoices import get_contact as _get_contact
 
     try:
         inv = await get_invoice(db, tenant_id, invoice_id)
@@ -248,130 +246,25 @@ async def download_pdf(invoice_id: str, db: DbSession, tenant_id: TenantId) -> R
 
     lines = await get_invoice_lines(db, inv.id)
 
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    tenant_name = getattr(tenant, "name", None) or "Your Company"
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 28)
-    pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 12, "INVOICE", ln=True, align="C")
-    pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 6, "Your Company", ln=True, align="C")
-    pdf.ln(4)
+    contact_display: str | None = None
+    try:
+        contact = await _get_contact(db, tenant_id, inv.contact_id)
+        contact_display = getattr(contact, "name", None)
+    except ValueError:
+        contact_display = None
 
-    # ── Invoice meta block ────────────────────────────────────────────────────
-    pdf.set_draw_color(200, 200, 200)
-    pdf.set_fill_color(245, 245, 250)
-    pdf.rect(10, pdf.get_y(), 190, 28, style="F")
-    y_meta = pdf.get_y() + 5
-
-    # Left: Bill To
-    pdf.set_xy(15, y_meta)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(90, 5, "BILL TO", ln=False)
-
-    # Right: Invoice details
-    pdf.set_xy(110, y_meta)
-    pdf.cell(45, 5, "Invoice #:", ln=False)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 5, inv.number, ln=True)
-
-    pdf.set_xy(15, y_meta + 6)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_text_color(30, 30, 30)
-    pdf.cell(90, 5, inv.contact_id[:36], ln=False)  # show contact_id; caller can extend
-
-    pdf.set_xy(110, y_meta + 6)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(45, 5, "Issue Date:", ln=False)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 5, str(inv.issue_date), ln=True)
-
-    if inv.due_date:
-        pdf.set_xy(110, y_meta + 12)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(100, 100, 100)
-        pdf.cell(45, 5, "Due Date:", ln=False)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.set_text_color(30, 30, 30)
-        pdf.cell(0, 5, str(inv.due_date), ln=True)
-
-    pdf.set_xy(110, y_meta + (18 if inv.due_date else 12))
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(45, 5, "Status:", ln=False)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 5, inv.status.upper(), ln=True)
-
-    pdf.set_y(y_meta + 33)
-    pdf.ln(2)
-
-    # ── Line items table header ───────────────────────────────────────────────
-    pdf.set_fill_color(40, 40, 120)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 9)
-    col_w = [90, 25, 35, 35]
-    headers = ["Description", "Qty", "Unit Price", "Amount"]
-    for h, w in zip(headers, col_w, strict=False):
-        pdf.cell(w, 7, h, border=0, fill=True, align="C" if h != "Description" else "L")
-    pdf.ln()
-
-    # ── Line items ────────────────────────────────────────────────────────────
-    pdf.set_text_color(30, 30, 30)
-    pdf.set_font("Helvetica", "", 9)
-    fill = False
-    for line in lines:
-        pdf.set_fill_color(248, 248, 252) if fill else pdf.set_fill_color(255, 255, 255)
-        desc = (line.description or "")[:60]
-        pdf.cell(col_w[0], 6, desc, border=0, fill=True)
-        pdf.cell(col_w[1], 6, str(line.quantity), border=0, fill=True, align="C")
-        pdf.cell(col_w[2], 6, f"{inv.currency} {line.unit_price}", border=0, fill=True, align="R")
-        pdf.cell(col_w[3], 6, f"{inv.currency} {line.line_amount}", border=0, fill=True, align="R")
-        pdf.ln()
-        fill = not fill
-
-    pdf.ln(2)
-
-    # ── Totals ────────────────────────────────────────────────────────────────
-    def _total_row(label: str, value: str, bold: bool = False) -> None:
-        pdf.set_x(120)
-        pdf.set_font("Helvetica", "B" if bold else "", 9)
-        pdf.set_text_color(100, 100, 100)
-        pdf.cell(45, 6, label, align="R")
-        pdf.set_text_color(30, 30, 30)
-        pdf.cell(30, 6, f"{inv.currency} {value}", align="R")
-        pdf.ln()
-
-    pdf.set_draw_color(200, 200, 200)
-    pdf.set_x(120)
-    pdf.cell(75, 0.5, "", border="T")
-    pdf.ln(2)
-
-    _total_row("Subtotal:", str(inv.subtotal))
-    _total_row("Tax:", str(inv.tax_total))
-    pdf.set_x(120)
-    pdf.set_fill_color(40, 40, 120)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(45, 8, "TOTAL:", align="R", fill=True)
-    pdf.cell(30, 8, f"{inv.currency} {inv.total}", align="R", fill=True)
-    pdf.ln(10)
-
-    # ── Footer ────────────────────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "I", 9)
-    pdf.set_text_color(130, 130, 130)
-    pdf.cell(0, 6, "Thank you for your business.", align="C")
-
-    pdf_bytes = pdf.output()
+    try:
+        pdf_bytes = render_invoice_pdf(
+            inv, lines, tenant_name=tenant_name, contact_display=contact_display
+        )
+    except RuntimeError as exc:  # fpdf2 missing
+        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, detail=str(exc))
 
     return Response(
-        content=bytes(pdf_bytes),
+        content=pdf_bytes,
         media_type="application/pdf",
         headers={
             "Content-Disposition": f'attachment; filename="invoice-{inv.number}.pdf"',
@@ -385,8 +278,13 @@ async def send(
     body: SendInvoiceRequest,
     db: DbSession,
     tenant_id: TenantId,
+    actor_id: ActorId,
 ):
-    """Send an invoice via email. Sets status to 'sent' and records sent_at."""
+    """Send an invoice via email with a branded PDF attached.
+
+    On success the invoice transitions to ``sent`` (from ``authorised``) and
+    an ``invoice.sent`` audit event is emitted with the recipient address.
+    """
     try:
         inv = await send_invoice(
             db,
@@ -395,6 +293,7 @@ async def send(
             to=body.to,
             subject=body.subject,
             message=body.message,
+            actor_id=actor_id,
         )
         await db.commit()
         await db.refresh(inv)

@@ -824,13 +824,16 @@ async def send_invoice(
     to: str,
     subject: str | None = None,
     message: str | None = None,
+    actor_id: str | None = None,
+    attach_pdf: bool = True,
 ) -> Invoice:
-    """Send an invoice via email and mark it as 'sent'.
+    """Send an invoice via email (with branded PDF attachment) and mark it as 'sent'.
 
     Only authorised, sent, or partial invoices can be sent (resending is allowed).
     Draft and void invoices cannot be sent.
     """
-    from app.services.email_service import send_email
+    from app.infra.pdf import render_invoice_pdf
+    from app.services.email_service import EmailAttachment, send_email
 
     inv = await get_invoice(db, tenant_id, invoice_id)
 
@@ -839,14 +842,30 @@ async def send_invoice(
             f"Cannot send invoice in '{inv.status}' status — must be authorised first"
         )
 
-    # Verify the contact exists (raises ValueError if not found)
-    await get_contact(db, tenant_id, inv.contact_id)
+    # Verify the contact exists (raises ValueError if not found); capture the
+    # display name so the PDF's BILL TO block shows the company, not a UUID.
+    contact = await get_contact(db, tenant_id, inv.contact_id)
 
-    # Build email subject if not provided
+    tenant = await db.scalar(select(Tenant).where(Tenant.id == tenant_id))
+    tenant_name = getattr(tenant, "name", None) or "Your Company"
+
     email_subject = subject or f"Invoice {inv.number}"
     email_html = f"<p>{message or 'Please find your invoice attached.'}</p>"
 
-    ok = await send_email(to=to, subject=email_subject, html=email_html)
+    attachments: list[EmailAttachment] | None = None
+    if attach_pdf:
+        lines = await get_invoice_lines(db, inv.id)
+        pdf_bytes = render_invoice_pdf(
+            inv,
+            lines,
+            tenant_name=tenant_name,
+            contact_display=getattr(contact, "name", None) or inv.contact_id[:36],
+        )
+        attachments = [{"filename": f"invoice-{inv.number}.pdf", "content": pdf_bytes}]
+
+    ok = await send_email(
+        to=to, subject=email_subject, html=email_html, attachments=attachments
+    )
     if ok:
         now = datetime.now(tz=UTC)
         inv.sent_at = now
@@ -855,6 +874,21 @@ async def send_invoice(
             inv.status = "sent"
         inv.version += 1
         await db.flush()
+
+        await emit(
+            db,
+            action="invoice.sent",
+            entity_type="invoice",
+            entity_id=inv.id,
+            actor_type="user" if actor_id else "system",
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+            metadata={
+                "to": to,
+                "has_pdf": bool(attachments),
+                "invoice_number": inv.number,
+            },
+        )
 
     log.info("invoice.sent", tenant_id=tenant_id, invoice_id=invoice_id, to=to, ok=ok)
     return inv

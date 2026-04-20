@@ -167,9 +167,12 @@ class TestSendInvoiceService:
         inv = self._make_invoice(status="authorised")
         contact = self._make_contact(email="customer@example.com")
 
+        mock_db.scalar = AsyncMock(return_value=type("T", (), {"name": "Acme"})())
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_contact", return_value=contact),
+            patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.emit", AsyncMock()),
             patch("app.services.email_service.send_email", return_value=True) as mock_email,
         ):
             result = await send_invoice(
@@ -213,9 +216,12 @@ class TestSendInvoiceService:
         inv = self._make_invoice(status="authorised")
         contact = self._make_contact()
 
+        mock_db.scalar = AsyncMock(return_value=type("T", (), {"name": "Acme"})())
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_contact", return_value=contact),
+            patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.emit", AsyncMock()),
             patch("app.services.email_service.send_email", return_value=True),
         ):
             result = await send_invoice(mock_db, "t1", "inv-1", to="customer@example.com")
@@ -232,9 +238,12 @@ class TestSendInvoiceService:
         inv = self._make_invoice(status="sent", sent_at=datetime.now(tz=UTC))
         contact = self._make_contact()
 
+        mock_db.scalar = AsyncMock(return_value=type("T", (), {"name": "Acme"})())
         with (
             patch("app.services.invoices.get_invoice", return_value=inv),
             patch("app.services.invoices.get_contact", return_value=contact),
+            patch("app.services.invoices.get_invoice_lines", return_value=[]),
+            patch("app.services.invoices.emit", AsyncMock()),
             patch("app.services.email_service.send_email", return_value=True),
         ):
             result = await send_invoice(mock_db, "t1", "inv-1", to="customer@example.com")
