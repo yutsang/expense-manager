@@ -1,7 +1,7 @@
 "use client";
 
 import { showToast } from "@/lib/toast";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { accountsApi, reportsApi, type Account, type GLReport } from "@/lib/api";
 import { PageHeader } from "@/components/page-header";
@@ -22,6 +22,14 @@ function fmtSigned(s: string) {
 }
 
 export default function GeneralLedgerPage() {
+  return (
+    <Suspense fallback={null}>
+      <GeneralLedgerPageInner />
+    </Suspense>
+  );
+}
+
+function GeneralLedgerPageInner() {
   const searchParams = useSearchParams();
   const paramAccountId = searchParams.get("account_id");
   const paramFrom = searchParams.get("from");
