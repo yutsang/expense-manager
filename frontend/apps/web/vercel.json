@@ -1,7 +1,7 @@
 {
   "framework": "nextjs",
-  "buildCommand": "cd ../.. && pnpm --filter @aegis/web build",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../../ && npm i -g pnpm@9.15.9 && pnpm --filter @aegis/web build",
+  "installCommand": "cd ../../ && npm i -g pnpm@9.15.9 && pnpm install --no-frozen-lockfile",
   "outputDirectory": ".next",
   "headers": [
     {
