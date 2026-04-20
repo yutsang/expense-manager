@@ -124,6 +124,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "app.infra.templates.*",
+    "app.infra.pdf.*",
     "app.infra.models",
     "app.ai.*",
     "app.domain.ledger.journal",
