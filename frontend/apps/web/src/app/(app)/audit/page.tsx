@@ -27,7 +27,7 @@ function PeriodStatusBadge({ status }: { status: string }) {
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, note }: { label: string; value: string | number; note?: string }) {
+function StatCard({ label, value, note }: { label: string; value: string | number; note?: string | undefined }) {
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>

@@ -111,7 +111,12 @@ export default function SanctionsListsPage() {
     setLoading(true);
     setError(null);
     sanctionsApi
-      .entries({ q: query || undefined, source: sourceFilter || undefined, limit: PAGE_SIZE, offset })
+      .entries({
+        ...(query ? { q: query } : {}),
+        ...(sourceFilter ? { source: sourceFilter } : {}),
+        limit: PAGE_SIZE,
+        offset,
+      })
       .then((res) => {
         setEntries(res.items);
         setTotal(res.total);
@@ -158,7 +163,7 @@ export default function SanctionsListsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Sanctions Lists" description="OFAC and FATF reference data used for contact screening" actions={actions} />
+      <PageHeader title="Sanctions Lists" subtitle="OFAC and FATF reference data used for contact screening" actions={actions} />
 
       {/* Snapshot status cards */}
       {snapshots.length > 0 && (

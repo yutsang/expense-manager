@@ -123,23 +123,23 @@ interface EditPanelProps {
 
 function EditPanel({ item, onClose, onSaved }: EditPanelProps) {
   const [form, setForm] = useState<KycUpdate>({
-    id_type: item.id_type ?? undefined,
-    id_number: item.id_number ?? undefined,
-    id_expiry_date: item.id_expiry_date ?? undefined,
-    poa_type: item.poa_type ?? undefined,
-    poa_date: item.poa_date ?? undefined,
+    id_type: item.id_type,
+    id_number: item.id_number,
+    id_expiry_date: item.id_expiry_date,
+    poa_type: item.poa_type,
+    poa_date: item.poa_date,
     sanctions_status: item.sanctions_status,
     kyc_status: item.kyc_status,
-    kyc_approved_by: item.kyc_approved_by ?? undefined,
-    last_review_date: item.last_review_date ?? undefined,
-    next_review_date: item.next_review_date ?? undefined,
-    notes: item.notes ?? undefined,
+    kyc_approved_by: item.kyc_approved_by,
+    last_review_date: item.last_review_date,
+    next_review_date: item.next_review_date,
+    notes: item.notes,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function set(key: keyof KycUpdate, value: string) {
-    setForm((f) => ({ ...f, [key]: value || undefined }));
+    setForm((f) => ({ ...f, [key]: value || null }));
   }
 
   async function handleSave() {
@@ -147,7 +147,20 @@ function EditPanel({ item, onClose, onSaved }: EditPanelProps) {
     setError(null);
     try {
       await kycApi.update(item.contact_id, form);
-      onSaved({ ...item, ...form });
+      onSaved({
+        ...item,
+        id_type: form.id_type ?? null,
+        id_number: form.id_number ?? null,
+        id_expiry_date: form.id_expiry_date ?? null,
+        poa_type: form.poa_type ?? null,
+        poa_date: form.poa_date ?? null,
+        sanctions_status: form.sanctions_status ?? item.sanctions_status,
+        kyc_status: form.kyc_status ?? item.kyc_status,
+        kyc_approved_by: form.kyc_approved_by ?? null,
+        last_review_date: form.last_review_date ?? null,
+        next_review_date: form.next_review_date ?? null,
+        notes: form.notes ?? null,
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {

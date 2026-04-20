@@ -35,7 +35,7 @@ export function showToast(
     id: String(++nextId),
     variant,
     title,
-    description,
+    ...(description !== undefined ? { description } : {}),
   };
   for (const listener of listeners) {
     listener(toast);
