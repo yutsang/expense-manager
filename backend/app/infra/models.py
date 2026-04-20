@@ -122,6 +122,10 @@ class Membership(Base):
     invited_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     invited_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
     joined_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    invite_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    invite_expires_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now
     )

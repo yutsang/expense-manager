@@ -111,6 +111,7 @@ from app.api.v1 import (  # noqa: E402
     search,
     sync,
     tenant_settings,
+    users,
 )
 
 _API_PREFIX = "/v1"
@@ -147,6 +148,7 @@ app.include_router(fixed_assets.router, prefix=_API_PREFIX)
 app.include_router(payroll.router, prefix=_API_PREFIX)
 app.include_router(budgets.router, prefix=_API_PREFIX)
 app.include_router(invoice_templates.router, prefix=_API_PREFIX)
+app.include_router(users.router, prefix=_API_PREFIX)
 app.include_router(consolidation.router, prefix=_API_PREFIX)
 app.include_router(approval_rules.router, prefix=_API_PREFIX)
 app.include_router(projects.router, prefix=_API_PREFIX)
