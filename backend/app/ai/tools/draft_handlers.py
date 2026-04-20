@@ -1,18 +1,73 @@
-"""Draft and mutation tool handlers."""
+"""Draft and mutation tool handlers.
+
+Drafts are persisted in the ``ai_drafts`` table (migration 0049) so they
+survive process restarts and multi-worker deployments. Each draft has a
+24-hour expiry; a retention worker can purge stale rows.
+"""
 
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infra.models import Account, Period
+from app.infra.models import Account, AiDraft, Period
 
-# In-memory draft store (per-process, cleared on restart)
-_drafts: dict[str, dict[str, Any]] = {}
+DRAFT_TTL = timedelta(hours=24)
+
+
+def _now() -> datetime:
+    return datetime.now(tz=UTC)
+
+
+async def _store_draft(
+    db: AsyncSession,
+    *,
+    tenant_id: str,
+    tool_name: str,
+    payload: dict[str, Any],
+    conversation_id: str | None = None,
+    created_by: str | None = None,
+) -> AiDraft:
+    draft = AiDraft(
+        id=str(uuid.uuid4()),
+        tenant_id=tenant_id,
+        conversation_id=conversation_id,
+        tool_name=tool_name,
+        payload=payload,
+        expires_at=_now() + DRAFT_TTL,
+        created_by=created_by,
+    )
+    db.add(draft)
+    await db.flush()
+    return draft
+
+
+async def _load_active_draft(
+    db: AsyncSession,
+    *,
+    draft_id: str,
+    tenant_id: str,
+) -> AiDraft | None:
+    """Return the draft if it exists, belongs to the tenant, is not yet confirmed, and not expired."""
+    result = await db.execute(
+        select(AiDraft).where(
+            AiDraft.id == draft_id,
+            AiDraft.tenant_id == tenant_id,
+        )
+    )
+    draft = result.scalar_one_or_none()
+    if not draft:
+        return None
+    if draft.confirmed_at is not None:
+        return None
+    if draft.expires_at < _now():
+        return None
+    return draft
 
 
 async def handle_draft_journal_entry(
@@ -20,10 +75,9 @@ async def handle_draft_journal_entry(
     tenant_id: str,
     input_: dict[str, Any],
 ) -> dict[str, Any]:
-    """Validate and store a proposed journal entry draft. Does NOT write to DB."""
+    """Validate and store a proposed journal entry draft. Does NOT write to the GL."""
     lines = input_["lines"]
 
-    # Validate balance
     total_dr = sum(Decimal(str(ln["debit"])) for ln in lines)
     total_cr = sum(Decimal(str(ln["credit"])) for ln in lines)
     if total_dr != total_cr:
@@ -32,7 +86,6 @@ async def handle_draft_journal_entry(
             "confirmation_required": False,
         }
 
-    # Look up account names for display
     enriched_lines = []
     for ln in lines:
         acct_result = await db.execute(
@@ -52,22 +105,21 @@ async def handle_draft_journal_entry(
             }
         )
 
-    draft_id = str(uuid.uuid4())
-    draft = {
-        "draft_id": draft_id,
-        "tenant_id": tenant_id,
+    payload = {
         "date": input_["date"],
         "period_name": input_.get("period_name"),
         "description": input_["description"],
         "lines": enriched_lines,
         "total_debit": str(total_dr),
     }
-    _drafts[draft_id] = draft
+    draft = await _store_draft(
+        db, tenant_id=tenant_id, tool_name="draft_journal_entry", payload=payload
+    )
 
     return {
         "confirmation_required": True,
-        "draft_id": draft_id,
-        "proposed_entry": draft,
+        "draft_id": draft.id,
+        "proposed_entry": {"draft_id": draft.id, **payload},
         "message": "Draft created. Show this to the user and ask for confirmation before posting.",
     }
 
@@ -87,20 +139,18 @@ async def handle_post_journal_entry(
         }
 
     draft_id = input_["draft_id"]
-    draft = _drafts.get(draft_id)
+    draft = await _load_active_draft(db, draft_id=draft_id, tenant_id=tenant_id)
     if not draft:
-        return {"error": f"Draft {draft_id} not found or expired."}
-    if draft["tenant_id"] != tenant_id:
-        return {"error": "Draft does not belong to this tenant."}
+        return {"error": f"Draft {draft_id} not found, already posted, or expired."}
 
-    # Import here to avoid circular imports
+    payload = draft.payload
+
     from app.domain.ledger.journal import JournalLineInput
     from app.services.journals import create_draft as svc_create
     from app.services.journals import post_journal as svc_post
 
-    # Look up account IDs and build line inputs
     lines_input = []
-    for ln in draft["lines"]:
+    for ln in payload["lines"]:
         acct_result = await db.execute(
             select(Account).where(
                 Account.tenant_id == tenant_id,
@@ -125,7 +175,6 @@ async def handle_post_journal_entry(
             )
         )
 
-    # Find the most recent open period
     period_result = await db.execute(
         select(Period)
         .where(
@@ -141,15 +190,15 @@ async def handle_post_journal_entry(
 
     from datetime import date as date_type
 
-    je_date = date_type.fromisoformat(draft["date"])
-    system_actor_id = str(uuid.uuid4())  # ephemeral system actor for AI-initiated posts
+    je_date = date_type.fromisoformat(payload["date"])
+    system_actor_id = str(uuid.uuid4())
 
     je = await svc_create(
         db,
         tenant_id=tenant_id,
         date_=je_date,
         period_id=period.id,
-        description=draft["description"],
+        description=payload["description"],
         lines=lines_input,
         source_type="ai_draft",
         actor_id=system_actor_id,
@@ -162,7 +211,10 @@ async def handle_post_journal_entry(
         actor_id=system_actor_id,
     )
 
-    del _drafts[draft_id]
+    draft.confirmed_at = _now()
+    draft.confirmed_by = system_actor_id
+    await db.flush()
+
     return {
         "success": True,
         "journal_number": posted.number,

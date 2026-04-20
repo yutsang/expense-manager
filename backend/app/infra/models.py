@@ -1308,6 +1308,40 @@ class AiMessage(Base):
     )
 
 
+class AiDraft(Base):
+    """Persisted draft proposal from an AI tool (journal, invoice, bill, etc.).
+
+    Replaces the previous in-memory ``_drafts`` dict so drafts survive process
+    restarts and can be inspected / cleaned up. The ``payload`` holds the full
+    tool output (e.g. proposed journal lines); downstream mutation tools look
+    the draft up by ``(tenant_id, id)`` before executing.
+    """
+
+    __tablename__ = "ai_drafts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_uuid)
+    tenant_id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    conversation_id: Mapped[str | None] = mapped_column(
+        UUID(as_uuid=False),
+        ForeignKey("ai_conversations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    tool_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    confirmed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    confirmed_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=False, default=_now
+    )
+    created_by: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
+
+
 # ---------------------------------------------------------------------------
 # Phase 4 — Audit Module: chain verifications and report snapshots
 # ---------------------------------------------------------------------------

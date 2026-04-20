@@ -33,7 +33,11 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 30
     jwt_algorithm: str = "HS256"
 
-    # AI (DeepSeek — OpenAI-compatible)
+    # AI — Anthropic (primary, per CLAUDE.md §11.1) and DeepSeek (legacy fallback)
+    anthropic_api_key: str = ""
+    ai_model_default: str = "claude-sonnet-4-6"
+    ai_model_deep: str = "claude-opus-4-6"
+    ai_model_fast: str = "claude-haiku-4-5-20251001"
     deepseek_api_key: str = ""
 
     # S3 / MinIO

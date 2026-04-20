@@ -32,7 +32,8 @@ dependencies = [
     # Storage
     "boto3>=1.35.0",
     # AI
-    "openai>=1.55.0",
+    "anthropic>=0.40.0",
+    "openai>=1.55.0",  # kept for DeepSeek fallback path; new code uses anthropic
     # Observability
     "structlog>=24.4.0",
     "sentry-sdk[fastapi]>=2.17.0",
