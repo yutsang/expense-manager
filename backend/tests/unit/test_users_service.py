@@ -97,7 +97,7 @@ class TestInviteToken:
     def test_invite_ttl_is_seven_days(self) -> None:
         from app.services.users import INVITE_TTL
 
-        assert INVITE_TTL == timedelta(days=7)
+        assert timedelta(days=7) == INVITE_TTL
 
     def test_allowed_roles_locked(self) -> None:
         """The role allow-list should match the DB check constraint."""
@@ -113,7 +113,7 @@ class TestInviteToken:
             "auditor",
             "api_client",
         }
-        assert ALLOWED_ROLES == expected
+        assert expected == ALLOWED_ROLES
 
 
 class TestInviteUserNewEmail:

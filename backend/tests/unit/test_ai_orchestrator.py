@@ -144,7 +144,7 @@ class TestDraftPersistence:
 
         from app.ai.tools.draft_handlers import DRAFT_TTL
 
-        assert DRAFT_TTL == timedelta(hours=24)
+        assert timedelta(hours=24) == DRAFT_TTL
 
     def test_draft_handlers_do_not_use_in_memory_dict(self) -> None:
         """Sanity check: in-memory store removed after persistence migration."""

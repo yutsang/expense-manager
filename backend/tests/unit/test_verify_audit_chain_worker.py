@@ -37,7 +37,7 @@ class _FakeSession:
         self.committed = False
         self.rolled_back = False
 
-    async def __aenter__(self) -> "_FakeSession":
+    async def __aenter__(self) -> _FakeSession:
         return self
 
     async def __aexit__(self, *args: Any) -> None:

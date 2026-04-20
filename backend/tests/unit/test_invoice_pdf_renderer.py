@@ -99,7 +99,7 @@ class TestEmailAttachments:
                 return None
 
         class _FakeClient:
-            async def __aenter__(self) -> "_FakeClient":
+            async def __aenter__(self) -> _FakeClient:
                 return self
 
             async def __aexit__(self, *args: object) -> None:
