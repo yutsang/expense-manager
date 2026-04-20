@@ -150,9 +150,9 @@ class TestDraftPersistence:
         """Sanity check: in-memory store removed after persistence migration."""
         from app.ai.tools import draft_handlers
 
-        assert not hasattr(draft_handlers, "_drafts"), (
-            "In-memory _drafts dict must be removed; drafts are persisted in ai_drafts"
-        )
+        assert not hasattr(
+            draft_handlers, "_drafts"
+        ), "In-memory _drafts dict must be removed; drafts are persisted in ai_drafts"
 
     @pytest.mark.asyncio
     async def test_post_journal_entry_rejects_missing_draft(self) -> None:
@@ -188,9 +188,9 @@ class TestFallbackToDeepSeek:
         deepseek_idx = src.find("_get_deepseek_client")
         assert anthropic_idx > 0
         assert deepseek_idx > 0
-        assert anthropic_idx < deepseek_idx, (
-            "Anthropic path must be preferred over DeepSeek fallback"
-        )
+        assert (
+            anthropic_idx < deepseek_idx
+        ), "Anthropic path must be preferred over DeepSeek fallback"
 
 
 class TestDraftBalanceMath:

@@ -17,7 +17,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-def _fake_result(is_valid: bool, chain_length: int = 3, break_id: str | None = None) -> dict[str, Any]:
+def _fake_result(
+    is_valid: bool, chain_length: int = 3, break_id: str | None = None
+) -> dict[str, Any]:
     return {
         "id": "verification-uuid",
         "is_valid": is_valid,

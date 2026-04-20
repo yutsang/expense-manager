@@ -91,7 +91,9 @@ async def verify_all_tenants(ctx: dict[str, Any] | None = None) -> dict[str, Any
         "errors": errors,
         "broken_tenants": broken_tenants,
     }
-    log.info("audit_chain.run_complete", **{k: v for k, v in summary.items() if k != "broken_tenants"})
+    log.info(
+        "audit_chain.run_complete", **{k: v for k, v in summary.items() if k != "broken_tenants"}
+    )
     return summary
 
 

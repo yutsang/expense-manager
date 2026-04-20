@@ -220,9 +220,8 @@ async def accept_invite(
         raise InviteError("Invalid or expired invite token")
     if membership.status != "invited":
         raise InviteError("This invite has already been used")
-    if (
-        membership.invite_expires_at is not None
-        and membership.invite_expires_at < datetime.now(tz=UTC)
+    if membership.invite_expires_at is not None and membership.invite_expires_at < datetime.now(
+        tz=UTC
     ):
         raise InviteError("Invite token has expired")
 

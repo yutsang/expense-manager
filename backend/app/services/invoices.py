@@ -863,9 +863,7 @@ async def send_invoice(
         )
         attachments = [{"filename": f"invoice-{inv.number}.pdf", "content": pdf_bytes}]
 
-    ok = await send_email(
-        to=to, subject=email_subject, html=email_html, attachments=attachments
-    )
+    ok = await send_email(to=to, subject=email_subject, html=email_html, attachments=attachments)
     if ok:
         now = datetime.now(tz=UTC)
         inv.sent_at = now

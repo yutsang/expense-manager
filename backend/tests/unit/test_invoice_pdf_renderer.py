@@ -60,9 +60,7 @@ class TestInvoicePdfRenderer:
     def test_renders_many_lines(self) -> None:
         from app.infra.pdf import render_invoice_pdf
 
-        lines = [
-            _Line(f"Line {i}", Decimal("1"), Decimal("10"), Decimal("10")) for i in range(30)
-        ]
+        lines = [_Line(f"Line {i}", Decimal("1"), Decimal("10"), Decimal("10")) for i in range(30)]
         pdf = render_invoice_pdf(_Inv(), lines)
         assert pdf.startswith(b"%PDF")
         assert len(pdf) > 1500  # non-trivial document
@@ -112,9 +110,7 @@ class TestEmailAttachments:
 
         with (
             patch.object(email_service, "httpx") as httpx_mock,
-            patch.object(
-                email_service, "get_settings", return_value=_settings_with_key("sk-test")
-            ),
+            patch.object(email_service, "get_settings", return_value=_settings_with_key("sk-test")),
         ):
             httpx_mock.AsyncClient = lambda **_kw: _FakeClient()
             ok = await email_service.send_email(
@@ -138,9 +134,7 @@ class TestEmailAttachments:
     async def test_send_email_no_api_key_skips_send(self) -> None:
         from app.services import email_service
 
-        with patch.object(
-            email_service, "get_settings", return_value=_settings_with_key("")
-        ):
+        with patch.object(email_service, "get_settings", return_value=_settings_with_key("")):
             ok = await email_service.send_email(
                 to="x@example.com",
                 subject="s",
@@ -164,16 +158,18 @@ class TestSendInvoiceService:
         with (
             patch.object(svc, "get_invoice", AsyncMock(return_value=fake_inv)),
             patch.object(
-                svc, "get_contact", AsyncMock(return_value=type("C", (), {"name": "Customer Ltd"})())
+                svc,
+                "get_contact",
+                AsyncMock(return_value=type("C", (), {"name": "Customer Ltd"})()),
             ),
             patch.object(
                 svc,
                 "get_invoice_lines",
-                AsyncMock(return_value=[
-                    _Line("L1", Decimal("1"), Decimal("100"), Decimal("100"))
-                ]),
+                AsyncMock(return_value=[_Line("L1", Decimal("1"), Decimal("100"), Decimal("100"))]),
             ),
-            patch("app.services.email_service.send_email", AsyncMock(return_value=True)) as email_mock,
+            patch(
+                "app.services.email_service.send_email", AsyncMock(return_value=True)
+            ) as email_mock,
             patch.object(svc, "emit", AsyncMock()),
         ):
             db = _FakeDb()
@@ -207,9 +203,7 @@ class TestSendInvoiceService:
             patch.object(svc, "emit", AsyncMock()) as emit_mock,
         ):
             db = _FakeDb()
-            await svc.send_invoice(
-                db, "tenant-1", "inv-1", to="x@example.com", actor_id="user-42"
-            )
+            await svc.send_invoice(db, "tenant-1", "inv-1", to="x@example.com", actor_id="user-42")
 
         emit_mock.assert_awaited_once()
         kwargs = emit_mock.await_args.kwargs
@@ -238,9 +232,7 @@ class TestSendInvoiceService:
             patch.object(svc, "emit", AsyncMock()) as emit_mock,
         ):
             db = _FakeDb()
-            await svc.send_invoice(
-                db, "tenant-1", "inv-1", to="x@example.com", actor_id="user-42"
-            )
+            await svc.send_invoice(db, "tenant-1", "inv-1", to="x@example.com", actor_id="user-42")
 
         # No audit event on email failure — avoid polluting the chain.
         emit_mock.assert_not_called()
