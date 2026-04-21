@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     # Feature flags
     feature_flag_ai_enabled: bool = True
 
+    # Cron / ops — shared secret for /v1/_ops/cron/{job_name}
+    cron_secret: str = ""
+
     @model_validator(mode="after")
     def validate_secret_key(self) -> Settings:
         if len(self.secret_key) < 32:

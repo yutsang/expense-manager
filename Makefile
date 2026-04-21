@@ -1,4 +1,4 @@
-.PHONY: help bootstrap up down dev api web mobile \
+.PHONY: help bootstrap up down dev api web mobile worker \
         migrate migrate-down migration seed db-shell \
         test test-slow lint fix typecheck coverage \
         ai-evals ai-evals-diff openapi client-gen
@@ -79,6 +79,9 @@ web:
 
 mobile:
 	cd $(FRONTEND_DIR)/apps/mobile && pnpm expo start
+
+worker:
+	cd $(BACKEND_DIR) && arq app.workers.settings.WorkerSettings
 
 # ─── Database ────────────────────────────────────────────────────────────────
 

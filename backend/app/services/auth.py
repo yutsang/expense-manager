@@ -18,7 +18,9 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.core.tenant import set_rls_tenant
 from app.infra.models import Membership, Session, Tenant, User
+from app.services.onboarding import setup_tenant
 
 log = get_logger(__name__)
 
@@ -83,6 +85,24 @@ async def signup(
     )
     db.add(membership)
     await db.flush()
+
+    # Provision CoA, periods, and a default bank account so the new tenant lands
+    # on a populated dashboard instead of an empty shell. Any failure here rolls
+    # back the whole signup via the router's transaction boundary.
+    await set_rls_tenant(db, tenant.id)
+    await setup_tenant(
+        db,
+        tenant_id=tenant.id,
+        actor_id=user.id,
+        company_name=tenant_name,
+        legal_name=tenant_name,
+        country=country,
+        functional_currency=currency,
+        fiscal_year_start_month=1,
+        coa_template="general",
+        bank_account_name="Primary Operating Account",
+        bank_currency=currency,
+    )
 
     access_token = create_access_token(user_id=user.id, tenant_id=tenant.id)
     refresh_raw, refresh_hash = create_refresh_token(user_id=user.id)

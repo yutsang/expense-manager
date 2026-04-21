@@ -99,6 +99,7 @@ from app.api.v1 import (  # noqa: E402
     journals,
     kyc,
     onboarding,
+    ops,
     payments,
     payroll,
     periods,
@@ -154,6 +155,7 @@ app.include_router(approval_rules.router, prefix=_API_PREFIX)
 app.include_router(projects.router, prefix=_API_PREFIX)
 app.include_router(projects.time_entries_router, prefix=_API_PREFIX)
 app.include_router(projects.billing_rates_router, prefix=_API_PREFIX)
+app.include_router(ops.router, prefix=_API_PREFIX)
 
 
 @app.get("/health", tags=["meta"], summary="Health check")
