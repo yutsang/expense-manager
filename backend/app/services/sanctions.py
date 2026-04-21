@@ -12,6 +12,7 @@ import csv
 import hashlib
 import io
 import json as _json
+import os
 import xml.etree.ElementTree as ET  # noqa: S405 — parsing trusted government XML, not user input
 from datetime import UTC, datetime
 from typing import Any
@@ -645,14 +646,23 @@ async def refresh_pep(db: AsyncSession) -> tuple[SanctionsListSnapshot, bool]:
 
 
 async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
-    """Fetch UN, UK OFSI, EU, and PEP lists. Returns list of (source, changed) tuples."""
-    results = []
-    for fetch_fn, source_name in [
+    """Fetch UN, UK OFSI, EU, and PEP lists. Returns list of (source, changed) tuples.
+
+    PEP is gated by SANCTIONS_SKIP_PEP env var because the OpenSanctions PEP
+    feed is a ~500MB JSON blob that OOMs constrained containers.
+    """
+    sources: list[tuple[Any, str]] = [
         (_fetch_and_parse_un, "un_consolidated"),
         (_fetch_and_parse_uk_ofsi, "uk_ofsi"),
         (_fetch_and_parse_eu, "eu_consolidated"),
-        (_fetch_and_parse_opensanctions_pep, "opensanctions_pep"),
-    ]:
+    ]
+    if os.getenv("SANCTIONS_SKIP_PEP", "").lower() not in {"1", "true", "yes"}:
+        sources.append((_fetch_and_parse_opensanctions_pep, "opensanctions_pep"))
+    else:
+        log.info("sanctions.pep_skipped", reason="SANCTIONS_SKIP_PEP")
+
+    results = []
+    for fetch_fn, source_name in sources:
         try:
             entries, raw_hash = await fetch_fn()
             snap, changed = await _store_snapshot(db, source_name, entries, raw_hash)
