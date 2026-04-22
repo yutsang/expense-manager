@@ -13,6 +13,7 @@ import hashlib
 import io
 import json as _json
 import os
+import re
 import xml.etree.ElementTree as ET  # noqa: S405 — parsing trusted government XML, not user input
 from datetime import UTC, datetime
 from typing import Any
@@ -88,7 +89,12 @@ async def _fetch_ofac_xml() -> bytes:
 
 
 def _parse_ofac_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
-    root = ET.fromstring(xml_bytes.decode("utf-8", errors="replace"))  # noqa: S314  # nosec B314
+    # Strip the default xmlns so element names match the plain tags the code
+    # uses below — the new OFAC endpoint serves the XML with a default
+    # namespace, which would otherwise hide every element from findall.
+    text = xml_bytes.decode("utf-8", errors="replace")
+    text = re.sub(r'\sxmlns="[^"]+"', "", text, count=1)
+    root = ET.fromstring(text)  # noqa: S314  # nosec B314
     entries: list[dict[str, Any]] = []
     for sdn in root.findall(".//sdnEntry"):
         uid = sdn.findtext("uid") or ""

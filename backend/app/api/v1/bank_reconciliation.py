@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.api.v1.deps import ActorId, DbSession, TenantId
 from app.api.v1.schemas import (
@@ -228,6 +229,36 @@ async def unmatch(
 # ---------------------------------------------------------------------------
 # Bank Statement CSV Import
 # ---------------------------------------------------------------------------
+
+
+@router.get("/bank-accounts/csv-template")
+async def bank_csv_template(
+    format: str = Query(default="single", pattern="^(single|split)$"),
+) -> StreamingResponse:
+    """Download a bank statement CSV template.
+
+    `single` (default): one `amount` column (negative = money out).
+    `split`: separate `debit` (money out) and `credit` (money in) columns.
+    Both formats share `date` + `description` columns; the importer also
+    accepts `details` / `memo` / `narrative` / `narration` as the
+    description header.
+    """
+    from app.services.csv_import import generate_template_csv
+
+    if format == "split":
+        headers = ["date", "description", "debit", "credit"]
+        example = ["2026-04-01", "Rent payment", "1500.00", ""]
+    else:
+        headers = ["date", "description", "amount"]
+        example = ["2026-04-01", "Invoice INV-0001 received", "1500.00"]
+    content = generate_template_csv(headers, example)
+    return StreamingResponse(
+        iter([content]),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="bank-statement-template-{format}.csv"'
+        },
+    )
 
 
 @router.post(
