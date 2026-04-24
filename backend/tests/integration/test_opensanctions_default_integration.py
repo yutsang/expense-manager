@@ -13,7 +13,6 @@ from collections.abc import AsyncIterator, Generator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 import sqlalchemy as sa
@@ -132,6 +131,12 @@ class _AsyncSessionAdapter:
     async def rollback(self) -> None:
         self._sync.rollback()
 
+    async def delete(self, obj: Any) -> None:
+        self._sync.delete(obj)
+
+    def expunge(self, obj: Any) -> None:
+        self._sync.expunge(obj)
+
 
 class TestOpenSanctionsDefaultIntegration:
     @pytest.mark.anyio
@@ -151,22 +156,16 @@ class TestOpenSanctionsDefaultIntegration:
 
         db = _AsyncSessionAdapter(session)
 
-        # Patch the low-level fetch/parse helper to feed our fixture bytes
-        # through the real streaming implementation by capturing the
-        # original function reference first.
-        from app.services import sanctions as sanc
+        # Feed our fixture bytes through the real streaming implementation
+        # via the client_factory hook that both the buffered and streaming
+        # paths expose. No monkey-patching needed.
+        def fake_client_factory() -> _FakeAsyncClient:
+            return _FakeAsyncClient([payload])
 
-        original_fetch = sanc._fetch_and_parse_opensanctions_default
-
-        async def fake_fetch() -> tuple[list[dict[str, Any]], str]:
-            return await original_fetch(client_factory=lambda: _FakeAsyncClient([payload]))
-
-        with patch.object(
-            sanc,
-            "_fetch_and_parse_opensanctions_default",
-            side_effect=fake_fetch,
-        ):
-            snapshot, changed = await refresh_opensanctions_default(db)  # type: ignore[arg-type]
+        snapshot, changed = await refresh_opensanctions_default(
+            db,  # type: ignore[arg-type]
+            client_factory=fake_client_factory,
+        )
         assert changed is True
         assert snapshot.sha256_hash == expected_hash
 
@@ -234,12 +233,10 @@ class TestOpenSanctionsDefaultIntegration:
         assert events[0].tenant_id is None
 
         # Assert snapshot unchanged on second call → no new audit event
-        with patch.object(
-            sanc,
-            "_fetch_and_parse_opensanctions_default",
-            side_effect=fake_fetch,
-        ):
-            _, changed2 = await refresh_opensanctions_default(db)  # type: ignore[arg-type]
+        _, changed2 = await refresh_opensanctions_default(
+            db,  # type: ignore[arg-type]
+            client_factory=fake_client_factory,
+        )
         # Second refresh: same hash → changed should be False, no new audit event
         assert changed2 is False
         events2 = (
@@ -250,4 +247,72 @@ class TestOpenSanctionsDefaultIntegration:
         assert len(events2) == 1
 
         # Silence unused imports
+        _ = SanctionsListSnapshot
+
+    @pytest.mark.anyio
+    async def test_streaming_batches_bound_memory(self, session: Session) -> None:
+        """Streaming insert must flush to DB every ``batch_size`` entries and
+        expunge them from the session so peak Python memory stays bounded.
+        Regression guard for the 2026-04-24 prod OOM where the old buffered
+        implementation held all ~1.5M parsed dicts in one list.
+        """
+        from app.infra.models import SanctionsListEntry, SanctionsListSnapshot
+        from app.services.sanctions import refresh_opensanctions_default
+
+        # Build 1200 synthetic FtM entities → 3 batches at batch_size=500.
+        def _make_line(i: int) -> bytes:
+            return (
+                b'{"id":"ent-'
+                + str(i).encode()
+                + b'","schema":"Person","caption":"Test Person '
+                + str(i).encode()
+                + b'","properties":{"name":["Test Person '
+                + str(i).encode()
+                + b'"]}}\n'
+            )
+
+        payload = b"".join(_make_line(i) for i in range(1200))
+
+        def client_factory() -> _FakeAsyncClient:
+            return _FakeAsyncClient([payload])
+
+        # Instrument flush() to count flushes and record session size at each.
+        adapter = _AsyncSessionAdapter(session)
+        flush_count = 0
+        session_sizes_at_flush: list[int] = []
+        orig_flush = adapter.flush
+
+        async def counting_flush() -> None:
+            nonlocal flush_count
+            flush_count += 1
+            session_sizes_at_flush.append(len(session.new))
+            await orig_flush()
+
+        adapter.flush = counting_flush  # type: ignore[method-assign]
+
+        snapshot, changed = await refresh_opensanctions_default(
+            adapter,  # type: ignore[arg-type]
+            client_factory=client_factory,
+            batch_size=500,
+        )
+        assert changed is True
+        assert snapshot.entry_count == 1200
+
+        # Persisted all 1200 rows
+        rows = session.query(SanctionsListEntry).filter_by(snapshot_id=snapshot.id).count()
+        assert rows == 1200
+
+        # Expect: 1 flush for staging create + 3 batch flushes (500+500+200)
+        #   + 1 flush for activation = 5. Allow >= 4 batch flushes to tolerate
+        # minor internals changes.
+        assert flush_count >= 4
+
+        # At no batch flush should the pending-new set have exceeded batch_size
+        # + a small epsilon for the snapshot/audit objects.
+        assert max(session_sizes_at_flush) <= 510, (
+            f"Pending-new set grew to {max(session_sizes_at_flush)} — streaming "
+            "is not actually batching"
+        )
+
+        # silence unused
         _ = SanctionsListSnapshot

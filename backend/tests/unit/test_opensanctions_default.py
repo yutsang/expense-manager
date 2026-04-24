@@ -347,6 +347,8 @@ class TestSkipEnvGate:
         monkeypatch.setenv("SANCTIONS_SKIP_PEP", "1")  # keep PEP noise out
 
         mock_db = AsyncMock()
+        mock_snap = MagicMock()
+        mock_snap.entry_count = 0
         with (
             patch.object(
                 sanc, "_fetch_and_parse_un", new_callable=AsyncMock, return_value=([], "h1")
@@ -359,9 +361,9 @@ class TestSkipEnvGate:
             ),
             patch.object(
                 sanc,
-                "_fetch_and_parse_opensanctions_default",
+                "refresh_opensanctions_default",
                 new_callable=AsyncMock,
-                return_value=([], "h4"),
+                return_value=(mock_snap, True),
             ),
             patch.object(
                 sanc, "_store_snapshot", new_callable=AsyncMock, return_value=(MagicMock(), True)
@@ -393,10 +395,9 @@ class TestSkipEnvGate:
             ),
             patch.object(
                 sanc,
-                "_fetch_and_parse_opensanctions_default",
+                "refresh_opensanctions_default",
                 new_callable=AsyncMock,
-                return_value=([], "h4"),
-            ) as fetch_default,
+            ) as refresh_default,
             patch.object(
                 sanc, "_store_snapshot", new_callable=AsyncMock, return_value=(MagicMock(), True)
             ),
@@ -404,7 +405,7 @@ class TestSkipEnvGate:
             results = await sanc.refresh_additional_lists(mock_db)
 
         assert "opensanctions_default" not in [s for s, _ in results]
-        fetch_default.assert_not_called()
+        refresh_default.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -814,6 +815,8 @@ class TestRefreshAdditionalListsIncludesDefault:
         monkeypatch.setenv("SANCTIONS_SKIP_PEP", "1")
 
         mock_db = AsyncMock()
+        mock_snap = MagicMock()
+        mock_snap.entry_count = 0
         with (
             patch.object(
                 sanc, "_fetch_and_parse_un", new_callable=AsyncMock, return_value=([], "h1")
@@ -826,9 +829,9 @@ class TestRefreshAdditionalListsIncludesDefault:
             ),
             patch.object(
                 sanc,
-                "_fetch_and_parse_opensanctions_default",
+                "refresh_opensanctions_default",
                 new_callable=AsyncMock,
-                return_value=([], "h4"),
+                return_value=(mock_snap, True),
             ),
             patch.object(
                 sanc, "_store_snapshot", new_callable=AsyncMock, return_value=(MagicMock(), True)

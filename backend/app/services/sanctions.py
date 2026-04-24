@@ -15,6 +15,7 @@ import json as _json
 import os
 import re
 import xml.etree.ElementTree as ET  # noqa: S405 — parsing trusted government XML, not user input
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -741,64 +742,177 @@ def _parse_opensanctions_default_line(line: bytes) -> dict[str, Any] | None:
     }
 
 
-async def _fetch_and_parse_opensanctions_default(
-    *, client_factory: Any = None
-) -> tuple[list[dict[str, Any]], str]:
-    """Stream the OpenSanctions Default NDJSON feed, parse line-by-line,
-    and return ``(entries, sha256_hex)``.
+class _StreamedOpenSanctionsFetch:
+    """Streaming fetcher for the OpenSanctions Default NDJSON feed.
 
-    Streaming matters: the default dataset is large and must not be buffered
-    in full. Chunks may split on arbitrary byte boundaries (not line
-    boundaries), so we fold a rolling ``buf`` and only parse on newline.
-    ``client_factory`` is a hook for tests; production callers omit it.
+    Yields parsed entry dicts one at a time via ``iter_entries()`` and tracks
+    the SHA-256 of the raw bytes as they flow through. The previous
+    ``_fetch_and_parse_opensanctions_default`` buffered the entire parsed
+    result in memory — on the ~1.5M-entity Default feed that OOMed a 2 GiB
+    Cloud Run container. This class lets the caller pull entries one batch
+    at a time and flush to DB, keeping peak RSS bounded to the batch size.
     """
-    if client_factory is None:
 
-        def _default_factory() -> httpx.AsyncClient:
-            return httpx.AsyncClient(timeout=300.0, follow_redirects=True)
+    def __init__(
+        self,
+        *,
+        client_factory: Callable[[], httpx.AsyncClient] | None = None,
+        url: str = _OPENSANCTIONS_DEFAULT_URL,
+    ) -> None:
+        self._client_factory = client_factory
+        self._url = url
+        self._hasher = hashlib.sha256()
+        self._finished = False
 
-        factory: Any = _default_factory
-    else:
-        factory = client_factory
+    @property
+    def hash_hex(self) -> str:
+        return self._hasher.hexdigest()
 
-    entries: list[dict[str, Any]] = []
-    hasher = hashlib.sha256()
-    buf = b""
+    @property
+    def finished(self) -> bool:
+        return self._finished
 
-    async with (
-        factory() as client,
-        client.stream("GET", _OPENSANCTIONS_DEFAULT_URL) as resp,
-    ):
-        resp.raise_for_status()
-        async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
-            if not chunk:
-                continue
-            hasher.update(chunk)
-            buf += chunk
-            while True:
-                nl = buf.find(b"\n")
-                if nl < 0:
-                    break
-                line, buf = buf[:nl], buf[nl + 1 :]
-                parsed = _parse_opensanctions_default_line(line)
-                if parsed is not None:
-                    entries.append(parsed)
+    async def iter_entries(self) -> AsyncIterator[dict[str, Any]]:
+        if self._client_factory is None:
 
-    # Flush any trailing line (feed may omit a final newline).
-    if buf:
-        parsed = _parse_opensanctions_default_line(buf)
-        if parsed is not None:
-            entries.append(parsed)
+            def _default_factory() -> httpx.AsyncClient:
+                return httpx.AsyncClient(timeout=300.0, follow_redirects=True)
 
-    return entries, hasher.hexdigest()
+            factory: Callable[[], httpx.AsyncClient] = _default_factory
+        else:
+            factory = self._client_factory
+
+        buf = b""
+        async with (
+            factory() as client,
+            client.stream("GET", self._url) as resp,
+        ):
+            resp.raise_for_status()
+            async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
+                if not chunk:
+                    continue
+                self._hasher.update(chunk)
+                buf += chunk
+                while True:
+                    nl = buf.find(b"\n")
+                    if nl < 0:
+                        break
+                    line, buf = buf[:nl], buf[nl + 1 :]
+                    parsed = _parse_opensanctions_default_line(line)
+                    if parsed is not None:
+                        yield parsed
+
+        # Flush any trailing line (feed may omit a final newline).
+        if buf:
+            parsed = _parse_opensanctions_default_line(buf)
+            if parsed is not None:
+                yield parsed
+        self._finished = True
+
+
+async def _fetch_and_parse_opensanctions_default(
+    *, client_factory: Callable[[], httpx.AsyncClient] | None = None
+) -> tuple[list[dict[str, Any]], str]:
+    """Buffered variant — kept for unit tests with small fixtures. **Do not use
+    in production**; use :func:`refresh_opensanctions_default` which streams
+    directly into the DB. Calling this on the real feed will OOM.
+    """
+    stream = _StreamedOpenSanctionsFetch(client_factory=client_factory)
+    entries = [e async for e in stream.iter_entries()]
+    return entries, stream.hash_hex
 
 
 async def refresh_opensanctions_default(
     db: AsyncSession,
+    *,
+    client_factory: Callable[[], httpx.AsyncClient] | None = None,
+    batch_size: int = 500,
 ) -> tuple[SanctionsListSnapshot, bool]:
-    """Fetch OpenSanctions default list, store snapshot, return (snapshot, changed)."""
-    entries, raw_hash = await _fetch_and_parse_opensanctions_default()
-    return await _store_snapshot(db, "opensanctions_default", entries, raw_hash)
+    """Stream-parse the OpenSanctions Default feed and bulk-insert entries
+    into a staging snapshot in batches of ``batch_size``. After the stream
+    completes, compare the raw-bytes hash to the previous active snapshot:
+    if unchanged, delete the staging snapshot (and cascade its entries);
+    otherwise activate it and deactivate the previous one.
+
+    Memory cap is ``batch_size`` dicts (~650 KB at batch_size=500) regardless
+    of feed size, so this works on the full ~500 MB feed inside a 2 GiB Cloud
+    Run container — fixes the OOM that `_fetch_and_parse_opensanctions_default`
+    caused on 2026-04-24.
+    """
+    stream = _StreamedOpenSanctionsFetch(client_factory=client_factory)
+
+    staging = SanctionsListSnapshot(
+        source="opensanctions_default",
+        fetched_at=datetime.now(tz=UTC),
+        entry_count=0,
+        sha256_hash="",  # placeholder; set after the stream finishes
+        is_active=False,
+        notes=None,
+    )
+    db.add(staging)
+    await db.flush()
+
+    count = 0
+    batch: list[SanctionsListEntry] = []
+    async for e in stream.iter_entries():
+        batch.append(
+            SanctionsListEntry(
+                snapshot_id=staging.id,
+                ref_id=e["ref_id"],
+                entity_type=e["entity_type"],
+                primary_name=e["primary_name"],
+                aliases=e.get("aliases", []),
+                countries=e.get("countries", []),
+                programs=e.get("programs", []),
+                remarks=e.get("remarks"),
+                source=e["source"],
+            )
+        )
+        count += 1
+        if len(batch) >= batch_size:
+            db.add_all(batch)
+            await db.flush()
+            for obj in batch:
+                db.expunge(obj)
+            batch = []
+    if batch:
+        db.add_all(batch)
+        await db.flush()
+        for obj in batch:
+            db.expunge(obj)
+
+    raw_hash = stream.hash_hex
+
+    prev = await _get_previous_snapshot(db, "opensanctions_default")
+    if prev and prev.sha256_hash == raw_hash:
+        # Unchanged — drop the staging snapshot (FK cascade deletes its entries).
+        await db.delete(staging)
+        await db.flush()
+        log.info("sanctions.snapshot_unchanged", source="opensanctions_default", count=count)
+        return prev, False
+
+    staging.entry_count = count
+    staging.sha256_hash = raw_hash
+    staging.is_active = True
+    if prev:
+        prev.is_active = False
+    await db.flush()
+
+    log.info("sanctions.snapshot_stored", source="opensanctions_default", count=count)
+
+    # Imported lazily to avoid a circular import with app.audit at module load.
+    from app.audit.emitter import emit as _audit_emit
+
+    await _audit_emit(
+        db,
+        action="sanctions.list_refreshed",
+        entity_type="sanctions_snapshot",
+        entity_id=staging.id,
+        actor_type="system",
+        tenant_id=None,
+        metadata={"source": "opensanctions_default", "entry_count": count},
+    )
+    return staging, True
 
 
 async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
@@ -817,14 +931,6 @@ async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
     else:
         log.info("sanctions.pep_skipped", reason="SANCTIONS_SKIP_PEP")
 
-    if os.getenv("SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT", "").lower() not in {"1", "true", "yes"}:
-        sources.append((_fetch_and_parse_opensanctions_default, "opensanctions_default"))
-    else:
-        log.info(
-            "sanctions.opensanctions_default_skipped",
-            reason="SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT",
-        )
-
     results = []
     for fetch_fn, source_name in sources:
         try:
@@ -837,6 +943,33 @@ async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
         except Exception as exc:
             log.error("sanctions.list_refresh_failed", source=source_name, error=str(exc))
             results.append((source_name, False))
+
+    # OpenSanctions Default goes through the streaming path — inline here
+    # rather than in the batch-fetch loop above so its entries are written
+    # to the DB in batches of 500 instead of buffered in one list.
+    if os.getenv("SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT", "").lower() not in {"1", "true", "yes"}:
+        try:
+            snap, changed = await refresh_opensanctions_default(db)
+            results.append(("opensanctions_default", changed))
+            log.info(
+                "sanctions.list_refreshed",
+                source="opensanctions_default",
+                changed=changed,
+                count=snap.entry_count,
+            )
+        except Exception as exc:
+            log.error(
+                "sanctions.list_refresh_failed",
+                source="opensanctions_default",
+                error=str(exc),
+            )
+            results.append(("opensanctions_default", False))
+    else:
+        log.info(
+            "sanctions.opensanctions_default_skipped",
+            reason="SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT",
+        )
+
     return results
 
 

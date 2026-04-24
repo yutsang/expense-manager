@@ -256,8 +256,14 @@ class TestRefreshAdditionalListsIncludesPep:
     """Verify that refresh_additional_lists now also refreshes the PEP list."""
 
     @pytest.mark.anyio
-    async def test_pep_included_in_refresh_additional_lists(self) -> None:
+    async def test_pep_included_in_refresh_additional_lists(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from app.services.sanctions import refresh_additional_lists
+
+        # Skip the separate streaming-path OpenSanctions Default call so this
+        # test stays focused on the PEP leg of refresh_additional_lists.
+        monkeypatch.setenv("SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT", "1")
 
         mock_db = AsyncMock()
 
