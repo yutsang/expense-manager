@@ -15,21 +15,18 @@ gcloud run jobs create aegis-migrate \
   --region="${REGION}" \
   --command="alembic" \
   --args="upgrade,head" \
-  --set-secrets="DATABASE_URL=aegis-database-url:latest,SECRET_KEY=aegis-secret-key:latest,REDIS_URL=aegis-redis-url:latest" \
+  --set-secrets="DATABASE_URL=aegis-database-url:latest,SECRET_KEY=aegis-secret-key:latest" \
   --set-env-vars="ENVIRONMENT=production" \
   --add-cloudsql-instances="${CLOUD_SQL_INSTANCE}" \
-  --vpc-connector=aegis-vpc-connector \
-  --vpc-egress=private-ranges-only \
   --max-retries=1 \
   --project="${PROJECT_ID}" 2>/dev/null || \
 gcloud run jobs update aegis-migrate \
   --image="${IMAGE}" \
   --region="${REGION}" \
-  --set-secrets="DATABASE_URL=aegis-database-url:latest,SECRET_KEY=aegis-secret-key:latest,REDIS_URL=aegis-redis-url:latest" \
+  --set-secrets="DATABASE_URL=aegis-database-url:latest,SECRET_KEY=aegis-secret-key:latest" \
   --set-env-vars="ENVIRONMENT=production" \
   --add-cloudsql-instances="${CLOUD_SQL_INSTANCE}" \
-  --vpc-connector=aegis-vpc-connector \
-  --vpc-egress=private-ranges-only \
+  --clear-vpc-connector \
   --project="${PROJECT_ID}"
 
 gcloud run jobs execute aegis-migrate \
