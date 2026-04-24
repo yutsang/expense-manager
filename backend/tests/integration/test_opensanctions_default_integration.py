@@ -159,9 +159,7 @@ class TestOpenSanctionsDefaultIntegration:
         original_fetch = sanc._fetch_and_parse_opensanctions_default
 
         async def fake_fetch() -> tuple[list[dict[str, Any]], str]:
-            return await original_fetch(
-                client_factory=lambda: _FakeAsyncClient([payload])
-            )
+            return await original_fetch(client_factory=lambda: _FakeAsyncClient([payload]))
 
         with patch.object(
             sanc,

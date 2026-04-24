@@ -95,9 +95,7 @@ class TestParseOpenSanctionsDefaultLine:
     def test_returns_none_when_no_name_or_caption(self) -> None:
         from app.services.sanctions import _parse_opensanctions_default_line
 
-        line = json.dumps(
-            {"id": "nameless", "schema": "Person", "properties": {}}
-        ).encode()
+        line = json.dumps({"id": "nameless", "schema": "Person", "properties": {}}).encode()
         assert _parse_opensanctions_default_line(line) is None
 
     @pytest.mark.parametrize(
@@ -229,9 +227,7 @@ class TestFetchAndParseOpenSanctionsDefault:
             # feed the payload in one chunk
             return _FakeAsyncClient([payload])
 
-        entries, raw_hash = await _fetch_and_parse_opensanctions_default(
-            client_factory=factory
-        )
+        entries, raw_hash = await _fetch_and_parse_opensanctions_default(client_factory=factory)
         assert raw_hash == expected_hash
         assert len(entries) == 2
         assert entries[0]["ref_id"] == "a"
@@ -811,9 +807,7 @@ class TestAuditEventOnSnapshotStore:
 
 class TestRefreshAdditionalListsIncludesDefault:
     @pytest.mark.anyio
-    async def test_default_source_present_in_results(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_default_source_present_in_results(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app.services import sanctions as sanc
 
         monkeypatch.delenv("SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT", raising=False)
