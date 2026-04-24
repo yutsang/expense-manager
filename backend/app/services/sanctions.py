@@ -40,8 +40,21 @@ _UK_OFSI_URL = "https://ofsistorage.blob.core.windows.net/publishlive/2022format
 _EU_URL = "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content"
 _EU_URL_FALLBACK = "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList/content"
 _OPENSANCTIONS_PEP_URL = "https://data.opensanctions.org/datasets/latest/peps/entities.ftm.json"
-_POTENTIAL_MATCH_THRESHOLD = 80
-_CONFIRMED_MATCH_THRESHOLD = 95
+_OPENSANCTIONS_DEFAULT_URL = (
+    "https://data.opensanctions.org/datasets/latest/default/entities.ftm.json"
+)
+_POTENTIAL_MATCH_THRESHOLD = 70
+_CONFIRMED_MATCH_THRESHOLD = 85
+
+# FtM (Follow the Money) schema → our entity_type enum.
+_FTM_SCHEMA_MAP: dict[str, str] = {
+    "Person": "individual",
+    "Organization": "organization",
+    "Company": "organization",
+    "LegalEntity": "organization",
+    "Vessel": "vessel",
+    "Airplane": "aircraft",
+}
 
 # ── FATF hardcoded lists (April 2026) ────────────────────────────────────────
 # Source: https://www.fatf-gafi.org/en/topics/high-risk-and-other-monitored-jurisdictions.html
@@ -133,13 +146,26 @@ def _parse_ofac_xml(xml_bytes: bytes) -> list[dict[str, Any]]:
 
 
 def _compute_name_score(contact_name: str, entry: SanctionsListEntry) -> tuple[int, str]:
-    """Return (best_score 0-100, best_matching_name)."""
+    """Return (best_score 0-100, best_matching_name).
+
+    Fast-path: an exact case-insensitive match against the primary name or any
+    alias short-circuits to (100, name) — this matters for aliases like
+    "LAM, Carrie" where WRatio-style tokenization previously missed the hit.
+    Fuzzy path uses ``token_set_ratio`` which is more tolerant of comma-
+    separated "Last, First" ordering common in OFAC/OpenSanctions feeds.
+    """
     upper = contact_name.upper()
     names: list[str] = [entry.primary_name] + [a["name"] for a in (entry.aliases or [])]
+
+    # Exact (case-insensitive) match short-circuit.
+    for name in names:
+        if name.upper() == upper:
+            return 100, name
+
     best_score = 0
     best_name = entry.primary_name
     for name in names:
-        score = int(fuzz.WRatio(upper, name.upper()))
+        score = int(fuzz.token_set_ratio(upper, name.upper()))
         if score > best_score:
             best_score = score
             best_name = name
@@ -208,6 +234,21 @@ async def _store_snapshot(
         await db.flush()
 
     log.info("sanctions.snapshot_stored", source=source, count=len(entries))
+
+    # Emit append-only audit event for the refreshed snapshot (global — no tenant).
+    # Imported lazily to avoid a circular import with app.audit at module load.
+    from app.audit.emitter import emit as _audit_emit
+
+    await _audit_emit(
+        db,
+        action="sanctions.list_refreshed",
+        entity_type="sanctions_snapshot",
+        entity_id=snapshot.id,
+        actor_type="system",
+        tenant_id=None,
+        metadata={"source": source, "entry_count": len(entries)},
+    )
+
     return snapshot, True
 
 
@@ -651,6 +692,115 @@ async def refresh_pep(db: AsyncSession) -> tuple[SanctionsListSnapshot, bool]:
     return await _store_snapshot(db, "opensanctions_pep", entries, raw_hash)
 
 
+# ── OpenSanctions Default (consolidated) NDJSON feed ──────────────────────
+
+
+def _parse_opensanctions_default_line(line: bytes) -> dict[str, Any] | None:
+    """Parse one FtM NDJSON line → canonical entry dict, or None to skip.
+
+    Returns None for empty lines, malformed JSON, or entities without any
+    usable name (neither ``properties.name`` nor ``caption``).
+    """
+    stripped = line.strip()
+    if not stripped:
+        return None
+    try:
+        data = _json.loads(stripped)
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    props = data.get("properties") or {}
+    names = props.get("name") or []
+    caption = (data.get("caption") or "").strip()
+    primary_name = (names[0].strip() if names else "") or caption
+    if not primary_name:
+        return None
+
+    schema = data.get("schema", "")
+    entity_type = _FTM_SCHEMA_MAP.get(schema, "entity")
+
+    aliases_raw = props.get("alias") or []
+    aliases = [{"type": "a.k.a.", "name": a} for a in aliases_raw if a]
+
+    countries = list(props.get("country") or [])
+    programs = list(props.get("topics") or [])
+    notes = props.get("notes") or []
+    remarks: str | None = notes[0] if notes else None
+
+    return {
+        "ref_id": data.get("id", ""),
+        "entity_type": entity_type,
+        "primary_name": primary_name,
+        "aliases": aliases,
+        "countries": countries,
+        "programs": programs,
+        "remarks": remarks,
+        "source": "opensanctions_default",
+    }
+
+
+async def _fetch_and_parse_opensanctions_default(
+    *, client_factory: Any = None
+) -> tuple[list[dict[str, Any]], str]:
+    """Stream the OpenSanctions Default NDJSON feed, parse line-by-line,
+    and return ``(entries, sha256_hex)``.
+
+    Streaming matters: the default dataset is large and must not be buffered
+    in full. Chunks may split on arbitrary byte boundaries (not line
+    boundaries), so we fold a rolling ``buf`` and only parse on newline.
+    ``client_factory`` is a hook for tests; production callers omit it.
+    """
+    if client_factory is None:
+
+        def _default_factory() -> httpx.AsyncClient:
+            return httpx.AsyncClient(timeout=300.0, follow_redirects=True)
+
+        factory: Any = _default_factory
+    else:
+        factory = client_factory
+
+    entries: list[dict[str, Any]] = []
+    hasher = hashlib.sha256()
+    buf = b""
+
+    async with (
+        factory() as client,
+        client.stream("GET", _OPENSANCTIONS_DEFAULT_URL) as resp,
+    ):
+        resp.raise_for_status()
+        async for chunk in resp.aiter_bytes(chunk_size=64 * 1024):
+            if not chunk:
+                continue
+            hasher.update(chunk)
+            buf += chunk
+            while True:
+                nl = buf.find(b"\n")
+                if nl < 0:
+                    break
+                line, buf = buf[:nl], buf[nl + 1 :]
+                parsed = _parse_opensanctions_default_line(line)
+                if parsed is not None:
+                    entries.append(parsed)
+
+    # Flush any trailing line (feed may omit a final newline).
+    if buf:
+        parsed = _parse_opensanctions_default_line(buf)
+        if parsed is not None:
+            entries.append(parsed)
+
+    return entries, hasher.hexdigest()
+
+
+async def refresh_opensanctions_default(
+    db: AsyncSession,
+) -> tuple[SanctionsListSnapshot, bool]:
+    """Fetch OpenSanctions default list, store snapshot, return (snapshot, changed)."""
+    entries, raw_hash = await _fetch_and_parse_opensanctions_default()
+    return await _store_snapshot(db, "opensanctions_default", entries, raw_hash)
+
+
 async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
     """Fetch UN, UK OFSI, EU, and PEP lists. Returns list of (source, changed) tuples.
 
@@ -666,6 +816,14 @@ async def refresh_additional_lists(db: AsyncSession) -> list[tuple[str, bool]]:
         sources.append((_fetch_and_parse_opensanctions_pep, "opensanctions_pep"))
     else:
         log.info("sanctions.pep_skipped", reason="SANCTIONS_SKIP_PEP")
+
+    if os.getenv("SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT", "").lower() not in {"1", "true", "yes"}:
+        sources.append((_fetch_and_parse_opensanctions_default, "opensanctions_default"))
+    else:
+        log.info(
+            "sanctions.opensanctions_default_skipped",
+            reason="SANCTIONS_SKIP_OPENSANCTIONS_DEFAULT",
+        )
 
     results = []
     for fetch_fn, source_name in sources:

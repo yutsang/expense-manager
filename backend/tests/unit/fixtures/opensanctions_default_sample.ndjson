@@ -1,0 +1,5 @@
+{"id":"ofac-lam-cheng-yuet-ngor","caption":"LAM, Cheng Yuet-Ngor","schema":"Person","properties":{"name":["LAM, Cheng Yuet-Ngor"],"alias":["LAM, Carrie","Carrie Lam"],"country":["hk"],"topics":["sanction","role.pep"],"notes":["Former Chief Executive of Hong Kong; sanctioned under EO 13936"]}}
+{"id":"ofac-jane-doe","caption":"Jane Doe","schema":"Person","properties":{"name":["Jane Doe"],"alias":["J. Doe"],"country":["us"],"topics":["sanction"]}}
+{"id":"os-acme-corp","caption":"Acme Corporation","schema":"Organization","properties":{"name":["Acme Corporation"],"country":["us"],"topics":["sanction"]}}
+{"id":"os-vessel-ghost","caption":"MV Ghost Ship","schema":"Vessel","properties":{"name":["MV Ghost Ship"],"topics":["sanction"]}}
+{malformed json line missing closing brace

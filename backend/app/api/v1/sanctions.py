@@ -90,7 +90,10 @@ async def search_entries(
     q: str | None = Query(default=None, description="Name search (case-insensitive)"),
     source: str | None = Query(
         default=None,
-        description="Filter by source: ofac_consolidated | fatf_blacklist | fatf_greylist | opensanctions_pep",
+        description=(
+            "Filter by source: ofac_consolidated | fatf_blacklist | fatf_greylist | "
+            "opensanctions_pep | opensanctions_default"
+        ),
     ),
     limit: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),

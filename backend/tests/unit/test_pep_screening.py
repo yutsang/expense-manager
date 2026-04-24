@@ -233,7 +233,7 @@ class TestScreenContactIncludesPep:
         pep_entry.primary_name = "John Smith"
         pep_entry.aliases = []
         score, matched_name = _compute_name_score("JOHN SMITH", pep_entry)
-        assert score >= 95  # confirmed match threshold
+        assert score >= 85  # confirmed match threshold
         assert matched_name == "John Smith"
 
     @pytest.mark.anyio
@@ -244,7 +244,7 @@ class TestScreenContactIncludesPep:
         pep_entry.primary_name = "Vladimir Petrov"
         pep_entry.aliases = []
         score, _ = _compute_name_score("Jane Williams", pep_entry)
-        assert score < 80  # below potential match threshold
+        assert score < 70  # below potential match threshold
 
 
 # ---------------------------------------------------------------------------
