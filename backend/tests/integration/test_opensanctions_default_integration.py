@@ -164,7 +164,7 @@ class TestOpenSanctionsDefaultIntegration:
 
         snapshot, changed = await refresh_opensanctions_default(
             db,  # type: ignore[arg-type]
-            client_factory=fake_client_factory,
+            client_factory=fake_client_factory,  # type: ignore[arg-type]
         )
         assert changed is True
         assert snapshot.sha256_hash == expected_hash
@@ -235,7 +235,7 @@ class TestOpenSanctionsDefaultIntegration:
         # Assert snapshot unchanged on second call → no new audit event
         _, changed2 = await refresh_opensanctions_default(
             db,  # type: ignore[arg-type]
-            client_factory=fake_client_factory,
+            client_factory=fake_client_factory,  # type: ignore[arg-type]
         )
         # Second refresh: same hash → changed should be False, no new audit event
         assert changed2 is False
@@ -273,7 +273,7 @@ class TestOpenSanctionsDefaultIntegration:
 
         payload = b"".join(_make_line(i) for i in range(1200))
 
-        def client_factory() -> _FakeAsyncClient:
+        def client_factory_mem() -> _FakeAsyncClient:
             return _FakeAsyncClient([payload])
 
         # Instrument flush() to count flushes and record session size at each.
@@ -292,7 +292,7 @@ class TestOpenSanctionsDefaultIntegration:
 
         snapshot, changed = await refresh_opensanctions_default(
             adapter,  # type: ignore[arg-type]
-            client_factory=client_factory,
+            client_factory=client_factory_mem,  # type: ignore[arg-type]
             batch_size=500,
         )
         assert changed is True
