@@ -875,6 +875,15 @@ async def refresh_opensanctions_default(
             for obj in batch:
                 db.expunge(obj)
             batch = []
+            # Periodic checkpoint log so we can observe progress on long
+            # streams without per-batch noise. ~50 events per full refresh
+            # (1.5M / 30k).
+            if count % 30000 == 0:
+                log.info(
+                    "sanctions.opensanctions_default_progress",
+                    count=count,
+                    snapshot_id=staging.id,
+                )
     if batch:
         db.add_all(batch)
         await db.flush()
