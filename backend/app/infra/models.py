@@ -1505,7 +1505,7 @@ class SanctionsListEntry(Base):
         nullable=False,
         index=True,
     )
-    ref_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    ref_id: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     entity_type: Mapped[str] = mapped_column(String(20), nullable=False)
     primary_name: Mapped[str] = mapped_column(String(500), nullable=False)
     aliases: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
