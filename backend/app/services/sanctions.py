@@ -827,6 +827,7 @@ async def refresh_opensanctions_default(
     *,
     client_factory: Callable[[], httpx.AsyncClient] | None = None,
     batch_size: int = 500,
+    queue_size: int = 10_000,
 ) -> tuple[SanctionsListSnapshot, bool]:
     """Stream-parse the OpenSanctions Default feed and bulk-insert entries
     into a staging snapshot in batches of ``batch_size``. After the stream
@@ -834,11 +835,22 @@ async def refresh_opensanctions_default(
     if unchanged, delete the staging snapshot (and cascade its entries);
     otherwise activate it and deactivate the previous one.
 
-    Memory cap is ``batch_size`` dicts (~650 KB at batch_size=500) regardless
-    of feed size, so this works on the full ~500 MB feed inside a 2 GiB Cloud
-    Run container — fixes the OOM that `_fetch_and_parse_opensanctions_default`
-    caused on 2026-04-24.
+    Producer/consumer architecture: the producer reads + parses NDJSON from
+    the network as fast as possible and pushes parsed dicts into a bounded
+    asyncio.Queue. The consumer drains the queue in batches and flushes them
+    to Postgres. Decoupling these two activities is required: in a naive
+    single-loop design, each ~250 ms DB flush blocks the network read, the
+    server-side TCP buffer fills, and after a few minutes OpenSanctions
+    silently closes the connection mid-stream (observed 2026-04-25 04:09 at
+    ~120k entries with the error "peer closed connection without sending
+    complete message body").
+
+    Memory: batch_size dicts in flight on the consumer side + queue_size
+    dicts in flight in the queue ≈ ``(batch_size + queue_size) × ~1 KB``.
+    At defaults (500 + 10000) ≈ 10 MB, well under the 2 GiB container limit.
     """
+    import asyncio
+
     stream = _StreamedOpenSanctionsFetch(client_factory=client_factory)
 
     staging = SanctionsListSnapshot(
@@ -852,43 +864,54 @@ async def refresh_opensanctions_default(
     db.add(staging)
     await db.flush()
 
-    count = 0
-    batch: list[SanctionsListEntry] = []
-    async for e in stream.iter_entries():
-        batch.append(
-            SanctionsListEntry(
-                snapshot_id=staging.id,
-                ref_id=e["ref_id"],
-                entity_type=e["entity_type"],
-                primary_name=e["primary_name"],
-                aliases=e.get("aliases", []),
-                countries=e.get("countries", []),
-                programs=e.get("programs", []),
-                remarks=e.get("remarks"),
-                source=e["source"],
+    queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=queue_size)
+    counter = {"value": 0}
+
+    async def producer() -> None:
+        async for e in stream.iter_entries():
+            await queue.put(e)
+        await queue.put(None)  # sentinel: stream done
+
+    async def consumer() -> None:
+        batch: list[SanctionsListEntry] = []
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            batch.append(
+                SanctionsListEntry(
+                    snapshot_id=staging.id,
+                    ref_id=item["ref_id"],
+                    entity_type=item["entity_type"],
+                    primary_name=item["primary_name"],
+                    aliases=item.get("aliases", []),
+                    countries=item.get("countries", []),
+                    programs=item.get("programs", []),
+                    remarks=item.get("remarks"),
+                    source=item["source"],
+                )
             )
-        )
-        count += 1
-        if len(batch) >= batch_size:
+            counter["value"] += 1
+            if len(batch) >= batch_size:
+                db.add_all(batch)
+                await db.flush()
+                for obj in batch:
+                    db.expunge(obj)
+                batch = []
+                if counter["value"] % 30_000 == 0:
+                    log.info(
+                        "sanctions.opensanctions_default_progress",
+                        count=counter["value"],
+                        snapshot_id=staging.id,
+                    )
+        if batch:
             db.add_all(batch)
             await db.flush()
             for obj in batch:
                 db.expunge(obj)
-            batch = []
-            # Periodic checkpoint log so we can observe progress on long
-            # streams without per-batch noise. ~50 events per full refresh
-            # (1.5M / 30k).
-            if count % 30000 == 0:
-                log.info(
-                    "sanctions.opensanctions_default_progress",
-                    count=count,
-                    snapshot_id=staging.id,
-                )
-    if batch:
-        db.add_all(batch)
-        await db.flush()
-        for obj in batch:
-            db.expunge(obj)
+
+    await asyncio.gather(producer(), consumer())
+    count = counter["value"]
 
     raw_hash = stream.hash_hex
 
