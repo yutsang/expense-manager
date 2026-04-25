@@ -36,11 +36,13 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 class TestOpenSanctionsDefaultUrl:
-    def test_url_points_to_default_dataset(self) -> None:
+    def test_url_points_to_opensanctions_dataset(self) -> None:
         from app.services.sanctions import _OPENSANCTIONS_DEFAULT_URL
 
+        # We use the focused `sanctions` dataset, not `default` — see the
+        # comment on the constant for why.
         assert "opensanctions.org" in _OPENSANCTIONS_DEFAULT_URL
-        assert "default" in _OPENSANCTIONS_DEFAULT_URL
+        assert "/sanctions/" in _OPENSANCTIONS_DEFAULT_URL
         assert _OPENSANCTIONS_DEFAULT_URL.endswith(".ftm.json")
 
 

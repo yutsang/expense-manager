@@ -41,8 +41,15 @@ _UK_OFSI_URL = "https://ofsistorage.blob.core.windows.net/publishlive/2022format
 _EU_URL = "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList_1_1/content"
 _EU_URL_FALLBACK = "https://webgate.ec.europa.eu/fsd/fsf/public/files/xmlFullSanctionsList/content"
 _OPENSANCTIONS_PEP_URL = "https://data.opensanctions.org/datasets/latest/peps/entities.ftm.json"
+# Use the focused `sanctions` dataset (~250k entries — sanctioned entities
+# only) rather than `default` (~1.7M, also includes PEPs/crime/journalists).
+# OpenSanctions terminates connections after ~27 min regardless of read
+# pace, which capped the default feed at ~1.68M before disconnect on
+# 2026-04-25 04:44. The sanctions subset still covers OFAC SDN, UN, UK
+# OFSI, EU FSD, and the major jurisdictional lists — i.e. Carrie Lam and
+# every other sanctioned entity. PEPs are intentionally a separate feed.
 _OPENSANCTIONS_DEFAULT_URL = (
-    "https://data.opensanctions.org/datasets/latest/default/entities.ftm.json"
+    "https://data.opensanctions.org/datasets/latest/sanctions/entities.ftm.json"
 )
 _POTENTIAL_MATCH_THRESHOLD = 70
 _CONFIRMED_MATCH_THRESHOLD = 85
@@ -826,7 +833,7 @@ async def refresh_opensanctions_default(
     db: AsyncSession,
     *,
     client_factory: Callable[[], httpx.AsyncClient] | None = None,
-    batch_size: int = 500,
+    batch_size: int = 2_500,
     queue_size: int = 10_000,
 ) -> tuple[SanctionsListSnapshot, bool]:
     """Stream-parse the OpenSanctions Default feed and bulk-insert entries
