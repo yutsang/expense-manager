@@ -1480,6 +1480,12 @@ class SanctionsEntryResponse(BaseModel):
     programs: list[str]
     remarks: str | None
     source: str
+    # Period + datasets — populated for OpenSanctions entries (migration
+    # 0054); ``None`` for legacy rows and non-OpenSanctions sources.
+    first_seen: datetime | None = None
+    last_seen: datetime | None = None
+    last_change: datetime | None = None
+    datasets: list[str] | None = None
 
     model_config = {"from_attributes": True}
 

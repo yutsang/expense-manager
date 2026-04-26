@@ -1518,6 +1518,16 @@ class SanctionsListEntry(Base):
     # trgm index. Populated by _store_snapshot* on insert. Nullable for
     # backwards-compat with rows from before migration 0053.
     search_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # OpenSanctions per-entity period — when the entity was first seen,
+    # last seen, and last modified in upstream sources. NULL for older
+    # rows that pre-date migration 0054.
+    first_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    last_seen: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    last_change: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True), nullable=True)
+    # List of upstream dataset slugs that contain this entity (e.g.
+    # ["us_ofac_sdn", "eu_fsf"]). The "sanctioned by" axis on the detail
+    # page. Empty/null for non-OpenSanctions sources.
+    datasets: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now, server_default=sa.text("now()")
     )

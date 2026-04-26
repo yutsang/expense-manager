@@ -62,6 +62,54 @@ function EntityIcon({ type, className = "h-5 w-5" }: { type: string; className?:
   return <Building2 className={`${className} text-muted-foreground`} />;
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+// OpenSanctions dataset slugs → human-readable names. The full registry has
+// hundreds of feeds; we name the common ones and fall back to a prettified
+// version of the slug for the rest.
+const DATASET_LABELS: Record<string, string> = {
+  us_ofac_sdn: "OFAC SDN (US)",
+  us_ofac_cons: "OFAC Consolidated Non-SDN (US)",
+  us_trade_csl: "Consolidated Screening List (US)",
+  us_bis_denied: "BIS Denied Persons (US)",
+  us_bis_entity: "BIS Entity List (US)",
+  us_sam_exclusions: "SAM Exclusions (US)",
+  un_sc_sanctions: "UN Security Council",
+  eu_fsf: "EU Financial Sanctions File",
+  eu_travel_bans: "EU Travel Bans",
+  eu_meps: "EU Members of Parliament",
+  gb_hmt_sanctions: "UK HMT (OFSI)",
+  gb_fcdo_sanctions: "UK FCDO",
+  gb_coh: "UK Companies House",
+  ca_dfatd_sema_sanctions: "Canada SEMA",
+  au_dfat_sanctions: "Australia DFAT",
+  ch_seco_sanctions: "Switzerland SECO",
+  jp_mof_sanctions: "Japan MOF",
+  fr_tresor_gels_avoir: "France Tresor",
+  be_fod_sanctions: "Belgium FOD",
+  mc_fund_freezes: "Monaco Fund Freezes",
+  sg_mas_sanctions: "Singapore MAS",
+  nz_dfat_sanctions: "New Zealand DFAT",
+  ua_ws: "Ukraine NSDC",
+  ru_war_register: "Russia War Register",
+  interpol_red_notices: "Interpol Red Notices",
+  worldbank_debarred: "World Bank Debarred",
+};
+
+function humanizeDataset(slug: string): string {
+  if (DATASET_LABELS[slug]) return DATASET_LABELS[slug];
+  return slug
+    .split("_")
+    .map((w) => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 export default function SanctionsEntryDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
@@ -137,6 +185,56 @@ export default function SanctionsEntryDetailPage() {
             </p>
             <p className="font-mono text-sm break-all">{entry.ref_id}</p>
           </div>
+
+          {/* Period — when this entity was first observed and last changed
+              upstream. NULL for non-OpenSanctions sources. */}
+          {(entry.first_seen || entry.last_seen || entry.last_change) && (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                Period
+              </p>
+              <dl className="grid gap-3 sm:grid-cols-3 text-sm">
+                {entry.first_seen && (
+                  <div>
+                    <dt className="text-xs text-muted-foreground">First seen</dt>
+                    <dd className="font-medium">{formatDate(entry.first_seen)}</dd>
+                  </div>
+                )}
+                {entry.last_seen && (
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Last seen</dt>
+                    <dd className="font-medium">{formatDate(entry.last_seen)}</dd>
+                  </div>
+                )}
+                {entry.last_change && (
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Last changed</dt>
+                    <dd className="font-medium">{formatDate(entry.last_change)}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+
+          {/* Sanctioned by — upstream datasets containing this entity. */}
+          {entry.datasets && entry.datasets.length > 0 && (
+            <div className="rounded-xl border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+                Sanctioned by ({entry.datasets.length})
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {entry.datasets.map((d, i) => (
+                  <span
+                    key={i}
+                    title={d}
+                    className="inline-block rounded-md border bg-muted/40 px-2 py-1 text-xs font-medium"
+                  >
+                    {humanizeDataset(d)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Aliases */}
           {entry.aliases.length > 0 && (

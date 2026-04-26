@@ -1018,6 +1018,10 @@ export interface SanctionsEntry {
   programs: string[];
   remarks: string | null;
   source: string;
+  first_seen: string | null;
+  last_seen: string | null;
+  last_change: string | null;
+  datasets: string[] | null;
 }
 
 export const sanctionsApi = {

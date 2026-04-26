@@ -192,6 +192,7 @@ def _build_search_text(entry: dict[str, Any]) -> str:
             parts.append(str(name))
     parts.extend(str(c) for c in (entry.get("countries") or []) if c)
     parts.extend(str(p) for p in (entry.get("programs") or []) if p)
+    parts.extend(str(d) for d in (entry.get("datasets") or []) if d)
     ref_id = entry.get("ref_id")
     if ref_id:
         parts.append(str(ref_id))
@@ -250,6 +251,10 @@ async def _store_snapshot(
                 remarks=e.get("remarks"),
                 source=e["source"],
                 search_text=_build_search_text(e),
+                first_seen=e.get("first_seen"),
+                last_seen=e.get("last_seen"),
+                last_change=e.get("last_change"),
+                datasets=e.get("datasets"),
             )
         )
         if len(batch) >= 500:
@@ -767,6 +772,16 @@ def _parse_opensanctions_default_line(line: bytes) -> dict[str, Any] | None:
     notes = props.get("notes") or []
     remarks: str | None = notes[0] if notes else None
 
+    # Period + datasets — OpenSanctions ships ISO-8601 timestamps at the
+    # top level. Parse defensively; non-OpenSanctions feeds won't have these.
+    def _parse_ts(raw: Any) -> datetime | None:
+        if not raw or not isinstance(raw, str):
+            return None
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
     return {
         "ref_id": data.get("id", ""),
         "entity_type": entity_type,
@@ -776,6 +791,10 @@ def _parse_opensanctions_default_line(line: bytes) -> dict[str, Any] | None:
         "programs": programs,
         "remarks": remarks,
         "source": "opensanctions_default",
+        "first_seen": _parse_ts(data.get("first_seen")),
+        "last_seen": _parse_ts(data.get("last_seen")),
+        "last_change": _parse_ts(data.get("last_change")),
+        "datasets": list(data.get("datasets") or []),
     }
 
 
@@ -912,6 +931,10 @@ async def refresh_opensanctions_default(
                 remarks=e.get("remarks"),
                 source=e["source"],
                 search_text=_build_search_text(e),
+                first_seen=e.get("first_seen"),
+                last_seen=e.get("last_seen"),
+                last_change=e.get("last_change"),
+                datasets=e.get("datasets"),
             )
         )
         count += 1
