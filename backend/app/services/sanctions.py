@@ -255,6 +255,7 @@ async def _store_snapshot(
                 last_seen=e.get("last_seen"),
                 last_change=e.get("last_change"),
                 datasets=e.get("datasets"),
+                properties=e.get("properties"),
             )
         )
         if len(batch) >= 500:
@@ -782,6 +783,49 @@ def _parse_opensanctions_default_line(line: bytes) -> dict[str, Any] | None:
         except ValueError:
             return None
 
+    # Subset of FtM properties the detail page renders. Stored verbatim
+    # as a JSONB blob (lists of strings, as the FtM schema gives them);
+    # the UI flattens / picks the first entry where it makes sense.
+    _UI_PROPERTY_KEYS = (
+        "address",
+        "addressEntity",
+        "idNumber",
+        "passportNumber",
+        "taxNumber",
+        "birthDate",
+        "birthPlace",
+        "deathDate",
+        "incorporationDate",
+        "dissolutionDate",
+        "nationality",
+        "gender",
+        "position",
+        "education",
+        "title",
+        "firstName",
+        "lastName",
+        "middleName",
+        "fatherName",
+        "motherName",
+        "weakAlias",
+        "imoNumber",
+        "flag",
+        "registrationNumber",
+        "leiCode",
+        "swiftBic",
+        "website",
+        "email",
+        "phone",
+        "sourceUrl",
+        "sector",
+        "operator",
+        "owner",
+        "type",
+        "summary",
+        "description",
+    )
+    ui_props = {k: props[k] for k in _UI_PROPERTY_KEYS if props.get(k)}
+
     return {
         "ref_id": data.get("id", ""),
         "entity_type": entity_type,
@@ -795,6 +839,7 @@ def _parse_opensanctions_default_line(line: bytes) -> dict[str, Any] | None:
         "last_seen": _parse_ts(data.get("last_seen")),
         "last_change": _parse_ts(data.get("last_change")),
         "datasets": list(data.get("datasets") or []),
+        "properties": ui_props or None,
     }
 
 
@@ -935,6 +980,7 @@ async def refresh_opensanctions_default(
                 last_seen=e.get("last_seen"),
                 last_change=e.get("last_change"),
                 datasets=e.get("datasets"),
+                properties=e.get("properties"),
             )
         )
         count += 1

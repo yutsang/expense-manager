@@ -1486,6 +1486,10 @@ class SanctionsEntryResponse(BaseModel):
     last_seen: datetime | None = None
     last_change: datetime | None = None
     datasets: list[str] | None = None
+    # Free-form FtM properties subset (migration 0055): address, IDs,
+    # birth/death dates, position, source URLs, etc. The detail page
+    # picks fields it knows; unknown keys are ignored.
+    properties: dict[str, Any] | None = None
 
     model_config = {"from_attributes": True}
 

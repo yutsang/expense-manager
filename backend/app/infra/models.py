@@ -1528,6 +1528,12 @@ class SanctionsListEntry(Base):
     # ["us_ofac_sdn", "eu_fsf"]). The "sanctioned by" axis on the detail
     # page. Empty/null for non-OpenSanctions sources.
     datasets: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    # Subset of OpenSanctions FtM properties — addresses, IDs, dates,
+    # positions, source URLs, etc. — used by the detail page. Stored as
+    # a single JSONB blob so adding/removing fields doesn't need a
+    # migration. NULL for non-OpenSanctions sources and for rows
+    # ingested before migration 0055.
+    properties: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now, server_default=sa.text("now()")
     )

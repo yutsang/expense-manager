@@ -102,6 +102,52 @@ const DATASET_LABELS: Record<string, string> = {
   worldbank_debarred: "World Bank Debarred",
 };
 
+function asStringArray(v: unknown): string[] {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string" && x.length > 0);
+  if (typeof v === "string") return [v];
+  return [];
+}
+
+function firstString(v: unknown): string | null {
+  const arr = asStringArray(v);
+  return arr.length > 0 ? (arr[0] ?? null) : null;
+}
+
+function joinStrings(v: unknown, sep = ", "): string | null {
+  const arr = asStringArray(v);
+  return arr.length > 0 ? arr.join(sep) : null;
+}
+
+const IDENTITY_KEYS = [
+  "birthDate", "birthPlace", "deathDate", "gender", "nationality",
+  "idNumber", "passportNumber", "taxNumber", "registrationNumber", "leiCode",
+  "imoNumber", "flag", "type", "incorporationDate", "dissolutionDate",
+  "position", "address", "sourceUrl",
+] as const;
+
+function hasIdentityDetails(props: Record<string, unknown>): boolean {
+  return IDENTITY_KEYS.some((k) => asStringArray(props[k]).length > 0);
+}
+
+function Field({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string | null;
+  mono?: boolean;
+}) {
+  if (!value) return null;
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className={mono ? "font-mono text-sm break-all" : "text-sm font-medium"}>{value}</dd>
+    </div>
+  );
+}
+
 function humanizeDataset(slug: string): string {
   const known = DATASET_LABELS[slug];
   if (known) return known;
@@ -234,6 +280,92 @@ export default function SanctionsEntryDetailPage() {
                   </span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Identity details — pulled from OpenSanctions FtM properties. */}
+          {entry.properties && hasIdentityDetails(entry.properties) && (
+            <div className="rounded-xl border bg-card p-4 space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Identity details
+              </p>
+              <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 text-sm">
+                <Field label="Birth date" value={firstString(entry.properties.birthDate)} />
+                <Field label="Birth place" value={firstString(entry.properties.birthPlace)} />
+                <Field label="Death date" value={firstString(entry.properties.deathDate)} />
+                <Field label="Gender" value={firstString(entry.properties.gender)} />
+                <Field label="Nationality" value={joinStrings(entry.properties.nationality)} />
+                <Field label="ID number" value={firstString(entry.properties.idNumber)} mono />
+                <Field
+                  label="Passport number"
+                  value={firstString(entry.properties.passportNumber)}
+                  mono
+                />
+                <Field label="Tax number" value={firstString(entry.properties.taxNumber)} mono />
+                <Field
+                  label="Registration"
+                  value={firstString(entry.properties.registrationNumber)}
+                  mono
+                />
+                <Field label="LEI" value={firstString(entry.properties.leiCode)} mono />
+                <Field label="IMO" value={firstString(entry.properties.imoNumber)} mono />
+                <Field label="Flag" value={firstString(entry.properties.flag)} />
+                <Field label="Type" value={firstString(entry.properties.type)} />
+                <Field
+                  label="Incorporated"
+                  value={firstString(entry.properties.incorporationDate)}
+                />
+                <Field label="Dissolved" value={firstString(entry.properties.dissolutionDate)} />
+              </dl>
+
+              {/* Position / title — can be a long list of free-text strings. */}
+              {asStringArray(entry.properties.position).length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Position / role</p>
+                  <ul className="space-y-1 text-sm">
+                    {asStringArray(entry.properties.position).map((p, i) => (
+                      <li key={i} className="leading-snug">
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Address — show all known. */}
+              {asStringArray(entry.properties.address).length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Address</p>
+                  <ul className="space-y-1 text-sm">
+                    {asStringArray(entry.properties.address).map((a, i) => (
+                      <li key={i} className="leading-snug">
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Source URLs — clickable links to upstream listings. */}
+              {asStringArray(entry.properties.sourceUrl).length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Source URLs</p>
+                  <ul className="space-y-1 text-sm">
+                    {asStringArray(entry.properties.sourceUrl).map((u, i) => (
+                      <li key={i} className="truncate">
+                        <a
+                          href={u}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                        >
+                          {u}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 

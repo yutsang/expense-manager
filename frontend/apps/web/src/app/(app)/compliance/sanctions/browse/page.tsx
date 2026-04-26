@@ -44,6 +44,42 @@ const SOURCE_LABELS: Record<string, { short: string; color: string }> = {
   },
 };
 
+// Same map as the detail page — kept duplicated to avoid a shared import
+// for ~30 lines of static data.
+const DATASET_LABELS: Record<string, string> = {
+  us_ofac_sdn: "OFAC SDN",
+  us_ofac_cons: "OFAC Non-SDN",
+  us_trade_csl: "US CSL",
+  us_bis_denied: "BIS Denied",
+  us_bis_entity: "BIS Entity",
+  us_sam_exclusions: "SAM",
+  un_sc_sanctions: "UN SC",
+  eu_fsf: "EU FSF",
+  eu_travel_bans: "EU Travel",
+  eu_meps: "EU MEPs",
+  gb_hmt_sanctions: "UK HMT",
+  gb_fcdo_sanctions: "UK FCDO",
+  ca_dfatd_sema_sanctions: "CA SEMA",
+  au_dfat_sanctions: "AU DFAT",
+  ch_seco_sanctions: "CH SECO",
+  jp_mof_sanctions: "JP MOF",
+  fr_tresor_gels_avoir: "FR Tresor",
+  sg_mas_sanctions: "SG MAS",
+  nz_dfat_sanctions: "NZ DFAT",
+  ua_ws: "UA NSDC",
+  interpol_red_notices: "Interpol",
+  worldbank_debarred: "WB Debarred",
+};
+
+function humanizeDataset(slug: string): string {
+  const known = DATASET_LABELS[slug];
+  if (known) return known;
+  return slug
+    .split("_")
+    .map((w) => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 function SourceBadge({ source }: { source: string }) {
   const def = SOURCE_LABELS[source] ?? { short: source, color: "bg-muted text-muted-foreground" };
   return (
@@ -51,6 +87,37 @@ function SourceBadge({ source }: { source: string }) {
       {def.short}
     </span>
   );
+}
+
+function ListTags({ entry }: { entry: SanctionsEntry }) {
+  // For OpenSanctions entries we have the upstream dataset list; show
+  // those as chips so users see "OFAC SDN, EU FSF" instead of the
+  // generic "OpenSanctions" badge. Falls back to the source badge when
+  // datasets are empty (legacy rows + non-OpenSanctions sources).
+  const datasets = entry.datasets ?? [];
+  if (datasets.length > 0) {
+    const visible = datasets.slice(0, 2);
+    const overflow = datasets.length - visible.length;
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visible.map((d, i) => (
+          <span
+            key={i}
+            title={d}
+            className="inline-block rounded-md border bg-muted/40 px-1.5 py-0.5 text-xs font-medium"
+          >
+            {humanizeDataset(d)}
+          </span>
+        ))}
+        {overflow > 0 && (
+          <span className="inline-block rounded-md border bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground">
+            +{overflow}
+          </span>
+        )}
+      </div>
+    );
+  }
+  return <SourceBadge source={entry.source} />;
 }
 
 function EntityIcon({ type }: { type: string }) {
@@ -64,7 +131,10 @@ const PAGE_SIZE = 50;
 function BrowseInner() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
-  const initialSource = searchParams.get("source") ?? "";
+  // Default to the consolidated OpenSanctions view so users don't see the
+  // same person duplicated across OFAC + OpenSanctions snapshots. Other
+  // sources are still selectable from the dropdown.
+  const initialSource = searchParams.get("source") ?? "opensanctions_default";
 
   const [entries, setEntries] = useState<SanctionsEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -242,7 +312,7 @@ function BrowseInner() {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <SourceBadge source={entry.source} />
+                  <ListTags entry={entry} />
                 </td>
               </tr>
             ))}

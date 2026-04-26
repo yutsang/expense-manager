@@ -1022,6 +1022,7 @@ export interface SanctionsEntry {
   last_seen: string | null;
   last_change: string | null;
   datasets: string[] | null;
+  properties: Record<string, unknown> | null;
 }
 
 export const sanctionsApi = {
