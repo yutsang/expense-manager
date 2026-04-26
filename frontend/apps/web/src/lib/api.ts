@@ -1034,6 +1034,7 @@ export const sanctionsApi = {
       `/v1/sanctions/entries?${qs.toString()}`
     );
   },
+  entry: (id: string) => request<SanctionsEntry>("GET", `/v1/sanctions/entries/${id}`),
   screenContact: (contactId: string) =>
     request<SanctionsScreeningResult>("POST", `/v1/sanctions/screen/${contactId}`),
   getScreenResult: (contactId: string) =>

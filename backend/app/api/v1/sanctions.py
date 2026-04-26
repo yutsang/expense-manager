@@ -117,21 +117,23 @@ async def search_entries(
         count_base = count_base.where(SanctionsListEntry.source == source)
 
     if q:
-        from sqlalchemy import text
-
-        pattern = f"%{q}%"
-        # Search primary_name, ref_id, and any alias name inside the JSONB array
-        alias_subquery = text(
-            "EXISTS (SELECT 1 FROM jsonb_array_elements(sanctions_list_entries.aliases) AS a "
-            "WHERE a->>'name' ILIKE :pat)"
-        ).bindparams(pat=pattern)
-        name_filter = or_(
-            SanctionsListEntry.primary_name.ilike(pattern),
-            SanctionsListEntry.ref_id.ilike(pattern),
-            alias_subquery,
-        )
-        base = base.where(name_filter)
-        count_base = count_base.where(name_filter)
+        # Multi-token AND: every whitespace-separated token must appear
+        # somewhere in the entry's search_text (lowercase concat of
+        # primary_name + alias names + countries + programs + ref_id,
+        # populated on insert and indexed by GIN trigrams). Order- and
+        # field-independent: "carrie lam" matches "LAM, Carrie" because
+        # both tokens are present, even though they're in reversed order
+        # in primary_name. Falls back to primary_name ILIKE for legacy
+        # rows that pre-date migration 0053 and have search_text=NULL.
+        tokens = [tok for tok in q.lower().split() if tok]
+        for tok in tokens:
+            pat = f"%{tok}%"
+            tok_filter = or_(
+                SanctionsListEntry.search_text.ilike(pat),
+                SanctionsListEntry.primary_name.ilike(pat),
+            )
+            base = base.where(tok_filter)
+            count_base = count_base.where(tok_filter)
 
     total = await db.scalar(count_base) or 0
     rows = await db.execute(
@@ -142,6 +144,18 @@ async def search_entries(
         items=[SanctionsEntryResponse.model_validate(e) for e in entries],
         total=total,
     )
+
+
+@router.get("/entries/{entry_id}", response_model=SanctionsEntryResponse)
+async def get_entry(
+    entry_id: str,
+    db: DbSession,
+) -> SanctionsEntryResponse:
+    """Fetch a single sanctions entry by id (for the detail page)."""
+    entry = await db.scalar(select(SanctionsListEntry).where(SanctionsListEntry.id == entry_id))
+    if entry is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Sanctions entry not found")
+    return SanctionsEntryResponse.model_validate(entry)
 
 
 @router.get("/screen/{contact_id}", response_model=ContactScreeningResultResponse | None)

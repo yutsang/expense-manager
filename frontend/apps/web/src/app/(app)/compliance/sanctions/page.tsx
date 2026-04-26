@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw, Search, ShieldAlert, ShieldCheck, Globe, User, Building2 } from "lucide-react";
 import {
@@ -250,17 +251,17 @@ export default function SanctionsListsPage() {
               </tr>
             )}
             {!loading && entries.map((entry) => (
-              <tr key={entry.id} className="hover:bg-muted/30 transition-colors">
+              <tr key={entry.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
+                  <Link href={`/compliance/sanctions/${entry.id}`} className="flex items-center gap-2">
                     <EntityIcon type={entry.entity_type} />
                     <div>
-                      <p className="font-medium text-foreground leading-tight">{entry.primary_name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="font-medium text-foreground leading-tight hover:underline">{entry.primary_name}</p>
+                      <p className="text-xs text-muted-foreground truncate max-w-[280px]" title={entry.ref_id}>
                         {entry.ref_id} · {entry.entity_type.replace("_", " ")}
                       </p>
                     </div>
-                  </div>
+                  </Link>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   {entry.aliases.length > 0 ? (

@@ -1513,6 +1513,11 @@ class SanctionsListEntry(Base):
     programs: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Denormalised lowercase concatenation of primary_name + alias names +
+    # countries + programs for fast multi-token ILIKE search via the GIN
+    # trgm index. Populated by _store_snapshot* on insert. Nullable for
+    # backwards-compat with rows from before migration 0053.
+    search_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, default=_now, server_default=sa.text("now()")
     )

@@ -180,6 +180,24 @@ def _compute_name_score(contact_name: str, entry: SanctionsListEntry) -> tuple[i
     return best_score, best_name
 
 
+def _build_search_text(entry: dict[str, Any]) -> str:
+    """Lower-cased, space-separated concatenation of every searchable field
+    on a sanctions entry. Stored in ``sanctions_list_entries.search_text``
+    and indexed with GIN trigrams so multi-token ILIKE is index-fast.
+    """
+    parts: list[str] = [str(entry.get("primary_name") or "")]
+    for a in entry.get("aliases") or []:
+        name = a.get("name") if isinstance(a, dict) else a
+        if name:
+            parts.append(str(name))
+    parts.extend(str(c) for c in (entry.get("countries") or []) if c)
+    parts.extend(str(p) for p in (entry.get("programs") or []) if p)
+    ref_id = entry.get("ref_id")
+    if ref_id:
+        parts.append(str(ref_id))
+    return " ".join(parts).lower()
+
+
 async def _get_previous_snapshot(db: AsyncSession, source: str) -> SanctionsListSnapshot | None:
     return await db.scalar(
         select(SanctionsListSnapshot).where(
@@ -231,6 +249,7 @@ async def _store_snapshot(
                 programs=e.get("programs", []),
                 remarks=e.get("remarks"),
                 source=e["source"],
+                search_text=_build_search_text(e),
             )
         )
         if len(batch) >= 500:
@@ -720,17 +739,28 @@ def _parse_opensanctions_default_line(line: bytes) -> dict[str, Any] | None:
         return None
 
     props = data.get("properties") or {}
-    names = props.get("name") or []
+    names = [n.strip() for n in (props.get("name") or []) if n and n.strip()]
     caption = (data.get("caption") or "").strip()
-    primary_name = (names[0].strip() if names else "") or caption
+    primary_name = names[0] if names else caption
     if not primary_name:
         return None
 
     schema = data.get("schema", "")
     entity_type = _FTM_SCHEMA_MAP.get(schema, "entity")
 
-    aliases_raw = props.get("alias") or []
-    aliases = [{"type": "a.k.a.", "name": a} for a in aliases_raw if a]
+    # Aliases come from two FtM fields: extra ``name[1:]`` (alternate display
+    # forms — e.g. OpenSanctions Carrie Lam has ``["LAM, Carrie", "Carrie
+    # Lam"]`` with the second variant only reachable via this) and ``alias``
+    # (declared aliases like other-language transliterations).
+    extra_names = names[1:] if len(names) > 1 else []
+    aliases_raw = [a for a in (props.get("alias") or []) if a]
+    seen: set[str] = {primary_name}
+    aliases: list[dict[str, str]] = []
+    for n in [*extra_names, *aliases_raw]:
+        if n in seen:
+            continue
+        seen.add(n)
+        aliases.append({"type": "a.k.a.", "name": n})
 
     countries = list(props.get("country") or [])
     programs = list(props.get("topics") or [])
@@ -896,6 +926,7 @@ async def refresh_opensanctions_default(
                     programs=item.get("programs", []),
                     remarks=item.get("remarks"),
                     source=item["source"],
+                    search_text=_build_search_text(item),
                 )
             )
             counter["value"] += 1

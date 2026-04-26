@@ -850,6 +850,96 @@ class TestRefreshAdditionalListsIncludesDefault:
 # ---------------------------------------------------------------------------
 
 
+class TestExtraNamesIntoAliases:
+    """Regression: OpenSanctions ships ``name[]`` with multiple display
+    forms (e.g. Carrie Lam = ``["LAM, Carrie", "Carrie Lam"]``). We previously
+    only kept ``name[0]`` as primary and dropped the rest, so a literal
+    ILIKE ``%carrie lam%`` returned 0 matches against an entry whose
+    second name was exactly that. Now name[1:] is folded into aliases.
+    """
+
+    def test_extra_names_become_aliases(self) -> None:
+        import json as _json
+
+        from app.services.sanctions import _parse_opensanctions_default_line
+
+        line = _json.dumps(
+            {
+                "id": "Q19217",
+                "caption": "Carrie Lam",
+                "schema": "Person",
+                "properties": {
+                    "name": ["LAM, Carrie", "Carrie Lam"],
+                    "alias": ["Carrie Yuet-ngor Lam Cheng"],
+                },
+            }
+        ).encode()
+
+        entry = _parse_opensanctions_default_line(line)
+        assert entry is not None
+        assert entry["primary_name"] == "LAM, Carrie"
+        alias_names = {a["name"] for a in entry["aliases"]}
+        assert "Carrie Lam" in alias_names
+        assert "Carrie Yuet-ngor Lam Cheng" in alias_names
+        # The primary name is not duplicated as an alias
+        assert "LAM, Carrie" not in alias_names
+
+    def test_dedupes_repeated_names_across_name_and_alias(self) -> None:
+        import json as _json
+
+        from app.services.sanctions import _parse_opensanctions_default_line
+
+        line = _json.dumps(
+            {
+                "id": "x",
+                "schema": "Person",
+                "properties": {
+                    "name": ["LAM, Carrie", "Carrie Lam"],
+                    # `Carrie Lam` appears in both name[] and alias[]
+                    "alias": ["Carrie Lam"],
+                },
+            }
+        ).encode()
+
+        entry = _parse_opensanctions_default_line(line)
+        assert entry is not None
+        # Carrie Lam appears exactly once in aliases
+        carrie_count = sum(1 for a in entry["aliases"] if a["name"] == "Carrie Lam")
+        assert carrie_count == 1
+
+
+class TestBuildSearchText:
+    """``search_text`` is the lower-cased concat of every ILIKE-able field;
+    indexed by GIN trgm on insert and the only column the API search
+    targets at query time."""
+
+    def test_includes_primary_aliases_countries_programs(self) -> None:
+        from app.services.sanctions import _build_search_text
+
+        entry = {
+            "primary_name": "LAM, Carrie",
+            "aliases": [{"type": "a.k.a.", "name": "Carrie Lam"}],
+            "countries": ["hk"],
+            "programs": ["sanction"],
+            "ref_id": "Q19217",
+        }
+        text = _build_search_text(entry)
+        # Lower-cased
+        assert text == text.lower()
+        # All searchable values present
+        assert "lam, carrie" in text
+        assert "carrie lam" in text
+        assert "hk" in text
+        assert "sanction" in text
+        assert "q19217" in text
+
+    def test_handles_missing_optional_fields(self) -> None:
+        from app.services.sanctions import _build_search_text
+
+        text = _build_search_text({"primary_name": "Foo"})
+        assert text == "foo"
+
+
 class TestFixtureFile:
     def test_bundled_fixture_parses(self) -> None:
         from app.services.sanctions import _parse_opensanctions_default_line
