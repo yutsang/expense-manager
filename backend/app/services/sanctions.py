@@ -51,6 +51,11 @@ _OPENSANCTIONS_PEP_URL = "https://data.opensanctions.org/datasets/latest/peps/en
 _OPENSANCTIONS_DEFAULT_URL = (
     "https://data.opensanctions.org/datasets/latest/sanctions/entities.ftm.json"
 )
+# Bumped whenever ``_parse_opensanctions_default_line`` changes what it
+# extracts from each FtM entity. Folded into the bytes-hash so a code-only
+# change (new column captured, parser fix, etc.) forces a re-ingest the
+# next time the refresh runs, even if the upstream data is byte-identical.
+_OPENSANCTIONS_PARSER_VERSION = "v2-2026-04-27-properties"
 _POTENTIAL_MATCH_THRESHOLD = 70
 _CONFIRMED_MATCH_THRESHOLD = 85
 
@@ -867,7 +872,17 @@ class _StreamedOpenSanctionsFetch:
 
     @property
     def hash_hex(self) -> str:
-        return self._hasher.hexdigest()
+        # Fold the parser version into the final hash so that bumping the
+        # parser (capturing more FtM properties, fixing a parse bug,
+        # changing what goes into search_text, etc.) makes the snapshot
+        # appear "changed" even when the upstream bytes are identical,
+        # which forces _store_snapshot_streaming to keep the staging row
+        # and replace the previous active snapshot instead of rolling
+        # back the new rows.
+        h = hashlib.sha256()
+        h.update(self._hasher.digest())
+        h.update(_OPENSANCTIONS_PARSER_VERSION.encode())
+        return h.hexdigest()
 
     @property
     def finished(self) -> bool:

@@ -223,7 +223,14 @@ class TestFetchAndParseOpenSanctionsDefault:
             },
         ]
         payload = _make_ndjson_bytes(entities)
-        expected_hash = hashlib.sha256(payload).hexdigest()
+        from app.services.sanctions import _OPENSANCTIONS_PARSER_VERSION
+
+        # Hash is folded with the parser version (see _StreamedOpenSanctionsFetch.hash_hex).
+        _bytes_h = hashlib.sha256(payload).digest()
+        _h = hashlib.sha256()
+        _h.update(_bytes_h)
+        _h.update(_OPENSANCTIONS_PARSER_VERSION.encode())
+        expected_hash = _h.hexdigest()
 
         def factory() -> _FakeAsyncClient:
             # feed the payload in one chunk
@@ -252,7 +259,14 @@ class TestFetchAndParseOpenSanctionsDefault:
         # split payload at an arbitrary byte boundary so newlines straddle chunks
         mid = len(payload) // 2
         chunks = [payload[:mid], payload[mid:]]
-        expected_hash = hashlib.sha256(payload).hexdigest()
+        from app.services.sanctions import _OPENSANCTIONS_PARSER_VERSION
+
+        # Hash is folded with the parser version (see _StreamedOpenSanctionsFetch.hash_hex).
+        _bytes_h = hashlib.sha256(payload).digest()
+        _h = hashlib.sha256()
+        _h.update(_bytes_h)
+        _h.update(_OPENSANCTIONS_PARSER_VERSION.encode())
+        expected_hash = _h.hexdigest()
 
         entries, raw_hash = await _fetch_and_parse_opensanctions_default(
             client_factory=lambda: _FakeAsyncClient(chunks)
@@ -309,7 +323,13 @@ class TestFetchAndParseOpenSanctionsDefault:
             client_factory=lambda: _FakeAsyncClient(multi_chunks)
         )
 
-        assert h1 == h2 == hashlib.sha256(payload).hexdigest()
+        # Hash is bytes-hash folded with the parser version.
+        from app.services.sanctions import _OPENSANCTIONS_PARSER_VERSION
+
+        _h = hashlib.sha256()
+        _h.update(hashlib.sha256(payload).digest())
+        _h.update(_OPENSANCTIONS_PARSER_VERSION.encode())
+        assert h1 == h2 == _h.hexdigest()
         assert len(one) == len(many) == 1000
         assert [e["ref_id"] for e in one] == [e["ref_id"] for e in many]
 

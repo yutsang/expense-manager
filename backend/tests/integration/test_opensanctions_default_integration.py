@@ -151,8 +151,14 @@ class TestOpenSanctionsDefaultIntegration:
         )
         from app.services.sanctions import refresh_opensanctions_default, screen_contact
 
+        from app.services.sanctions import _OPENSANCTIONS_PARSER_VERSION
+
         payload = (FIXTURES / "opensanctions_default_sample.ndjson").read_bytes()
-        expected_hash = hashlib.sha256(payload).hexdigest()
+        # Hash is bytes-hash folded with the parser version.
+        _h = hashlib.sha256()
+        _h.update(hashlib.sha256(payload).digest())
+        _h.update(_OPENSANCTIONS_PARSER_VERSION.encode())
+        expected_hash = _h.hexdigest()
 
         db = _AsyncSessionAdapter(session)
 
