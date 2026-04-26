@@ -149,9 +149,11 @@ class TestOpenSanctionsDefaultIntegration:
             SanctionsListEntry,
             SanctionsListSnapshot,
         )
-        from app.services.sanctions import refresh_opensanctions_default, screen_contact
-
-        from app.services.sanctions import _OPENSANCTIONS_PARSER_VERSION
+        from app.services.sanctions import (
+            _OPENSANCTIONS_PARSER_VERSION,
+            refresh_opensanctions_default,
+            screen_contact,
+        )
 
         payload = (FIXTURES / "opensanctions_default_sample.ndjson").read_bytes()
         # Hash is bytes-hash folded with the parser version.
