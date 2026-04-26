@@ -103,10 +103,11 @@ const DATASET_LABELS: Record<string, string> = {
 };
 
 function humanizeDataset(slug: string): string {
-  if (DATASET_LABELS[slug]) return DATASET_LABELS[slug];
+  const known = DATASET_LABELS[slug];
+  if (known) return known;
   return slug
     .split("_")
-    .map((w) => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
+    .map((w) => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(" ");
 }
 
