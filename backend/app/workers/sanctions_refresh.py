@@ -26,29 +26,37 @@ async def refresh_sanctions_lists(ctx: dict[str, Any]) -> dict[str, Any]:
     fatf_changed = False
     additional_changed = False
 
+    # Each source runs in its own session so a flush failure on one
+    # (e.g. asyncpg "cannot use Connection.transaction() in a manually
+    # started transaction" — observed 2026-04-26 02:47) doesn't poison
+    # the session for the next source. Sessions are cheap; the connection
+    # pool is shared underneath.
     async with AsyncSessionLocal() as db:
-        # OFAC
         try:
             ofac_snap, ofac_changed = await refresh_ofac(db)
+            await db.commit()
             log.info("sanctions.ofac_refreshed", changed=ofac_changed, count=ofac_snap.entry_count)
         except Exception as exc:
             log.error("sanctions.ofac_refresh_failed", error=str(exc))
+            await db.rollback()
 
-        # FATF
+    async with AsyncSessionLocal() as db:
         try:
             fatf_results = await refresh_fatf(db)
             fatf_changed = any(changed for _, changed in fatf_results)
+            await db.commit()
         except Exception as exc:
             log.error("sanctions.fatf_refresh_failed", error=str(exc))
+            await db.rollback()
 
-        # UN, UK OFSI, EU
+    async with AsyncSessionLocal() as db:
         try:
             additional_results = await refresh_additional_lists(db)
             additional_changed = any(changed for _, changed in additional_results)
+            await db.commit()
         except Exception as exc:
             log.error("sanctions.additional_refresh_failed", error=str(exc))
-
-        await db.commit()
+            await db.rollback()
 
     results: dict[str, Any] = {
         "ofac_changed": ofac_changed,
