@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 
 from app.api.v1.deps import DbSession, TenantId
@@ -12,17 +14,17 @@ from app.api.v1.schemas import (
     SanctionsEntryResponse,
     SanctionsSnapshotResponse,
 )
+from app.core.logging import get_logger
 from app.infra.models import Contact, SanctionsListEntry, SanctionsListSnapshot
 from app.services.sanctions import (
     get_latest_snapshots,
     get_screening_result,
-    refresh_additional_lists,
-    refresh_fatf,
-    refresh_ofac,
     screen_contact,
 )
+from app.workers.sanctions_refresh import refresh_sanctions_lists
 
 router = APIRouter(prefix="/sanctions", tags=["sanctions"])
+log = get_logger(__name__)
 
 
 @router.get("/snapshots", response_model=list[SanctionsSnapshotResponse])
@@ -32,30 +34,29 @@ async def list_snapshots(db: DbSession) -> list[SanctionsSnapshotResponse]:
     return [SanctionsSnapshotResponse.model_validate(s) for s in snaps]
 
 
-@router.post("/refresh", status_code=status.HTTP_202_ACCEPTED)
-async def trigger_refresh(
-    db: DbSession,
-    background_tasks: BackgroundTasks,
-) -> dict[str, str]:
-    """Trigger an immediate sanctions list refresh (runs in background)."""
+@router.post("/refresh", status_code=status.HTTP_200_OK)
+async def trigger_refresh() -> dict[str, Any]:
+    """Run an immediate sanctions list refresh — synchronous, returns when done.
 
-    async def _do_refresh() -> None:
-        try:  # noqa: SIM105
-            await refresh_ofac(db)
-        except Exception:  # noqa: BLE001, S110
-            pass  # errors logged inside service
-        try:  # noqa: SIM105
-            await refresh_fatf(db)
-        except Exception:  # noqa: BLE001, S110
-            pass
-        try:  # noqa: SIM105
-            await refresh_additional_lists(db)
-        except Exception:  # noqa: BLE001, S110
-            pass  # errors logged inside service
-        await db.commit()
-
-    background_tasks.add_task(_do_refresh)
-    return {"status": "refresh_queued"}
+    Long-running by design (~5–10 minutes on a successful OpenSanctions
+    ingest). Earlier this endpoint dispatched via FastAPI BackgroundTasks
+    and returned 202; on Cloud Run the background task is silently killed
+    once the HTTP response is sent, leaving the user unable to tell whether
+    the refresh actually ran. Each upstream source uses its own DB session
+    inside ``refresh_sanctions_lists`` so a per-source failure can't poison
+    the rest.
+    """
+    log.info("sanctions.manual_refresh_started")
+    try:
+        result = await refresh_sanctions_lists({})
+        log.info("sanctions.manual_refresh_completed", result=result)
+        return {"status": "completed", "result": result}
+    except Exception as exc:  # noqa: BLE001
+        log.error("sanctions.manual_refresh_failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Refresh failed: {exc}",
+        ) from exc
 
 
 @router.post("/screen/{contact_id}", response_model=ContactScreeningResultResponse)

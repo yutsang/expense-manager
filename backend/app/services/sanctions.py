@@ -943,6 +943,7 @@ async def refresh_opensanctions_default(
     *,
     client_factory: Callable[[], httpx.AsyncClient] | None = None,
     batch_size: int = 2_500,
+    max_attempts: int = 4,
 ) -> tuple[SanctionsListSnapshot, bool]:
     """Stream-parse the OpenSanctions ``sanctions`` feed and bulk-insert
     entries into a staging snapshot in batches of ``batch_size``. After the
@@ -950,19 +951,55 @@ async def refresh_opensanctions_default(
     snapshot: if unchanged, delete the staging snapshot (and cascade its
     entries); otherwise activate it and deactivate the previous one.
 
-    Single-coroutine streaming. An earlier producer/consumer design with
-    ``asyncio.gather`` interacted badly with asyncpg's per-connection
-    transaction state on Cloud Run (2026-04-26: ``cannot use
-    Connection.transaction() in a manually started transaction``) — once
-    the parallel tasks are sharing the same SQLAlchemy session/connection,
-    cancellation propagation from one to the other can leave the asyncpg
-    connection mid-transaction, poisoning the next operation. The
-    ``sanctions`` dataset (~280k entries) is small enough that the simple
-    sequential loop fits comfortably inside OpenSanctions' ~27-min connection
-    wall.
+    Wraps the streaming attempt in a retry loop because the upstream feed
+    over a Singapore↔CDN long-haul link drops the chunked transfer
+    intermittently — observed every single day from 2026-04-27 through
+    2026-05-03, peer closing at ~10–12% of the 337 MB body. Each retry
+    rolls back the partial staging snapshot and starts fresh, with
+    exponential backoff between attempts (5s, 15s, 45s).
 
     Memory: ``batch_size`` dicts at peak ≈ 2 MB. Well under the container limit.
     """
+    import asyncio as _asyncio
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await _refresh_opensanctions_default_once(
+                db, client_factory=client_factory, batch_size=batch_size
+            )
+        except Exception as exc:  # noqa: BLE001 — broad on purpose, all retried
+            last_exc = exc
+            log.warning(
+                "sanctions.opensanctions_default_attempt_failed",
+                attempt=attempt,
+                max_attempts=max_attempts,
+                error=str(exc),
+            )
+            # Roll back the session so the next attempt starts clean —
+            # otherwise the staging row from the failed attempt + asyncpg's
+            # mid-transaction state will poison the next try. The rollback
+            # itself can fail if the connection is already gone; ignore.
+            try:
+                await db.rollback()
+            except Exception as rb_exc:  # noqa: BLE001
+                log.warning("sanctions.rollback_failed", error=str(rb_exc))
+            if attempt >= max_attempts:
+                raise
+            # Exponential backoff: 5s → 15s → 45s
+            await _asyncio.sleep(5 * (3 ** (attempt - 1)))
+    # Unreachable — the raise inside the loop covers exhaustion.
+    raise last_exc if last_exc else RuntimeError("refresh_opensanctions_default exhausted retries")
+
+
+async def _refresh_opensanctions_default_once(
+    db: AsyncSession,
+    *,
+    client_factory: Callable[[], httpx.AsyncClient] | None = None,
+    batch_size: int = 2_500,
+) -> tuple[SanctionsListSnapshot, bool]:
+    """Single attempt at the streaming refresh — wrapped by
+    ``refresh_opensanctions_default`` for retry."""
     stream = _StreamedOpenSanctionsFetch(client_factory=client_factory)
 
     staging = SanctionsListSnapshot(

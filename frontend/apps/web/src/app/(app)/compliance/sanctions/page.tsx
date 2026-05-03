@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ChevronRight,
+  Info,
   RefreshCw,
   Search,
   ShieldAlert,
@@ -137,17 +139,43 @@ export default function SanctionsListsPage() {
     </button>
   );
 
+  // Stalest active source. The OpenSanctions feed is the canonical view,
+  // but pick the oldest just in case so a lagging source is also flagged.
+  const activeSnapshots = snapshots.filter((s) => s.is_active);
+  const oldestActiveAgeH = activeSnapshots.length > 0
+    ? Math.max(
+        ...activeSnapshots.map(
+          (s) => (Date.now() - new Date(s.fetched_at).getTime()) / 3_600_000
+        )
+      )
+    : 0;
+  const stale = oldestActiveAgeH > 36;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Sanctions Lists"
         subtitle={
           totalEntries > 0
-            ? `${totalEntries.toLocaleString()} entries across ${snapshots.filter((s) => s.is_active).length} active lists${lastFetchedIso ? ` · last refreshed ${relativeTime(lastFetchedIso)}` : ""}`
+            ? `${totalEntries.toLocaleString()} entries across ${activeSnapshots.length} active lists${lastFetchedIso ? ` · last refreshed ${relativeTime(lastFetchedIso)}` : ""}`
             : "OFAC, UN, UK OFSI, EU, FATF and OpenSanctions reference data used for contact screening"
         }
         actions={actions}
       />
+
+      {stale && (
+        <div className="rounded-xl border border-yellow-300 bg-yellow-50 p-3 flex items-start gap-2 text-sm text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-300">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Lists are stale</p>
+            <p className="text-xs mt-0.5">
+              The most recent successful refresh was{" "}
+              {Math.round(oldestActiveAgeH)} hours ago. Daily auto-refresh runs
+              at 03:00 UTC; click <strong>Refresh Lists</strong> to retry now.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Quick search → /browse */}
       <form onSubmit={handleQuickSearch} className="flex gap-2">
@@ -195,6 +223,44 @@ export default function SanctionsListsPage() {
           </div>
         </div>
       )}
+
+      <details className="rounded-xl border bg-card group">
+        <summary className="cursor-pointer list-none p-4 flex items-center gap-2 text-sm font-medium select-none">
+          <Info className="h-4 w-4 text-muted-foreground" />
+          About these lists
+          <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto group-open:rotate-90 transition-transform" />
+        </summary>
+        <div className="px-4 pb-4 text-sm text-muted-foreground space-y-3 leading-relaxed">
+          <p>
+            Sanctions screening uses{" "}
+            <a
+              href="https://www.opensanctions.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              OpenSanctions
+            </a>{" "}
+            — a free, open-data project (CC-BY-4.0) that aggregates ~250
+            upstream sanctions, watchlist and trade-restriction lists into a
+            single canonical entity-per-person/org with cross-references.
+            Each entry's <strong>Sanctioned by</strong> chips show which
+            upstream authorities have it.
+          </p>
+          <p>
+            We pull the focused <code className="rounded bg-muted px-1 py-0.5 text-xs">sanctions</code> dataset
+            (~280k sanctioned entities — OFAC SDN, UN, EU FSF, UK OFSI,
+            AU DFAT, SG MAS, JP METI, CH SECO, US BIS Entity, Interpol Red
+            Notices, World Bank Debarred, and more). PEPs and adverse-media
+            entries are intentionally excluded.
+          </p>
+          <p>
+            Data is refreshed automatically at 03:00 UTC daily via Cloud
+            Scheduler. The freshness banner above turns yellow if the most
+            recent successful refresh is older than 36 hours.
+          </p>
+        </div>
+      </details>
 
       {snapshots.length === 0 && (
         <div className="rounded-xl border border-dashed p-8 text-center">
