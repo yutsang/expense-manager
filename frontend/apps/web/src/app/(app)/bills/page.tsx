@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { showToast } from "@/lib/toast";
 import { useEffect, useState } from "react";
 import { type Account, type Bill, type Contact, accountsApi, billsApi, contactsApi } from "@/lib/api";
@@ -265,7 +266,14 @@ export default function BillsPage() {
                         className="h-4 w-4 rounded border-gray-300"
                       />
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs font-medium">{bill.number}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-medium">
+                      <Link
+                        href={`/bills/${bill.id}`}
+                        className="text-foreground hover:underline"
+                      >
+                        {bill.number}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">{contactName(bill.contact_id)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{bill.supplier_reference ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{bill.issue_date}</td>
